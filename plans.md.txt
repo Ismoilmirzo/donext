@@ -1,0 +1,1400 @@
+# DONEXT MVP — Full Build Prompt
+
+You are building a web application called **DoNext** — an AI-powered life planner that solves decision paralysis. The core problem: people feel stuck not because they're lazy, but because they have too many things they could do and can't decide what to do right now. DoNext takes their vague weekly goals, combines them with their real-life schedule, and uses AI to generate a concrete daily task plan. During the day, the app shows only ONE task at a time — eliminating the decision-making burden entirely.
+
+---
+
+## TECH STACK
+
+- **Frontend:** React 18 + Vite
+- **Styling:** Tailwind CSS (dark mode only for MVP)
+- **Charts:** Recharts (for weekly score visualization)
+- **Backend & Database:** Supabase (PostgreSQL + Auth + Row Level Security)
+- **Auth:** Supabase Auth (email/password + Google OAuth)
+- **AI:** Anthropic Claude API (called from a Supabase Edge Function to keep the API key server-side)
+- **Hosting:** Vercel (frontend), Supabase (backend)
+- **Routing:** React Router v6
+- **State Management:** React Context + hooks (no Redux)
+- **Date handling:** date-fns library
+
+---
+
+## DATABASE SCHEMA (Supabase PostgreSQL)
+
+Run this SQL in the Supabase SQL editor to set up the entire database:
+
+```sql
+-- ============================================
+-- 1. PROFILES
+-- ============================================
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  display_name TEXT,
+  timezone TEXT DEFAULT 'Asia/Tashkent',
+  onboarding_step INT DEFAULT 0,
+  -- 0 = not started, 1 = schedule done, 2 = pillars done, 3 = goals done, 4 = complete
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users own profile" ON profiles FOR ALL USING (auth.uid() = id);
+
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO profiles (id, display_name)
+  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', 'User'));
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- ============================================
+-- 2. SLEEP SCHEDULE
+-- ============================================
+CREATE TABLE sleep_schedule (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  sleep_time TIME DEFAULT '23:00',
+  wake_time TIME DEFAULT '07:00',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE sleep_schedule ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users own sleep" ON sleep_schedule FOR ALL USING (auth.uid() = user_id);
+
+-- ============================================
+-- 3. FIXED BLOCKS
+-- ============================================
+CREATE TABLE fixed_blocks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  day_of_week INT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
+  -- 1=Monday, 7=Sunday (ISO)
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  color TEXT DEFAULT '#475569',
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_fixed_blocks_user ON fixed_blocks(user_id);
+ALTER TABLE fixed_blocks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users own blocks" ON fixed_blocks FOR ALL USING (auth.uid() = user_id);
+
+-- ============================================
+-- 4. PILLARS
+-- ============================================
+CREATE TABLE pillars (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  icon TEXT DEFAULT '📌',
+  color TEXT DEFAULT '#6366F1',
+  sort_order INT DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_pillars_user ON pillars(user_id);
+ALTER TABLE pillars ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users own pillars" ON pillars FOR ALL USING (auth.uid() = user_id);
+
+-- Seed default pillars when profile is created
+CREATE OR REPLACE FUNCTION seed_default_pillars()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO pillars (user_id, name, icon, color, sort_order) VALUES
+    (NEW.id, 'Mind',      '🧠', '#6366F1', 1),
+    (NEW.id, 'Career',    '💼', '#F59E0B', 2),
+    (NEW.id, 'Execution', '⚡', '#10B981', 3),
+    (NEW.id, 'Body',      '💪', '#EF4444', 4),
+    (NEW.id, 'Heart',     '❤️', '#EC4899', 5);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_profile_created
+  AFTER INSERT ON profiles
+  FOR EACH ROW EXECUTE FUNCTION seed_default_pillars();
+
+-- Also seed default sleep schedule
+CREATE OR REPLACE FUNCTION seed_default_sleep()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO sleep_schedule (user_id) VALUES (NEW.id);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_profile_created_sleep
+  AFTER INSERT ON profiles
+  FOR EACH ROW EXECUTE FUNCTION seed_default_sleep();
+
+-- ============================================
+-- 5. WEEKLY GOALS
+-- ============================================
+CREATE TABLE weekly_goals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  pillar_id UUID REFERENCES pillars(id) ON DELETE CASCADE NOT NULL,
+  week_start DATE NOT NULL,
+  goal_text TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, pillar_id, week_start)
+);
+
+CREATE INDEX idx_goals_user_week ON weekly_goals(user_id, week_start);
+ALTER TABLE weekly_goals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users own goals" ON weekly_goals FOR ALL USING (auth.uid() = user_id);
+
+-- ============================================
+-- 6. TASKS
+-- ============================================
+CREATE TABLE tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  pillar_id UUID REFERENCES pillars(id) ON DELETE CASCADE NOT NULL,
+  week_start DATE NOT NULL,
+  day DATE NOT NULL,
+  scheduled_time TIME,
+  title TEXT NOT NULL,
+  completion_criteria TEXT,
+  duration_minutes INT NOT NULL DEFAULT 30,
+  sort_order INT DEFAULT 0,
+  energy_level TEXT DEFAULT 'medium' CHECK (energy_level IN ('high', 'medium', 'low')),
+  source TEXT DEFAULT 'ai_generated' CHECK (source IN ('ai_generated', 'user_created', 'user_edited')),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'skipped_mood', 'skipped_emergency', 'partial')),
+  actual_minutes INT,
+  skip_reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_tasks_user_week ON tasks(user_id, week_start);
+CREATE INDEX idx_tasks_user_day ON tasks(user_id, day);
+CREATE INDEX idx_tasks_pillar ON tasks(pillar_id);
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users own tasks" ON tasks FOR ALL USING (auth.uid() = user_id);
+
+-- ============================================
+-- 7. DAILY REFLECTIONS
+-- ============================================
+CREATE TABLE daily_reflections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  date DATE NOT NULL,
+  mood INT CHECK (mood BETWEEN 1 AND 5),
+  note TEXT,
+  tasks_completed INT DEFAULT 0,
+  tasks_total INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, date)
+);
+
+CREATE INDEX idx_reflections_user ON daily_reflections(user_id, date);
+ALTER TABLE daily_reflections ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users own reflections" ON daily_reflections FOR ALL USING (auth.uid() = user_id);
+
+-- ============================================
+-- 8. WEEKLY SUMMARIES
+-- ============================================
+CREATE TABLE weekly_summaries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  week_start DATE NOT NULL,
+  pillar_scores JSONB DEFAULT '{}',
+  total_score FLOAT DEFAULT 0,
+  total_tasks INT DEFAULT 0,
+  completed_tasks INT DEFAULT 0,
+  streak_days INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, week_start)
+);
+
+CREATE INDEX idx_summaries_user ON weekly_summaries(user_id);
+ALTER TABLE weekly_summaries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users own summaries" ON weekly_summaries FOR ALL USING (auth.uid() = user_id);
+```
+
+---
+
+## SUPABASE EDGE FUNCTION — AI Task Generation
+
+Create a Supabase Edge Function at `supabase/functions/generate-tasks/index.ts`. This keeps the Anthropic API key server-side and secure.
+
+The function receives the user's fixed schedule, sleep times, available hours, weekly goals per pillar, and pillar info. It calls Claude to decompose goals into scheduled tasks.
+
+```typescript
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+
+const SYSTEM_PROMPT = `You are DoNext's AI task planning engine. Your job is to take a user's weekly goals across 5 life pillars and generate a concrete, day-by-day schedule of tasks that fits within their available free time.
+
+You will receive:
+- The user's fixed commitments (work, school, commute, etc.) per day
+- Their sleep schedule
+- Their available free hours per day (already calculated — trust these numbers)
+- Their weekly goals for each pillar (in natural language)
+- The pillar names, icons, and IDs
+
+YOUR RULES:
+1. Only schedule tasks within the available hours for each day. NEVER exceed available time.
+2. Schedule only 80% of available time — leave 20% as buffer for overflow and rest.
+3. Every task MUST have: a clear title (action-oriented verb + specific outcome), a duration (only 15, 30, 45, 60, or 90 minutes), and a completion_criteria field (one sentence: "Done when...").
+4. Place cognitively demanding tasks (studying, creative work, deep focus) earlier in the day when possible. Place physical tasks (gym, walks) in late afternoon/evening. Place social tasks (calls, hangouts) in evenings or weekends.
+5. Vary tasks across days. Do NOT repeat the same task every day. Break goals into different sub-tasks for different days.
+6. Respect dependencies: foundational tasks before advanced ones (e.g., "research" before "write", "design" before "build").
+7. Distribute tasks across pillars so no single pillar dominates any given day. Aim for 2-3 different pillars touched per day.
+8. If a goal is too ambitious for the available time, still create tasks but note in a "warnings" field that the goal may not be fully achievable.
+9. Include at least one short (15-30 min) easy task at the start of each day's scheduled tasks. This builds momentum.
+10. For each task, assign an energy_level: "high" for creative/deep work, "medium" for moderate focus, "low" for routine/easy tasks.
+11. Set sort_order as integers starting from 1 for each day, indicating the recommended execution order.
+12. Set scheduled_time as the suggested start time in HH:MM format (24-hour).
+
+RESPOND WITH ONLY valid JSON in this exact format, nothing else:
+{
+  "tasks": [
+    {
+      "pillar_id": "<uuid of the pillar>",
+      "day": "YYYY-MM-DD",
+      "scheduled_time": "HH:MM",
+      "title": "Action-oriented task title",
+      "completion_criteria": "Done when...",
+      "duration_minutes": 30,
+      "energy_level": "high",
+      "sort_order": 1
+    }
+  ],
+  "warnings": ["Optional array of warnings if goals seem too ambitious"],
+  "summary": "A brief 2-3 sentence summary of the week plan for the user"
+}`;
+
+serve(async (req) => {
+  // Handle CORS
+  if (req.method === "OPTIONS") {
+    return new Response("ok", {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
+  }
+
+  try {
+    const {
+      fixed_blocks,    // array of { title, day_of_week, start_time, end_time }
+      sleep_schedule,  // { sleep_time, wake_time }
+      available_hours, // { monday: 5.0, tuesday: 3.0, ... }
+      weekly_goals,    // array of { pillar_id, pillar_name, pillar_icon, goal_text }
+      week_start,      // "YYYY-MM-DD" (Monday)
+      week_dates,      // { monday: "2026-03-09", tuesday: "2026-03-10", ... }
+    } = await req.json();
+
+    const userMessage = `
+Here is the user's information for the week starting ${week_start}:
+
+FIXED SCHEDULE (non-negotiable commitments):
+${JSON.stringify(fixed_blocks, null, 2)}
+
+SLEEP SCHEDULE:
+- Sleep at: ${sleep_schedule.sleep_time}
+- Wake at: ${sleep_schedule.wake_time}
+
+AVAILABLE FREE HOURS PER DAY (already accounts for fixed blocks, sleep, meals):
+${Object.entries(available_hours).map(([day, hrs]) => `  ${day}: ${hrs} hours`).join("\n")}
+
+WEEK DATES:
+${Object.entries(week_dates).map(([day, date]) => `  ${day}: ${date}`).join("\n")}
+
+WEEKLY GOALS BY PILLAR:
+${weekly_goals.map((g: any) => `  ${g.pillar_icon} ${g.pillar_name} (pillar_id: ${g.pillar_id}): "${g.goal_text}"`).join("\n")}
+
+Generate a complete weekly task schedule. Remember to use the exact pillar_id values provided and the exact date strings from WEEK DATES.`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY!,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userMessage }],
+      }),
+    });
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || "";
+
+    // Parse the JSON from Claude's response
+    // Strip markdown code fences if present
+    const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const result = JSON.parse(cleaned);
+
+    return new Response(JSON.stringify(result), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+});
+```
+
+Set the `ANTHROPIC_API_KEY` as a Supabase secret:
+```bash
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+```
+
+---
+
+## FILE STRUCTURE
+
+```
+donext/
+├── public/
+│   ├── manifest.json
+│   └── favicon.svg
+├── src/
+│   ├── main.jsx
+│   ├── App.jsx
+│   │
+│   ├── lib/
+│   │   ├── supabase.js            # Supabase client initialization
+│   │   ├── dates.js               # Week calculation helpers
+│   │   └── scoring.js             # Score calculation logic
+│   │
+│   ├── contexts/
+│   │   └── AuthContext.jsx         # Auth state provider
+│   │
+│   ├── hooks/
+│   │   ├── useProfile.js
+│   │   ├── useSleepSchedule.js
+│   │   ├── useFixedBlocks.js
+│   │   ├── usePillars.js
+│   │   ├── useWeeklyGoals.js
+│   │   ├── useTasks.js
+│   │   ├── useDailyReflection.js
+│   │   └── useWeeklySummary.js
+│   │
+│   ├── pages/
+│   │   ├── LandingPage.jsx
+│   │   ├── AuthPage.jsx
+│   │   ├── OnboardingPage.jsx
+│   │   ├── DashboardPage.jsx       # "Next Task" focus view
+│   │   ├── WeekPlanPage.jsx        # Weekly planning + review calendar
+│   │   ├── ProgressPage.jsx        # Scores and basic chart
+│   │   └── SettingsPage.jsx
+│   │
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── AppShell.jsx        # Main layout with nav
+│   │   │   ├── BottomNav.jsx       # Mobile bottom tabs
+│   │   │   └── ProtectedRoute.jsx  # Redirect if not authed
+│   │   │
+│   │   ├── onboarding/
+│   │   │   ├── ScheduleStep.jsx    # Fixed blocks + sleep input
+│   │   │   ├── PillarsStep.jsx     # Show/customize pillars
+│   │   │   ├── GoalsStep.jsx       # Weekly goals text input
+│   │   │   └── GeneratingStep.jsx  # Loading screen while AI works
+│   │   │
+│   │   ├── schedule/
+│   │   │   ├── WeekCalendar.jsx    # Visual week grid with tasks
+│   │   │   ├── TimeBlockInput.jsx  # Drag/click to create fixed blocks
+│   │   │   ├── TaskCard.jsx        # Task in calendar view (editable)
+│   │   │   └── AvailableHours.jsx  # Shows calculated free time per day
+│   │   │
+│   │   ├── focus/
+│   │   │   ├── NextTaskCard.jsx    # The ONE task full-screen card
+│   │   │   ├── TaskTimer.jsx       # Progress timer (not stressful)
+│   │   │   ├── SkipModal.jsx       # "Why are you skipping?" options
+│   │   │   ├── CompletionCelebration.jsx  # Micro-animation on done
+│   │   │   ├── DayProgress.jsx     # "4/7 done" progress bar
+│   │   │   └── EmptyState.jsx      # "All done!" or "No tasks today"
+│   │   │
+│   │   ├── reflection/
+│   │   │   ├── DailyReflection.jsx # End-of-day mood + note
+│   │   │   └── MoodSelector.jsx    # 5 emoji buttons
+│   │   │
+│   │   ├── progress/
+│   │   │   ├── WeekScoreCard.jsx   # Big score number with delta
+│   │   │   ├── PillarBreakdown.jsx # Score per pillar
+│   │   │   └── WeeklyChart.jsx     # Recharts line chart
+│   │   │
+│   │   └── ui/
+│   │       ├── Button.jsx
+│   │       ├── Input.jsx
+│   │       ├── TextArea.jsx
+│   │       ├── Card.jsx
+│   │       ├── Modal.jsx
+│   │       ├── LoadingSpinner.jsx
+│   │       └── PillarBadge.jsx     # Icon + colored badge
+│   │
+│   └── styles/
+│       └── globals.css
+│
+├── index.html
+├── package.json
+├── vite.config.js
+├── tailwind.config.js
+├── postcss.config.js
+└── .env.local                      # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+```
+
+---
+
+## DESIGN SYSTEM
+
+### Colors (Dark Mode Only for MVP)
+
+```
+--bg-primary:      #0F172A  (slate-900, main background)
+--bg-surface:      #1E293B  (slate-800, cards/panels)
+--bg-surface-hover:#334155  (slate-700, hover states)
+--border:          #475569  (slate-600)
+--text-primary:    #F8FAFC  (slate-50)
+--text-secondary:  #94A3B8  (slate-400)
+--text-muted:      #64748B  (slate-500)
+--accent:          #10B981  (emerald-500, primary actions)
+--accent-hover:    #059669  (emerald-600)
+--danger:          #EF4444  (red-500)
+--warning:         #F59E0B  (amber-500)
+
+Pillar colors:
+  Mind:      #6366F1 (indigo-500)
+  Career:    #F59E0B (amber-500)
+  Execution: #10B981 (emerald-500)
+  Body:      #EF4444 (red-500)
+  Heart:     #EC4899 (pink-500)
+```
+
+### Typography
+- Font: `Inter` from Google Fonts
+- Score numbers: `font-mono` for tabular alignment
+- Task titles: `text-lg font-semibold`
+- Body: `text-sm` or `text-base`
+
+### Component Patterns
+- Cards: `rounded-xl bg-slate-800 border border-slate-700 p-4 sm:p-6`
+- Primary buttons: `bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-lg px-6 py-3 transition-colors`
+- Secondary buttons: `bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg px-4 py-2`
+- Inputs: `bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-50 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent`
+- Page padding: `px-4 sm:px-6 py-6`
+- Max content width: `max-w-2xl mx-auto` for single column, `max-w-6xl mx-auto` for calendar
+
+### Mobile-First
+- Design for 375px width first
+- Bottom navigation on mobile (4 tabs: Today, Plan, Progress, Settings)
+- Single-column layout by default
+- Calendar view scrolls horizontally on mobile
+
+---
+
+## SCREEN-BY-SCREEN SPECIFICATIONS
+
+### PAGE 1: Landing Page (`/`)
+
+**Who sees it:** Unauthenticated users only. If logged in, redirect to `/dashboard`.
+
+**Layout:**
+- Full-screen hero section with gradient background (slate-900 to indigo-950)
+- Center-aligned content
+
+**Content:**
+```
+[Logo: "DoNext" in bold + small rocket or arrow icon]
+
+Headline: "Stop deciding. Start doing."
+
+Subheadline: "DoNext uses AI to plan your entire week around your real 
+schedule. Just open the app and do what it says. One task at a time."
+
+[CTA Button: "Get Started Free →"]
+[Secondary: "Already have an account? Log in"]
+
+--- scroll ---
+
+3-Step Visual:
+1. "Tell us your goals" — Icon: chat bubble — "Type what you want to achieve 
+   this week in plain English."
+2. "AI plans your week" — Icon: calendar with sparkle — "We break your goals 
+   into specific tasks, scheduled around your real life."
+3. "Just follow along" — Icon: single checkmark — "Open the app. See one task. 
+   Do it. Repeat. Never feel stuck."
+
+--- scroll ---
+
+Footer: "Built for people who feel stuck." + link to signup
+```
+
+**No images needed. Clean typography-driven design.**
+
+---
+
+### PAGE 2: Auth Page (`/auth`)
+
+**Layout:** Centered card on dark background.
+
+**Features:**
+- Tab toggle: "Sign Up" | "Log In"
+- Sign Up form: display name, email, password, confirm password
+- Log In form: email, password
+- Google OAuth button: "Continue with Google" (below the form, separated by an "or" divider)
+- "Forgot password?" link on login tab → triggers Supabase password reset email
+
+**Post-auth redirect logic:**
+```
+if (profile.onboarding_step < 4) → redirect to /onboarding
+else → redirect to /dashboard
+```
+
+---
+
+### PAGE 3: Onboarding (`/onboarding`)
+
+**Layout:** Full-screen stepper. Shows progress indicator at top: `Step 1 of 4`.
+
+**Step 1: "Your Schedule" (onboarding_step = 0 → 1)**
+
+```
+Title: "First, let's map out your week"
+Subtitle: "What are the things you HAVE to do every week? 
+          We'll plan around these."
+
+[Sleep Schedule]
+  "I sleep from [10:30 PM ▾] to [6:30 AM ▾]"
+  (Two time pickers side by side. Default: 23:00 - 07:00)
+
+[Fixed Blocks - List]
+  Each block = a row with:
+  - Title input (text, e.g., "University")
+  - Day selector (checkboxes for Mon-Sun, multiple days allowed)
+  - Start time picker
+  - End time picker
+  - Delete button (X)
+
+  [+ Add block] button to add more rows
+
+  Pre-populated example (greyed, tap to add):
+  "Work: Mon-Fri, 9:00-17:00"
+  "School: Mon/Wed, 10:00-13:00"
+
+[Available Time Summary - Live calculated]
+  Shows a row of 7 day cards:
+  ┌─────┐ ┌─────┐ ┌─────┐ ...
+  │ Mon │ │ Tue │ │ Wed │
+  │5.0hr│ │3.0hr│ │5.5hr│
+  └─────┘ └─────┘ └─────┘
+
+  "You have 40.5 free hours this week"
+
+[Next →]
+```
+
+**Available hours calculation logic:**
+```javascript
+function calculateAvailableHours(dayOfWeek, fixedBlocks, sleepSchedule) {
+  const TOTAL_DAY_MINUTES = 24 * 60;
+  
+  // Calculate sleep minutes
+  let sleepMinutes;
+  const sleepTime = parseTime(sleepSchedule.sleep_time); // minutes from midnight
+  const wakeTime = parseTime(sleepSchedule.wake_time);
+  if (sleepTime > wakeTime) {
+    // Crosses midnight (e.g., 23:00 - 07:00)
+    sleepMinutes = (TOTAL_DAY_MINUTES - sleepTime) + wakeTime;
+  } else {
+    sleepMinutes = wakeTime - sleepTime;
+  }
+  
+  // Get fixed blocks for this day
+  const dayBlocks = fixedBlocks.filter(b => b.day_of_week === dayOfWeek && b.is_active);
+  const fixedMinutes = dayBlocks.reduce((sum, block) => {
+    return sum + (parseTime(block.end_time) - parseTime(block.start_time));
+  }, 0);
+  
+  // Meals + self-care: estimate 90 min/day (breakfast 20, lunch 30, dinner 30, misc 10)
+  const mealMinutes = 90;
+  
+  const availableMinutes = TOTAL_DAY_MINUTES - sleepMinutes - fixedMinutes - mealMinutes;
+  return Math.max(0, availableMinutes / 60); // convert to hours, floor at 0
+}
+```
+
+When user taps "Next":
+- Save sleep_schedule to DB (upsert)
+- Save all fixed_blocks to DB (delete existing + insert new)
+- Update profile.onboarding_step = 1
+
+---
+
+**Step 2: "Your Pillars" (onboarding_step = 1 → 2)**
+
+```
+Title: "Five areas of your life"
+Subtitle: "DoNext balances your growth across these pillars. 
+          You can rename them if you want."
+
+[5 Pillar Cards, stacked vertically]
+Each card:
+  ┌──────────────────────────────────┐
+  │ 🧠  [Mind_____________]          │
+  │ Learning, skills, problem-solving│
+  └──────────────────────────────────┘
+
+  The name is an editable text field (pre-filled with default).
+  Description is static helper text.
+  Icon and color are fixed for MVP.
+
+[Next →]
+```
+
+When user taps "Next":
+- Update any renamed pillars in DB
+- Update profile.onboarding_step = 2
+
+---
+
+**Step 3: "This Week's Goals" (onboarding_step = 2 → 3)**
+
+```
+Title: "What do you want to achieve this week?"
+Subtitle: "Just type naturally. Be as vague or specific as you want — 
+          our AI will figure out the details."
+
+[5 Pillar Goal Inputs, stacked]
+Each:
+  ┌──────────────────────────────────────┐
+  │ 🧠 Mind                              │
+  │ ┌──────────────────────────────────┐ │
+  │ │ Study dynamic programming for    │ │
+  │ │ competitive programming          │ │
+  │ └──────────────────────────────────┘ │
+  │ Placeholder: "e.g., Learn the       │
+  │ basics of machine learning"          │
+  └──────────────────────────────────────┘
+
+All 5 must have at least some text to proceed (even "nothing this week" 
+is fine — AI will skip that pillar or suggest something small).
+
+[Generate My Week →]  (this button triggers the AI call)
+```
+
+When user taps "Generate My Week":
+- Save weekly_goals to DB (one per pillar)
+- Call the Supabase Edge Function `generate-tasks` with:
+  - fixed_blocks
+  - sleep_schedule
+  - available_hours (calculated client-side)
+  - weekly_goals with pillar info
+  - week_start (Monday of current week)
+  - week_dates (Monday through Sunday dates)
+- Show a loading screen (Step 3.5: "Generating" step)
+
+---
+
+**Step 3.5: "Generating..." (loading state)**
+
+```
+[Centered on screen]
+
+⚡ (animated pulse)
+
+"Planning your week..."
+
+"Breaking down goals into tasks"
+"Fitting tasks around your schedule"
+"Optimizing for energy and balance"
+
+(These 3 lines appear one by one with a staggered animation, 
+simulating work being done. Each gets a ✓ after 1-2 seconds.)
+```
+
+When AI response arrives:
+- Insert all generated tasks into the `tasks` table
+- Update profile.onboarding_step = 3
+- Navigate to Step 4
+
+---
+
+**Step 4: "Review Your Week" (onboarding_step = 3 → 4)**
+
+```
+Title: "Here's your week"
+Subtitle: "AI planned [X] tasks across [Y] days. 
+          Review and edit anything you want."
+
+[Week Calendar View - 7 columns]
+Shows Monday through Sunday.
+Each column shows that day's tasks as colored cards stacked vertically.
+Fixed blocks shown as grey cards.
+Tasks shown as colored cards (pillar color) with:
+  - Time: "2:00 PM"
+  - Title: "Study DP fundamentals"
+  - Duration: "45 min"
+  - Pillar badge: 🧠
+
+If AI returned warnings, show them as a yellow banner:
+"⚠️ Your Career goals are ambitious — some tasks may need to 
+carry over to next week."
+
+[Edit capabilities:]
+- Tap any task card → opens edit modal (change title, time, duration, delete)
+- Tasks can be deleted with a trash icon
+- [+ Add task] button at the bottom of each day column to manually add
+
+[Looks Good! Let's Go →]
+```
+
+When user taps "Looks Good":
+- Update profile.onboarding_step = 4
+- Redirect to `/dashboard`
+
+---
+
+### PAGE 4: Dashboard / Today View (`/dashboard`)
+
+**This is the main daily screen. It has 3 possible states:**
+
+**State A: "Next Task" (default — there's an upcoming or current task)**
+
+```
+┌──────────────────────────────────┐
+│                                  │
+│  [Day] · [Time]                  │  ← "Tuesday · 2:15 PM"
+│  [text-slate-400]                │
+│                                  │
+│  [Pillar Badge]                  │  ← 🧠 Mind (indigo chip)
+│                                  │
+│  [Task Title]                    │  ← "Study DP: memoization 
+│  [text-2xl font-bold]            │     vs tabulation"
+│                                  │
+│  [Completion Criteria]           │  ← "Done when: chapter read  
+│  [text-slate-400 text-sm]        │     + 1 example solved"
+│                                  │
+│  [Duration Badge]                │  ← ⏱ 45 min
+│                                  │
+│                                  │
+│  ┌────────────┐ ┌────────────┐  │
+│  │  Start ▶   │ │  Skip →    │  │
+│  │ (emerald)  │ │ (slate-700)│  │
+│  └────────────┘ └────────────┘  │
+│                                  │
+│  Next: "Solve 2 easy DP..."     │  ← text-slate-500
+│                                  │
+│  ████████░░░░░░  4/7 today      │  ← progress bar
+│                                  │
+└──────────────────────────────────┘
+```
+
+**When "Start" is tapped:**
+- Update task status to `in_progress` in DB
+- Show TaskTimer component:
+  - A thin progress bar at top of screen that slowly fills over the duration
+  - Time elapsed / total shown: "12:30 / 45:00"
+  - Task title still visible
+  - Two buttons: [✓ Done] and [Pause ⏸]
+  - When timer completes, a gentle pulse animation and "Time's up! Did you finish?"
+  - [✓ Completed] or [Needs more time → +15 min]
+
+**When "Done" / "Completed" is tapped:**
+- Update task status to `completed` in DB
+- Set `actual_minutes` to time elapsed (or duration if not using timer)
+- Show CompletionCelebration: brief checkmark animation (scale up + fade), ~0.5 second
+- After animation, slide in the next task card (or show State B if all done)
+
+**When "Skip" is tapped:**
+- Show SkipModal:
+  ```
+  "No worries. Why are you skipping?"
+  
+  [😔 Not in the mood]     → status = 'skipped_mood'
+  [📌 Something came up]   → status = 'skipped_emergency'
+  [😰 Task feels too big]  → (future: AI splits task. For MVP, just skip)
+  [✅ Already did this]     → status = 'completed'
+  ```
+- Save the skip reason
+- Show next task
+
+**State B: "All Done" (all tasks for today are completed or skipped)**
+
+```
+┌──────────────────────────────────┐
+│                                  │
+│           ✓                      │
+│                                  │
+│  "You're done for today!"        │
+│                                  │
+│  Completed: 5/7 tasks            │
+│  Skipped: 2                      │
+│                                  │
+│  [How was your day? →]           │  ← opens DailyReflection
+│                                  │
+│  Tomorrow's first task:          │
+│  🧠 "Study knapsack problem"    │
+│  at 2:00 PM                      │
+│                                  │
+└──────────────────────────────────┘
+```
+
+**State C: "No Tasks / Before First Task"**
+
+```
+If no tasks exist for today:
+  "Free day! No tasks scheduled."
+  "Your next task is tomorrow: [task title]"
+
+If before first task time:
+  "Good morning! Your first task is at [time]."
+  "[Task title] · [duration]"
+  "Enjoy your morning until then."
+```
+
+**Task selection logic (which task to show):**
+```javascript
+function getNextTask(todayTasks, currentTime) {
+  // 1. If a task is "in_progress", always show that one
+  const inProgress = todayTasks.find(t => t.status === 'in_progress');
+  if (inProgress) return inProgress;
+  
+  // 2. Otherwise, find the first "pending" task (by sort_order)
+  const pending = todayTasks
+    .filter(t => t.status === 'pending')
+    .sort((a, b) => a.sort_order - b.sort_order);
+  
+  if (pending.length > 0) return pending[0];
+  
+  // 3. If no pending tasks, all are done/skipped
+  return null;
+}
+```
+
+---
+
+### PAGE 5: Week Plan (`/plan`)
+
+**Two modes: "View Week" and "Plan New Week"**
+
+**View Mode (default when week has tasks):**
+- Shows 7-day grid (scrollable horizontally on mobile)
+- Each day column shows: day name, date, list of tasks as colored cards
+- Fixed blocks shown as grey semi-transparent cards
+- Each task card shows: time, pillar icon, title, duration, status indicator (✓ done, → skipped, ● pending)
+- Tapping a task opens an edit modal: change title, duration, time, or delete it
+- Bottom of each column: [+ Add task] button for manual additions
+- Top right: [🔄 Regenerate Week] button (calls AI again with same goals)
+
+**Plan New Week mode (when it's Sunday/Monday and no tasks exist for upcoming week):**
+- Shows the GoalsStep UI from onboarding
+- Pre-fills with last week's goals (user can edit)
+- Same flow: type goals → Generate → Review → Confirm
+
+**Manual task add modal:**
+```
+Title: [text input]
+Pillar: [dropdown of 5 pillars]
+Day: [already selected based on which column was tapped]
+Time: [time picker]
+Duration: [15 | 30 | 45 | 60 | 90] (segmented buttons)
+Completion criteria: [text input, optional]
+
+[Save Task]
+```
+
+---
+
+### PAGE 6: Progress (`/progress`)
+
+**Shows basic weekly performance metrics.**
+
+```
+[Week selector: ← "Mar 9 - 15, 2026" →]
+
+┌──────────────────────────────────┐
+│ Weekly Score                     │
+│                                  │
+│        7.2 / 10                  │  ← Big centered number
+│     (+0.9 from last week)        │  ← green delta
+│                                  │
+│  ████████████████░░░ 72%         │  ← completion rate bar
+│  26/36 tasks completed           │
+│                                  │
+└──────────────────────────────────┘
+
+┌──────────────────────────────────┐
+│ By Pillar                        │
+│                                  │
+│ 🧠 Mind        ████████░░  8.1  │
+│ 💼 Career      ██████░░░░  6.5  │
+│ ⚡ Execution   ███████░░░  7.0  │
+│ 💪 Body        ████████░░  8.5  │
+│ ❤️ Heart       █████░░░░░  5.9  │
+│                                  │
+└──────────────────────────────────┘
+
+┌──────────────────────────────────┐
+│ Weekly Trend                     │
+│                                  │
+│  [Recharts Line Chart]           │
+│  X-axis: last 8 weeks           │
+│  Y-axis: total score 0-10       │
+│  Line color: emerald-500        │
+│  Dots on each data point        │
+│                                  │
+└──────────────────────────────────┘
+```
+
+**Score calculation:**
+```javascript
+function calculateWeekScore(tasks) {
+  const scorableTasks = tasks.filter(t => 
+    t.status !== 'skipped_emergency' // don't penalize emergencies
+  );
+  
+  if (scorableTasks.length === 0) return 0;
+  
+  const completed = scorableTasks.filter(t => t.status === 'completed').length;
+  const partial = scorableTasks.filter(t => t.status === 'partial').length;
+  
+  const score = ((completed + partial * 0.5) / scorableTasks.length) * 10;
+  return Math.round(score * 10) / 10; // one decimal
+}
+
+function calculatePillarScore(tasks, pillarId) {
+  const pillarTasks = tasks.filter(t => t.pillar_id === pillarId);
+  return calculateWeekScore(pillarTasks);
+}
+```
+
+---
+
+### PAGE 7: Daily Reflection (modal, triggered from Dashboard)
+
+**Appears when user taps "How was your day?" or at end-of-day.**
+
+```
+┌──────────────────────────────────┐
+│                                  │
+│  [Day], [Date]                   │
+│                                  │
+│  Completed: 5/7 tasks  ✓✓✓✓✓✗✗  │
+│                                  │
+│  How do you feel about today?    │
+│                                  │
+│  😫   😐   🙂   😊   🔥          │
+│  (tap one to select — highlights │
+│   with a ring around it)         │
+│                                  │
+│  One thought (optional):         │
+│  ┌────────────────────────────┐  │
+│  │                            │  │
+│  └────────────────────────────┘  │
+│  placeholder: "What went well   │
+│  or what was hard today?"        │
+│                                  │
+│  [Save & Rest Well 🌙]          │
+│                                  │
+└──────────────────────────────────┘
+```
+
+Saves to `daily_reflections` table (upsert on user_id + date).
+
+---
+
+### PAGE 8: Settings (`/settings`)
+
+```
+Profile
+  Display name: [editable text]
+  Email: [shown, not editable]
+
+Schedule
+  Sleep: [time picker] to [time picker]
+  [Manage fixed blocks →] (opens the same UI from onboarding step 1)
+
+Pillars
+  [List of 5 pillars with name edit fields]
+
+Account
+  [Log out] button (red)
+  [Delete account] button (red, with confirmation modal)
+
+About
+  Version: MVP 1.0
+  [Send Feedback] → mailto link or Google Form
+```
+
+---
+
+## KEY HELPER FUNCTIONS
+
+### `lib/dates.js`
+
+```javascript
+import { startOfWeek, endOfWeek, addDays, format, isToday, 
+         isBefore, isAfter, parseISO } from 'date-fns';
+
+// Get Monday of current week (ISO standard)
+export function getWeekStart(date = new Date()) {
+  return startOfWeek(date, { weekStartsOn: 1 }); // 1 = Monday
+}
+
+// Get all 7 dates of a week as an object
+export function getWeekDates(weekStart) {
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const dates = {};
+  days.forEach((day, i) => {
+    dates[day] = format(addDays(weekStart, i), 'yyyy-MM-dd');
+  });
+  return dates;
+}
+
+// Get ISO day of week (1=Mon, 7=Sun)
+export function getISODayOfWeek(date) {
+  const d = new Date(date).getDay();
+  return d === 0 ? 7 : d;
+}
+
+// Format time for display: "14:00" → "2:00 PM"
+export function formatTime(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+```
+
+### `lib/supabase.js`
+
+```javascript
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+```
+
+### `contexts/AuthContext.jsx`
+
+```jsx
+import { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
+
+const AuthContext = createContext({});
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
+      else setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) await fetchProfile(session.user.id);
+        else { setProfile(null); setLoading(false); }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function fetchProfile(userId) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    setProfile(data);
+    setLoading(false);
+  }
+
+  async function updateProfile(updates) {
+    const { data } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', user.id)
+      .select()
+      .single();
+    setProfile(data);
+    return data;
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, profile, loading, updateProfile, fetchProfile }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);
+```
+
+---
+
+## AI TASK GENERATION — CLIENT-SIDE CALL
+
+```javascript
+// In the component that triggers AI generation (GoalsStep or WeekPlanPage):
+
+async function generateWeeklyTasks(weekStart) {
+  // 1. Fetch all needed data
+  const { data: fixedBlocks } = await supabase
+    .from('fixed_blocks').select('*').eq('user_id', user.id);
+    
+  const { data: sleepData } = await supabase
+    .from('sleep_schedule').select('*').eq('user_id', user.id).single();
+    
+  const { data: pillars } = await supabase
+    .from('pillars').select('*').eq('user_id', user.id).order('sort_order');
+    
+  const { data: goals } = await supabase
+    .from('weekly_goals').select('*').eq('user_id', user.id)
+    .eq('week_start', format(weekStart, 'yyyy-MM-dd'));
+
+  // 2. Calculate available hours per day
+  const weekDates = getWeekDates(weekStart);
+  const availableHours = {};
+  const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  dayNames.forEach((day, i) => {
+    const dayNum = i + 1; // 1=Mon, 7=Sun
+    availableHours[day] = calculateAvailableHours(dayNum, fixedBlocks, sleepData);
+  });
+
+  // 3. Build weekly_goals payload with pillar info
+  const weeklyGoals = goals.map(g => {
+    const pillar = pillars.find(p => p.id === g.pillar_id);
+    return {
+      pillar_id: g.pillar_id,
+      pillar_name: pillar.name,
+      pillar_icon: pillar.icon,
+      goal_text: g.goal_text,
+    };
+  });
+
+  // 4. Call Edge Function
+  const response = await supabase.functions.invoke('generate-tasks', {
+    body: {
+      fixed_blocks: fixedBlocks,
+      sleep_schedule: sleepData,
+      available_hours: availableHours,
+      weekly_goals: weeklyGoals,
+      week_start: format(weekStart, 'yyyy-MM-dd'),
+      week_dates: weekDates,
+    }
+  });
+
+  const { tasks: aiTasks, warnings, summary } = response.data;
+
+  // 5. Insert tasks into DB
+  const tasksToInsert = aiTasks.map(t => ({
+    user_id: user.id,
+    pillar_id: t.pillar_id,
+    week_start: format(weekStart, 'yyyy-MM-dd'),
+    day: t.day,
+    scheduled_time: t.scheduled_time,
+    title: t.title,
+    completion_criteria: t.completion_criteria,
+    duration_minutes: t.duration_minutes,
+    sort_order: t.sort_order,
+    energy_level: t.energy_level,
+    source: 'ai_generated',
+    status: 'pending',
+  }));
+
+  await supabase.from('tasks').insert(tasksToInsert);
+
+  return { warnings, summary };
+}
+```
+
+---
+
+## ROUTING STRUCTURE
+
+```jsx
+// App.jsx
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+function AppRoutes() {
+  const { user, profile, loading } = useAuth();
+
+  if (loading) return <LoadingSpinner fullScreen />;
+
+  return (
+    <Routes>
+      {/* Public */}
+      <Route path="/" element={
+        user ? <Navigate to="/dashboard" /> : <LandingPage />
+      } />
+      <Route path="/auth" element={
+        user ? <Navigate to="/dashboard" /> : <AuthPage />
+      } />
+
+      {/* Protected */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/dashboard" element={
+          profile?.onboarding_step < 4 
+            ? <Navigate to="/onboarding" /> 
+            : <DashboardPage />
+        } />
+        <Route path="/plan" element={<WeekPlanPage />} />
+        <Route path="/progress" element={<ProgressPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Route>
+
+      {/* Catch-all */}
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+```
+
+---
+
+## WHAT TO BUILD IN ORDER
+
+Follow this exact sequence. Each step builds on the previous.
+
+### Step 1: Project Setup
+- Initialize Vite + React project
+- Install dependencies: `@supabase/supabase-js`, `@supabase/auth-ui-react`, `@supabase/auth-ui-shared`, `react-router-dom`, `date-fns`, `recharts`, `tailwindcss`, `postcss`, `autoprefixer`
+- Configure Tailwind with dark mode
+- Set up Supabase client (`lib/supabase.js`)
+- Set up AuthContext
+- Set up React Router with all routes
+- Create ProtectedRoute component
+- Create basic UI components (Button, Input, Card, Modal, LoadingSpinner)
+
+### Step 2: Auth
+- Build AuthPage with signup/login tabs
+- Integrate Supabase Auth (email + Google OAuth)
+- Test: user can sign up, log in, log out
+- Verify: profile + pillars + sleep_schedule auto-created via triggers
+
+### Step 3: Onboarding Step 1 — Schedule
+- Build sleep time picker UI
+- Build fixed blocks list (add/remove rows, day checkboxes, time pickers)
+- Build available hours calculator + display
+- Save to DB on "Next"
+- Test: data persists in Supabase
+
+### Step 4: Onboarding Step 2 — Pillars
+- Fetch pillars from DB
+- Show editable name fields
+- Save renames on "Next"
+
+### Step 5: Onboarding Step 3 — Goals + AI Generation
+- Build goal text input per pillar
+- Save goals to `weekly_goals` table
+- Build the "Generating..." loading screen
+- Deploy the Supabase Edge Function for AI task generation
+- Call the Edge Function with assembled payload
+- Parse response and insert tasks into DB
+- Handle errors gracefully (show retry button if AI call fails)
+
+### Step 6: Onboarding Step 4 — Week Review
+- Build WeekCalendar component (7 columns, tasks as colored cards)
+- Show fixed blocks as grey cards
+- Task cards show: time, title, duration, pillar badge
+- Tap task → edit modal (change title, time, duration, delete)
+- "Looks Good" → complete onboarding
+
+### Step 7: Dashboard — Next Task Focus Screen
+- Fetch today's tasks (ordered by sort_order)
+- Implement `getNextTask()` logic
+- Build NextTaskCard (pillar badge, title, criteria, duration, Start/Skip buttons)
+- Build "Start" flow: task goes to in_progress, show timer
+- Build "Done" flow: task goes to completed, show celebration, show next
+- Build SkipModal with 4 reason options
+- Build DayProgress bar (X/Y done)
+- Build empty states: "All done", "No tasks today", "First task at [time]"
+
+### Step 8: Daily Reflection
+- Build DailyReflection modal
+- 5 mood emojis (tap to select)
+- Optional text note
+- Save to `daily_reflections` table
+- Trigger from "All Done" state or end-of-day
+
+### Step 9: Week Plan Page
+- Reuse WeekCalendar component from onboarding
+- Add [+ Add task] button per day (manual task creation)
+- Add task edit/delete functionality
+- Add week navigation (← →)
+- Detect "new week needs planning" → show goal input + AI generation flow
+
+### Step 10: Progress Page
+- Calculate week score from tasks
+- Calculate per-pillar scores
+- Build WeekScoreCard (big number + delta)
+- Build PillarBreakdown (horizontal bars)
+- Build WeeklyChart (Recharts line chart, last 8 weeks)
+- Save/fetch weekly_summaries
+
+### Step 11: Settings + Navigation
+- Build SettingsPage (profile, schedule, pillars, logout)
+- Build BottomNav (Today, Plan, Progress, Settings)
+- Build AppShell layout wrapper
+- Mobile responsive pass on all screens
+
+---
+
+## CRITICAL UX RULES
+
+1. **The dashboard must load in under 2 seconds.** Fetch only today's tasks, not the whole week.
+2. **The "Next Task" card must be the FIRST thing a user sees** when opening the app. Not a list. Not a calendar. One task.
+3. **Never show a blank state without guidance.** Every empty state has a message and a CTA.
+4. **The check-in (Start → Done) flow must work in under 5 taps.** Open app → see task → tap Start → tap Done. That's it.
+5. **AI generation should feel fast.** Show the animated loading screen. If it takes over 10 seconds, show a "Still working..." message. If over 30 seconds, show a retry button.
+6. **All time displays use 12-hour format** (2:00 PM, not 14:00) for user-facing UI. Database stores 24-hour format.
+7. **Mobile is the primary experience.** Design at 375px width first. Desktop is a nice-to-have.
+8. **Dark mode only for MVP.** Background: slate-900. Cards: slate-800. Text: slate-50/slate-400.
+9. **Every button press must have immediate visual feedback** — loading spinner, color change, or animation.
+10. **Data auto-saves.** No "save" buttons on forms. Use debounced writes or save on blur/next.

@@ -1,0 +1,598 @@
+# DONEXT v1 → v3 Migration TODO
+
+> **Goal:** Transform current app (AI-powered weekly life planner with pillars)
+> into v3 (Habits + Projects & Tasks with random picker and rich analytics).
+> Spec: `donext-v3-build-prompt.md`
+> Created: 2026-03-11
+
+---
+
+## Overview: What Changes
+
+v3 is a near-complete rewrite. The only shared concepts are: Supabase auth, dark-mode Tailwind UI, React + Vite, and basic UI components.
+
+| Concept | v1 (current) | v3 (target) |
+|---------|-------------|-------------|
+| Core loop | AI generates weekly schedule | Habits checklist + manual project tasks |
+| Navigation | Today / Plan / Progress / Settings | Habits / Projects / Focus / Stats |
+| Default route | `/dashboard` | `/habits` |
+| Onboarding | 4-step wizard (schedule → pillars → goals → AI generation) | None (app is self-explanatory) |
+| Task scheduling | Day + time slots in a week calendar | No scheduling. Random picker chooses next task |
+| Pillars | 5 life dimensions (Mind, Career, etc.) | None. Projects are independent |
+| AI integration | Claude API via Supabase Edge Function | None |
+| Scoring | Weekly score formula (completion + reflection) | Focus time tracking + habit completion % |
+| Icons | Emojis / react-icons | lucide-react |
+
+---
+
+## PHASE 0: Preparation
+
+### 0.1 Install new dependencies
+```bash
+npm install lucide-react
+```
+**Already installed (verify):** `date-fns`, `recharts`, `@supabase/supabase-js`, `react-router-dom` — all required by v3 and already in `package.json`.
+
+### 0.2 Remove unused dependencies
+```bash
+npm uninstall @supabase/auth-ui-react @supabase/auth-ui-shared react-icons
+```
+**Check first:** Verify `AuthPage.jsx` doesn't import from `@supabase/auth-ui-*`. Current code uses custom form — should be safe to remove.
+
+### 0.3 Database migration
+Run in Supabase SQL editor. **Back up data first.**
+
+**Drop v1 tables** (order matters for foreign keys):
+```sql
+DROP TABLE IF EXISTS daily_reflections CASCADE;
+DROP TABLE IF EXISTS weekly_summaries CASCADE;
+DROP TABLE IF EXISTS weekly_goals CASCADE;
+DROP TABLE IF EXISTS fixed_blocks CASCADE;
+DROP TABLE IF EXISTS sleep_schedule CASCADE;
+DROP TABLE IF EXISTS tasks CASCADE;       -- v1 tasks schema is incompatible
+DROP TABLE IF EXISTS pillars CASCADE;
+```
+
+**Modify profiles:**
+```sql
+ALTER TABLE profiles DROP COLUMN IF EXISTS onboarding_step;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS onboarding_done BOOLEAN DEFAULT false;
+```
+
+**Create v3 tables** (5 tables: habits, habit_logs, projects, tasks, focus_sessions):
+Copy exact SQL from `donext-v3-build-prompt.md` lines 87–185, including indexes and RLS policies.
+Note: `tasks` is dropped above and recreated here with a completely different schema (project_id, sort_order, is_auto_generated, time_spent_minutes, started_at — no more day/time/week_start/pillar_id).
+
+**Update handle_new_user trigger** to match v3 (no `onboarding_step`).
+
+---
+
+## PHASE 1: Project Setup & Routing (Step 1 of v3 spec)
+
+### 1.1 Replace `src/App.jsx` routing
+**Current:** `/dashboard`, `/plan`, `/progress`, `/settings`, `/onboarding`
+**Target:** `/habits`, `/projects`, `/projects/:id`, `/focus`, `/stats`, `/settings`
+
+- [ ] Remove `OnboardingRoute` component and `PublicOnlyRoute` onboarding redirect
+- [ ] Change `PublicOnlyRoute` redirect from `/dashboard` to `/habits`
+- [ ] Remove lazy import of `DashboardPage`, `WeekPlanPage`, `ProgressPage`, `OnboardingPage`
+- [ ] Add lazy imports: `HabitsPage`, `ProjectsPage`, `ProjectDetailPage`, `FocusPage`, `StatsPage`
+- [ ] Replace `requireCompletedOnboarding` with simple auth check
+- [ ] New routes: `/habits`, `/projects`, `/projects/:id`, `/focus`, `/stats`, `/settings`
+
+### 1.2 Update `BottomNav.jsx`
+**Current:** Today(✅) / Plan(🗓️) / Progress(📈) / Settings(⚙️) with emojis, `md:hidden`
+**Target:** Habits(CheckSquare) / Projects(FolderKanban) / Focus(Zap) / Stats(BarChart3) with lucide-react icons
+
+- [ ] Replace links array with new tabs and routes
+- [ ] Replace emoji icons with lucide-react icons: `CheckSquare`, `FolderKanban`, `Zap`, `BarChart3`
+- [ ] Remove `md:hidden` — show nav on all screen sizes (or add desktop sidebar)
+- [ ] Settings accessible from Settings page directly (not a nav tab), or keep as 5th tab
+
+### 1.3 Update `AppShell.jsx`
+- [ ] Add desktop sidebar/nav for `md:` screens (v3 spec says "sidebar on desktop")
+- [ ] Update header content if needed
+
+### 1.4 Simplify `ProtectedRoute.jsx`
+**Current:** Has `requireCompletedOnboarding` prop checking `onboarding_step`
+**Target:** Simple auth check only (no onboarding gate)
+
+- [ ] Remove `requireCompletedOnboarding` prop and onboarding redirect logic
+- [ ] Just check `user` exists, redirect to `/auth` if not
+
+### 1.5 Update `AuthContext.jsx`
+- [ ] `ensureProfile()`: Remove any `onboarding_step` references
+- [ ] Profile type: `onboarding_done` (boolean) instead of `onboarding_step` (int)
+- [ ] Remove pillar-related data from bootstrap if any
+
+### 1.6 Fix `supabase.js` env var crash
+**Current bug (B5):** Passes `undefined` to `createClient` when env vars missing.
+- [ ] Throw an error or show "App not configured" screen instead of `console.warn`
+
+### 1.7 Create new UI components
+- [ ] `src/components/ui/ProgressBar.jsx` — reusable progress bar (used throughout v3)
+- [ ] `src/components/ui/TimeInput.jsx` — hours:minutes dual input (for CompleteTaskModal)
+- [ ] `src/components/ui/ColorPicker.jsx` — row of 10 color circles (for CreateProjectModal)
+- [ ] `src/components/ui/EmptyState.jsx` — encouraging empty state with icon + message + CTA
+
+### 1.8 Fix `Modal.jsx`
+- [ ] Add backdrop click-to-close
+- [ ] Add Escape key listener
+
+---
+
+## PHASE 2: Auth (Step 2 of v3 spec)
+
+### 2.1 Update `AuthPage.jsx`
+- [ ] On login, redirect to `/habits` (not `/dashboard`)
+- [ ] Remove any onboarding redirects
+- [ ] Verify Google OAuth still works
+- [ ] Verify forgot password still works
+
+### 2.2 Update `LandingPage.jsx`
+**Current:** "Plan your week with AI" messaging, 3 steps about AI planning
+**Target:** "Stop overthinking. Start doing." messaging, 3 features about habits/random picker/analytics
+
+- [ ] New headline: "Stop overthinking. Start doing."
+- [ ] New subheadline about habits + random task picker + charts
+- [ ] 3 feature cards: "Daily Habits", "Random Task Picker", "Focus Analytics"
+- [ ] CTA: "Get Started Free →" (arrow already missing per old TODO)
+- [ ] Redirect authenticated users to `/habits`
+
+---
+
+## PHASE 3: Habits — Daily Checklist (Step 3 of v3 spec)
+
+### 3.1 Create `src/hooks/useHabits.js`
+- [ ] `fetchHabits()` — get active habits for user, ordered by `sort_order`
+- [ ] `fetchHabitLogs(startDate, endDate)` — get logs for date range
+- [ ] `toggleHabit(habitId, date, currentValue)` — upsert to `habit_logs` with optimistic update
+- [ ] `addHabit(title, icon, color)` — insert with `sort_order = max + 1`
+- [ ] `updateHabit(id, updates)` — edit title/icon/color
+- [ ] `archiveHabit(id)` — set `is_active = false`
+- [ ] `deleteHabit(id)` — permanent delete with confirmation
+- [ ] `reorderHabits(habitId, direction)` — swap sort_order with adjacent habit
+
+### 3.2 Create `src/pages/HabitsPage.jsx`
+- [ ] Top section: "Today · [Day], [Month] [Date]" header
+- [ ] HabitList with checkboxes for today
+- [ ] Today's progress: "X/Y (Z%)" with ProgressBar
+- [ ] "+ Add Habit" button
+- [ ] Below: analytics section (weekly chart, monthly grid, per-habit breakdown, streak)
+- [ ] This is the HOME SCREEN — must load fast
+
+### 3.3 Create `src/components/habits/HabitCheckbox.jsx`
+- [ ] Single habit row: checkbox + icon + title
+- [ ] Checked state: emerald-500 fill, scale animation (0.9 → 1.1 → 1.0 over 200ms)
+- [ ] Unchecked state: empty checkbox, no animation
+- [ ] Optimistic toggle on tap
+
+### 3.4 Create `src/components/habits/HabitList.jsx`
+- [ ] Renders list of HabitCheckbox components
+- [ ] Handles habit context menu (⋯ button): Edit / Archive / Delete
+- [ ] Reorder capability (up/down arrow buttons)
+
+### 3.5 Create `src/components/habits/AddHabitModal.jsx`
+- [ ] Title input (required)
+- [ ] Icon field (optional emoji, default "✓")
+- [ ] "Save Habit" button
+
+---
+
+## PHASE 4: Habits — Analytics (Step 4 of v3 spec)
+
+### 4.1 Create `src/components/habits/HabitWeeklyChart.jsx`
+- [ ] Recharts BarChart with 7 bars (Mon–Sun)
+- [ ] Bar height = (completed / total active) × 100
+- [ ] Color coding: <50% red, 50-79% amber, 80%+ emerald
+- [ ] Day labels below, percentage above each bar
+- [ ] Current day bar has subtle glow/border
+- [ ] "Week average: X%" below chart
+
+### 4.2 Create `src/components/habits/HabitMonthlyGrid.jsx`
+- [ ] CSS grid calendar for current month
+- [ ] Cell color intensity by completion rate (0%, 1-49%, 50-79%, 80-99%, 100%)
+- [ ] Future days: slate-800 with dashed border
+- [ ] "March: 78% · 22/28 days" summary
+- [ ] Streak counter: "🔥 X days" (consecutive days with ≥80% completion)
+
+### 4.3 Create `src/components/habits/HabitStatsCard.jsx`
+- [ ] Horizontal progress bars per active habit
+- [ ] Shows monthly completion rate
+- [ ] Sorted highest-first
+- [ ] Bar color matches habit color
+
+### 4.4 Create `src/components/habits/HabitStreakCard.jsx`
+- [ ] Current streak + longest streak
+- [ ] Streak = consecutive days with ≥80% habits completed
+
+### 4.5 Streak calculation in `src/lib/dates.js` or `useHabits.js`
+- [ ] `calculateStreak(habitLogs, activeHabitCount, today)` per v3 spec algorithm
+
+---
+
+## PHASE 5: Projects — CRUD (Step 5 of v3 spec)
+
+### 5.1 Create `src/hooks/useProjects.js`
+- [ ] `fetchProjects()` — all projects with task counts and completion stats
+- [ ] `createProject(title, description, color)` — insert new project
+- [ ] `updateProject(id, updates)` — edit title/description/color
+- [ ] `completeProject(id)` — set status='completed', completed_at=now()
+- [ ] `archiveProject(id)` — set status='archived'
+- [ ] `reopenProject(id)` — set status='active'
+- [ ] `deleteProject(id)` — permanent delete with cascade
+
+### 5.2 Rewrite `src/hooks/useTasks.js`
+**Current:** Fetches tasks by week_start, joins pillars, has addTask/updateTask/deleteTask/replaceWeekTasks
+**Target:** Completely different schema — tasks belong to projects, no scheduling, no pillars
+
+- [ ] `fetchTasks(projectId)` — ordered by sort_order
+- [ ] `addTask(projectId, title, description, position)` — "Add to End" or "Add After Current"
+- [ ] `updateTask(id, updates)` — edit title/description
+- [ ] `completeTask(id, timeSpentMinutes)` — set status='completed', log focus_session
+- [ ] `startTask(id)` — set status='in_progress', started_at=now()
+- [ ] `reorderTasks(taskId, direction)` — swap sort_order (only pending tasks)
+- [ ] `deleteTask(id)`
+
+### 5.3 Create `src/pages/ProjectsPage.jsx`
+- [ ] "Projects" header + "+ New Project" button
+- [ ] "Active (N)" section with ProjectCard list
+- [ ] "Completed (N)" section — collapsed by default, expandable
+- [ ] Each card taps to `/projects/:id`
+
+### 5.4 Create `src/components/projects/ProjectCard.jsx`
+- [ ] Color dot/border in project color
+- [ ] Title, progress bar (completed/total tasks), "Last worked: X" relative time
+- [ ] "⚠️ Needs review" badge if auto-review task exists
+- [ ] Completed variant: title, completion date, total focus time, Reopen/Archive actions
+
+### 5.5 Create `src/components/projects/CreateProjectModal.jsx`
+- [ ] Title (required), Description (optional), Color picker (10 circles)
+- [ ] "Create Project" button
+
+### 5.6 Create `src/pages/ProjectDetailPage.jsx`
+- [ ] Back button + ⋯ menu (Edit project / Archive / Delete)
+- [ ] Project title, description, progress bar, total focus time
+- [ ] Ordered task list (TaskRow components)
+- [ ] Completed tasks: ✅ strikethrough + time spent + date
+- [ ] First pending task: highlighted with emerald border ("next up")
+- [ ] Other pending tasks: dimmer style
+- [ ] Reorder pending tasks (up/down arrows)
+- [ ] "+ Add Task" button → AddTaskModal
+- [ ] "Mark Project Complete" button (only when all tasks done)
+- [ ] Celebration on project completion ("🎉 Project complete! Total focus time: Xh Ym across Z sessions") — can be inline or a simple reusable component
+
+### 5.7 Create `src/components/projects/TaskRow.jsx`
+- [ ] Completed: ✅ + strikethrough title + time + date
+- [ ] Next (first pending): accent border, slightly elevated
+- [ ] Pending: normal style
+- [ ] Tooltip on tap: "Go to Focus tab to start working on this"
+
+### 5.8 Create `src/components/projects/AddTaskModal.jsx`
+- [ ] Title (required), Description (optional)
+- [ ] "Add to End" and "Add After Current Task" buttons
+
+### 5.9 Create `src/components/projects/ReorderableTasks.jsx`
+- [ ] Up/down arrow buttons for pending tasks
+- [ ] Completed tasks locked in position
+
+### 5.10 Create `src/components/projects/ProjectStatusBadge.jsx`
+- [ ] Active / Completed / Archived / Needs Review badges
+
+---
+
+## PHASE 6: Auto-Review Task (Step 6 of v3 spec)
+
+### 6.1 Implement `all_tasks_done_at` tracking
+- [ ] When a task is completed, check if it was the last pending task in the project
+- [ ] If yes, set `projects.all_tasks_done_at = now()`
+
+### 6.2 Implement `checkForStaleProjects()`
+- [ ] Run on app load (in AuthContext or AppShell)
+- [ ] For each active project: if all tasks done and `all_tasks_done_at` is >3 days ago and no pending auto-generated task exists
+- [ ] Auto-insert: `"Review [Project Title] and add next steps"` with `is_auto_generated = true`
+
+---
+
+## PHASE 7: Focus — Random Picker (Step 7 of v3 spec)
+
+### 7.1 Create `src/lib/random.js`
+- [ ] `selectRandomProject(projects, focusSessions)` — weighted random by staleness
+- [ ] Projects worked on least recently get higher weight
+- [ ] Never-worked-on projects get weight 10
+- [ ] Weight = daysSince + 1 (minimum 1)
+
+### 7.2 Create `src/hooks/useFocusSessions.js`
+- [ ] `fetchSessions(startDate, endDate)` — for analytics and weighting
+- [ ] `createSession(taskId, projectId, date, durationMinutes)` — log on task complete
+- [ ] `getTodaySessions()` — for "Today's Focus" summary on Focus page
+
+### 7.3 Create `src/pages/FocusPage.jsx`
+Three states:
+- [ ] **State A (Ready):** Big "🎲 Start a Task" button, "or pick manually" text link, today's focus summary, recent completed tasks
+- [ ] **State B (Selected):** RandomProjectCard showing selected project + next task, "Let's Go ▶" button, re-roll button (1 use)
+- [ ] **State C (Working):** ActiveTaskScreen with elapsed timer, motivational one-liner, "✓ I'm Done" button
+
+### 7.4 Create `src/components/focus/StartTaskButton.jsx`
+- [ ] Big, full-width, emerald, centered — impossible to miss
+- [ ] "🎲 Start a Task"
+
+### 7.5 Create `src/components/focus/RandomProjectCard.jsx`
+- [ ] Shows project name (color dot), task number (e.g., "Task #6 of 8"), task title (large), description
+- [ ] "Let's Go ▶" button — starts the session
+- [ ] Slide-up animation on appear
+
+### 7.6 Create `src/components/focus/RerollButton.jsx`
+- [ ] "🎲 Pick a different one (1)" → after use → "(0)" disabled
+- [ ] Hidden if only 1 eligible project
+
+### 7.7 "Or pick manually" expandable list
+- [ ] Inline dropdown showing active projects with their next task
+- [ ] Tapping one starts that specific project's next task
+
+---
+
+## PHASE 8: Focus — Active Work Session (Step 8 of v3 spec)
+
+### 8.1 Create `src/components/focus/ActiveTaskScreen.jsx`
+- [ ] Project name (muted), task title (large, centered)
+- [ ] Elapsed timer: `H:MM:SS` format, big mono font, updates every second
+- [ ] Timer uses `started_at` from DB — persists across page reloads
+- [ ] Random motivational one-liner from curated list (5 options per spec)
+- [ ] "✓ I'm Done" button (emerald, large)
+
+### 8.2 Create `src/components/focus/CompleteTaskModal.jsx`
+- [ ] "Nice work!" header
+- [ ] Hours + Minutes inputs (TimeInput component)
+- [ ] "Timer says: Xh Ym" reference line
+- [ ] "Save & Continue" button
+- [ ] On save: update task status, insert focus_session, check all-tasks-done
+
+### 8.3 Post-completion flow
+- [ ] If all project tasks done: "🎉 All tasks in [Project] are done! [Add More Tasks] or [Complete Project]"
+- [ ] If more tasks remain: "✓ Task complete! [Start Another Task] or [Done for Now]"
+
+---
+
+## PHASE 9: Stats Page (Step 9 of v3 spec)
+
+### 9.1 Create `src/hooks/useStats.js`
+- [ ] `getFocusStats(startDate, endDate)` — total minutes, by-date, by-project, session count
+- [ ] `getHabitStats(startDate, endDate)` — overall rate, per-habit rates
+- [ ] `getProjectStats()` — active count, completed this month, tasks completed, avg time per task
+- [ ] Period comparison (delta vs previous period)
+
+### 9.2 Create `src/pages/StatsPage.jsx`
+- [ ] Period selector tabs: "This Week" / "This Month"
+- [ ] Three sections: Focus Time, Habits, Projects
+
+### 9.3 Create `src/components/stats/FocusTimeChart.jsx`
+- [ ] Hero card: total hours + delta vs last period (green/red)
+
+### 9.4 Create `src/components/stats/DailyFocusBar.jsx`
+- [ ] Recharts BarChart: hours per day, green bars, rounded top
+- [ ] "Avg: Xh Ym / day" below
+
+### 9.5 Create `src/components/stats/ProjectProgressChart.jsx`
+- [ ] Recharts PieChart / donut: focus time by project
+- [ ] Colored by project color, labels with project name + time
+
+### 9.6 Create `src/components/stats/WeeklyOverviewCard.jsx`
+- [ ] Habit weekly completion %, best/worst habit, streak
+
+### 9.7 Create `src/components/stats/MonthlyOverviewCard.jsx`
+- [ ] Recharts AreaChart: weekly focus hours over last 8 weeks
+- [ ] Gradient fill (emerald to transparent)
+- [ ] "Trend: +X% vs last month"
+
+### 9.8 Create `src/components/stats/AllTimeStatsCard.jsx`
+- [ ] Active projects, completed this month, tasks completed, avg time per task
+
+---
+
+## PHASE 10: Settings + Polish (Step 10 of v3 spec)
+
+### 10.1 Rewrite `SettingsPage.jsx`
+**Current:** Display name, pillars editor, timezone, sleep schedule link, delete account, about
+**Target:** Profile (name, email), Habits (manage link), Projects (archived link), Account (logout, delete), About
+
+- [ ] Remove pillar editing section
+- [ ] Remove timezone selector (or keep if useful)
+- [ ] Remove "Manage fixed blocks" link
+- [ ] Add "Manage habits" → opens list with reorder/edit/archive
+- [ ] Add "View archived projects" → list of archived projects with restore option
+- [ ] Keep "Log out" and "Delete account" (fix B1: actually delete auth user)
+- [ ] Keep About section
+
+### 10.2 Delete all v1-only files
+
+**Pages to delete:**
+- [ ] `src/pages/DashboardPage.jsx`
+- [ ] `src/pages/WeekPlanPage.jsx`
+- [ ] `src/pages/ProgressPage.jsx`
+- [ ] `src/pages/OnboardingPage.jsx`
+
+**Components to delete:**
+- [ ] `src/components/onboarding/ScheduleStep.jsx`
+- [ ] `src/components/onboarding/PillarsStep.jsx`
+- [ ] `src/components/onboarding/GoalsStep.jsx`
+- [ ] `src/components/onboarding/GeneratingStep.jsx`
+- [ ] `src/components/schedule/WeekCalendar.jsx`
+- [ ] `src/components/schedule/TaskCard.jsx`
+- [ ] `src/components/schedule/AvailableHours.jsx`
+- [ ] `src/components/reflection/DailyReflection.jsx`
+- [ ] `src/components/reflection/MoodSelector.jsx`
+- [ ] `src/components/focus/NextTaskCard.jsx` (v1 focus component)
+- [ ] `src/components/focus/TaskTimer.jsx` (v1 timer — v3 timer is different)
+- [ ] `src/components/focus/SkipModal.jsx`
+- [ ] `src/components/focus/CompletionCelebration.jsx`
+- [ ] `src/components/focus/DayProgress.jsx`
+- [ ] `src/components/focus/EmptyState.jsx`
+- [ ] `src/components/progress/WeekScoreCard.jsx`
+- [ ] `src/components/progress/PillarBreakdown.jsx`
+- [ ] `src/components/progress/WeeklyChart.jsx`
+- [ ] `src/components/ui/PillarBadge.jsx`
+
+**Hooks to delete:**
+- [ ] `src/hooks/usePillars.js`
+- [ ] `src/hooks/useSleepSchedule.js`
+- [ ] `src/hooks/useFixedBlocks.js`
+- [ ] `src/hooks/useWeeklyGoals.js`
+- [ ] `src/hooks/useDailyReflection.js`
+- [ ] `src/hooks/useWeeklySummary.js`
+- [ ] `src/hooks/useStreakDays.js`
+
+**Lib to delete:**
+- [ ] `src/lib/scoring.js`
+- [ ] `src/lib/planner.js`
+
+**Edge Functions to delete:**
+- [ ] `supabase/functions/generate-tasks/index.ts`
+- [ ] `supabase/functions/delete-account/index.ts` (replace with proper auth user deletion)
+
+**Directories to remove (after deleting all files):**
+- [ ] `src/components/onboarding/`
+- [ ] `src/components/schedule/`
+- [ ] `src/components/reflection/`
+
+### 10.3 Update `src/lib/dates.js`
+**Current:** getWeekStart, getWeekDates, getWeekDaysArray, toISODate, getISODayOfWeek, parseTimeToMinutes, formatTime, calculateAvailableHours, getAvailableHoursMap, getWeekRangeLabel
+**Target:** Week/month boundary helpers only
+
+- [ ] Keep: `toISODate`, `getWeekStart` (useful for stats)
+- [ ] Add: `getMonthStart`, `getMonthEnd`, `getWeekEnd`, `getWeekDays` (for chart labels)
+- [ ] Remove: `parseTimeToMinutes`, `formatTime`, `calculateAvailableHours`, `getAvailableHoursMap`, `getISODayOfWeek` (v1-only)
+- [ ] Add: `formatRelativeTime(date)` — "2 hours ago", "Yesterday", "3 days ago" (for ProjectCard)
+
+### 10.4 Update `globals.css`
+- [ ] Remove v1-specific keyframes if unused (scaleIn, fadeOut may still be useful)
+- [ ] Remove duplicate font import (keep only `index.html` `<link>`)
+- [ ] Add habit checkbox animation keyframe
+
+### 10.5 Responsive design
+- [ ] All pages must work at 375px width (mobile primary)
+- [ ] Desktop sidebar nav for `md:` screens
+- [ ] Bottom nav for mobile
+
+### 10.6 Loading & empty states
+- [ ] Every page: LoadingSpinner while fetching
+- [ ] Every list: EmptyState with icon + message + CTA when empty
+  - "No habits yet. Add your first daily habit to start tracking."
+  - "No projects yet. Create your first one to start tracking progress."
+  - "No focus sessions yet. Start a task to begin."
+
+### 10.7 Error handling
+- [ ] Failed saves: subtle toast error + revert optimistic update
+- [ ] Network issues: graceful degradation
+
+---
+
+## FILES THAT STAY (with modifications)
+
+| File | Changes needed |
+|------|---------------|
+| `src/main.jsx` | None |
+| `src/App.jsx` | Complete rewrite of routes (Phase 1.1) |
+| `src/lib/supabase.js` | Fix env var crash (Phase 1.6) |
+| `src/lib/dates.js` | Remove v1 helpers, add v3 helpers (Phase 10.3) |
+| `src/contexts/AuthContext.jsx` | Remove onboarding_step refs, use onboarding_done (Phase 1.5) |
+| `src/hooks/useProfile.js` | Minor: profile shape changes (onboarding_done) |
+| `src/hooks/useTasks.js` | Complete rewrite (Phase 5.2) |
+| `src/components/layout/AppShell.jsx` | Add desktop nav (Phase 1.3) |
+| `src/components/layout/BottomNav.jsx` | New tabs + lucide icons (Phase 1.2) |
+| `src/components/layout/ProtectedRoute.jsx` | Simplify (Phase 1.4) |
+| `src/components/layout/ErrorBoundary.jsx` | None |
+| `src/components/ui/Button.jsx` | None |
+| `src/components/ui/Card.jsx` | None |
+| `src/components/ui/Input.jsx` | None |
+| `src/components/ui/TextArea.jsx` | None |
+| `src/components/ui/Modal.jsx` | Add backdrop close + Escape key (Phase 1.8) |
+| `src/components/ui/LoadingSpinner.jsx` | None |
+| `src/pages/LandingPage.jsx` | New copy + features (Phase 2.2) |
+| `src/pages/AuthPage.jsx` | Change redirect to /habits (Phase 2.1) |
+| `src/pages/SettingsPage.jsx` | Rewrite sections (Phase 10.1) |
+| `src/styles/globals.css` | Minor cleanup (Phase 10.4) |
+| `index.html` | None (keep Inter font link) |
+| `package.json` | Add/remove deps (Phase 0) |
+| `vite.config.js` | None |
+| `tailwind.config.js` | None |
+| `postcss.config.js` | None |
+
+---
+
+## NEW FILES TO CREATE (38 files)
+
+```
+src/lib/random.js
+src/hooks/useHabits.js
+src/hooks/useProjects.js
+src/hooks/useFocusSessions.js
+src/hooks/useStats.js
+src/pages/HabitsPage.jsx
+src/pages/ProjectsPage.jsx
+src/pages/ProjectDetailPage.jsx
+src/pages/FocusPage.jsx
+src/pages/StatsPage.jsx
+src/components/ui/ProgressBar.jsx
+src/components/ui/TimeInput.jsx
+src/components/ui/ColorPicker.jsx
+src/components/ui/EmptyState.jsx
+src/components/habits/HabitCheckbox.jsx
+src/components/habits/HabitList.jsx
+src/components/habits/AddHabitModal.jsx
+src/components/habits/HabitWeeklyChart.jsx
+src/components/habits/HabitMonthlyGrid.jsx
+src/components/habits/HabitStatsCard.jsx
+src/components/habits/HabitStreakCard.jsx
+src/components/projects/ProjectCard.jsx
+src/components/projects/CreateProjectModal.jsx
+src/components/projects/TaskRow.jsx
+src/components/projects/AddTaskModal.jsx
+src/components/projects/ReorderableTasks.jsx
+src/components/projects/ProjectStatusBadge.jsx
+src/components/focus/StartTaskButton.jsx
+src/components/focus/RandomProjectCard.jsx
+src/components/focus/ActiveTaskScreen.jsx
+src/components/focus/CompleteTaskModal.jsx
+src/components/focus/RerollButton.jsx
+src/components/stats/FocusTimeChart.jsx
+src/components/stats/DailyFocusBar.jsx
+src/components/stats/ProjectProgressChart.jsx
+src/components/stats/WeeklyOverviewCard.jsx
+src/components/stats/MonthlyOverviewCard.jsx
+src/components/stats/AllTimeStatsCard.jsx
+```
+
+---
+
+## IMPLEMENTATION ORDER (recommended)
+
+1. **Phase 0** — Deps + DB migration (do first, everything depends on this)
+2. **Phase 1** — Routing + layout + UI components (app skeleton)
+3. **Phase 2** — Auth + Landing (users can sign in)
+4. **Phase 10.2** — Delete v1 files (clean slate before building v3 features)
+5. **Phase 3** — Habits checklist (home screen, daily core loop)
+6. **Phase 4** — Habits analytics (charts and stats)
+7. **Phase 5** — Projects CRUD (second core system)
+8. **Phase 6** — Auto-review tasks
+9. **Phase 7** — Focus random picker
+10. **Phase 8** — Focus work session
+11. **Phase 9** — Stats page
+12. **Phase 10** (remaining) — Settings rewrite + polish + responsive + empty/loading states
+
+---
+
+## TOTAL SCOPE SUMMARY
+
+| Category | Count |
+|----------|-------|
+| Files to delete | 34 (4 pages + 19 components + 7 hooks + 2 lib + 2 edge functions) |
+| Files to keep unchanged | 10 (main.jsx, ErrorBoundary, Button, Card, Input, TextArea, LoadingSpinner, index.html, vite/tailwind/postcss configs) |
+| Files to modify | 15 (App.jsx, supabase.js, dates.js, AuthContext, useProfile, useTasks, AppShell, BottomNav, ProtectedRoute, Modal, LandingPage, AuthPage, SettingsPage, globals.css, package.json) |
+| Files to create | 38 |
+| New DB tables | 5 (habits, habit_logs, projects, tasks, focus_sessions) |
+| DB tables to drop | 7 (tasks dropped and recreated with new schema) |
+| New hooks | 4 (useHabits, useProjects, useFocusSessions, useStats) |
+| New pages | 5 (Habits, Projects, ProjectDetail, Focus, Stats) |
+| Packages to install | 1 (lucide-react) |
+| Packages to remove | 3 (auth-ui-react, auth-ui-shared, react-icons) |
