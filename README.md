@@ -1,5 +1,9 @@
 # React + Vite
 
+## Deployment
+
+- GitHub Pages publish/update guide: [GITHUB_PAGES_DEPLOY.md](./GITHUB_PAGES_DEPLOY.md)
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
