@@ -47,7 +47,7 @@ function AppRoutes() {
             </PublicOnlyRoute>
           }
         />
-        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/privacy/*" element={<PrivacyPage />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>

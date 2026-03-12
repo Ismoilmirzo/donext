@@ -70,7 +70,7 @@ export default function LandingPage() {
         </section>
 
         <footer className="mt-10 flex justify-center">
-          <Link to="/privacy" className="text-sm text-slate-400 hover:text-slate-200">
+          <Link to="/privacy/" className="text-sm text-slate-400 hover:text-slate-200">
             {t('common.privacyPolicy')}
           </Link>
         </footer>

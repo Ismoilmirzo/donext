@@ -161,7 +161,7 @@ export default function AuthPage() {
         )}
 
         <div className="mt-6 text-center">
-          <Link to="/privacy" className="text-xs text-slate-500 hover:text-slate-300">
+          <Link to="/privacy/" className="text-xs text-slate-500 hover:text-slate-300">
             {t('common.privacyPolicy')}
           </Link>
         </div>

@@ -150,7 +150,7 @@ export default function SettingsPage() {
       <Card className="space-y-3">
         <h2 className="text-base font-semibold text-slate-100">{t('settings.about')}</h2>
         <p className="text-sm text-slate-300">{t('settings.version')}</p>
-        <Link to="/privacy" className="text-sm text-emerald-400 hover:text-emerald-300">
+        <Link to="/privacy/" className="text-sm text-emerald-400 hover:text-emerald-300">
           {t('common.privacyPolicy')}
         </Link>
         <p className="text-sm text-slate-400">{t('settings.privacyPolicyDescription')}</p>
