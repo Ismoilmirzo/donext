@@ -56,6 +56,14 @@ serve(async (req) => {
     });
   }
 
+  const { error: profileDeleteError } = await adminClient.from('profiles').delete().eq('id', userData.user.id);
+  if (profileDeleteError) {
+    return new Response(JSON.stringify({ error: `Auth user deleted but profile cleanup failed: ${profileDeleteError.message}` }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  }
+
   return new Response(JSON.stringify({ success: true }), {
     status: 200,
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

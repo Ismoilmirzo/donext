@@ -14,3 +14,8 @@ export function isConfiguredAdmin(user) {
   if (!email) return false;
   return getConfiguredAdminEmails().includes(email);
 }
+
+export function isUserSuspended(user) {
+  if (!user?.banned_until) return false;
+  return new Date(user.banned_until).getTime() > Date.now();
+}

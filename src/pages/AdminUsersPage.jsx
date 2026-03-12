@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Shield, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import Modal from '../components/ui/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
-import { isConfiguredAdmin } from '../lib/admin';
+import { isConfiguredAdmin, isUserSuspended } from '../lib/admin';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -22,103 +24,102 @@ function formatDate(value, locale) {
   });
 }
 
+function DetailSection({ title, emptyLabel, children, hasItems }) {
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
+      {hasItems ? children : <p className="text-sm text-slate-400">{emptyLabel}</p>}
+    </div>
+  );
+}
+
 export default function AdminUsersPage() {
   const { user } = useAuth();
   const { locale, t } = useLocale();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [actionLoading, setActionLoading] = useState('');
 
-  useEffect(() => {
-    let active = true;
+  const getAccessToken = useCallback(async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData?.session?.access_token || '';
+  }, []);
 
-    async function loadUsers() {
-      setLoading(true);
-      setError('');
-
-      if (!isConfiguredAdmin(user)) {
-        if (active) {
-          setError(t('adminUsers.notAuthorized'));
-          setLoading(false);
-        }
-        return;
-      }
-
+  const invokeAdminEndpoint = useCallback(
+    async ({ method = 'GET', body = null }) => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       if (!supabaseUrl || !supabaseAnonKey) {
-        if (active) {
-          setError(t('adminUsers.missingConfig'));
-          setLoading(false);
-        }
-        return;
+        throw new Error(t('adminUsers.missingConfig'));
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      const accessToken = await getAccessToken();
       if (!accessToken) {
-        if (active) {
-          setError(t('adminUsers.missingSession'));
-          setLoading(false);
-        }
-        return;
+        throw new Error(t('adminUsers.missingSession'));
       }
 
+      const response = await fetch(`${supabaseUrl}/functions/v1/admin-list-users`, {
+        method,
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      let payload = null;
       try {
-        const response = await fetch(`${supabaseUrl}/functions/v1/admin-list-users`, {
-          method: 'GET',
-          headers: {
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        let payload = null;
-        try {
-          payload = await response.json();
-        } catch {
-          payload = null;
-        }
-
-        if (!response.ok) {
-          const message = payload?.error || payload?.message || t('adminUsers.loadFailed');
-          if (active) {
-            setError(message);
-            setLoading(false);
-          }
-          return;
-        }
-
-        if (active) {
-          setUsers(payload?.users || []);
-          setLoading(false);
-        }
+        payload = await response.json();
       } catch {
-        if (active) {
-          setError(t('adminUsers.loadFailed'));
-          setLoading(false);
-        }
+        payload = null;
       }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || payload?.message || t('adminUsers.loadFailed'));
+      }
+
+      return payload;
+    },
+    [getAccessToken, t]
+  );
+
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    setError('');
+
+    if (!isConfiguredAdmin(user)) {
+      setError(t('adminUsers.notAuthorized'));
+      setLoading(false);
+      return;
     }
 
-    void loadUsers();
+    try {
+      const payload = await invokeAdminEndpoint({ method: 'GET' });
+      setUsers(payload?.users || []);
+    } catch (loadError) {
+      setError(loadError.message || t('adminUsers.loadFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }, [invokeAdminEndpoint, t, user]);
 
-    return () => {
-      active = false;
-    };
-  }, [t, user]);
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return users;
     return users.filter((entry) => {
-      const haystack = [
-        entry.email,
-        entry.display_name,
-        entry.timezone,
-        ...(entry.providers || []),
-      ]
+      const haystack = [entry.email, entry.display_name, entry.timezone, ...(entry.providers || [])]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
@@ -141,6 +142,72 @@ export default function AdminUsersPage() {
     [filteredUsers]
   );
 
+  function updateUserInState(updatedUser) {
+    setUsers((current) => current.map((entry) => (entry.id === updatedUser.id ? updatedUser : entry)));
+    setSelectedUser((current) => (current?.id === updatedUser.id ? updatedUser : current));
+  }
+
+  async function handleOpenDetails(entry) {
+    setSelectedUser(entry);
+    setDetail(null);
+    setDetailError('');
+    setDetailLoading(true);
+
+    try {
+      const payload = await invokeAdminEndpoint({
+        method: 'POST',
+        body: { action: 'detail', userId: entry.id },
+      });
+      if (payload?.user) {
+        updateUserInState(payload.user);
+        setSelectedUser(payload.user);
+      }
+      setDetail(payload?.detail || null);
+    } catch (loadError) {
+      setDetailError(loadError.message || t('adminUsers.loadFailed'));
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function handleUserAction(action) {
+    if (!selectedUser) return;
+
+    const confirmMessage =
+      action === 'delete'
+        ? t('adminUsers.confirmDelete')
+        : action === 'suspend'
+          ? t('adminUsers.confirmSuspend')
+          : t('adminUsers.confirmUnsuspend');
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setActionLoading(action);
+    setDetailError('');
+    setStatusMessage('');
+
+    try {
+      const payload = await invokeAdminEndpoint({
+        method: 'POST',
+        body: { action, userId: selectedUser.id },
+      });
+
+      if (action === 'delete') {
+        setUsers((current) => current.filter((entry) => entry.id !== selectedUser.id));
+        setSelectedUser(null);
+        setDetail(null);
+      } else if (payload?.user) {
+        updateUserInState(payload.user);
+      }
+
+      setStatusMessage(t('adminUsers.actionCompleted'));
+    } catch (actionError) {
+      setDetailError(actionError.message || t('adminUsers.loadFailed'));
+    } finally {
+      setActionLoading('');
+    }
+  }
+
   if (loading) return <LoadingSpinner label={t('adminUsers.loading')} />;
 
   return (
@@ -158,6 +225,12 @@ export default function AdminUsersPage() {
           </Link>
         </div>
       </Card>
+
+      {statusMessage && !error && (
+        <Card className="border-emerald-500/30 bg-emerald-500/10">
+          <p className="text-sm text-emerald-200">{statusMessage}</p>
+        </Card>
+      )}
 
       {error ? (
         <Card className="space-y-3 border-red-500/30 bg-red-500/10">
@@ -200,73 +273,89 @@ export default function AdminUsersPage() {
           </Card>
 
           <div className="space-y-4">
-            {filteredUsers.map((entry) => (
-              <Card key={entry.id} className="space-y-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-50">{entry.display_name || t('adminUsers.noName')}</h2>
-                    <p className="text-sm text-slate-300">{entry.email || '-'}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {(entry.providers || []).map((provider) => (
-                      <span key={provider} className="rounded-full border border-slate-600 px-2 py-0.5 text-xs text-slate-300">
-                        {provider}
-                      </span>
-                    ))}
-                    {!entry.providers?.length && (
-                      <span className="rounded-full border border-slate-600 px-2 py-0.5 text-xs text-slate-400">
-                        {t('adminUsers.unknownProvider')}
-                      </span>
-                    )}
-                  </div>
-                </div>
+            {filteredUsers.map((entry) => {
+              const suspended = isUserSuspended(entry);
 
-                <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-2 xl:grid-cols-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.createdAt')}</p>
-                    <p className="mt-1">{formatDate(entry.created_at, locale)}</p>
+              return (
+                <Card key={entry.id} className="space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-lg font-semibold text-slate-50">{entry.display_name || t('adminUsers.noName')}</h2>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs ${
+                            suspended ? 'bg-amber-500/15 text-amber-200' : 'bg-emerald-500/15 text-emerald-200'
+                          }`}
+                        >
+                          {suspended ? t('adminUsers.statusSuspended') : t('adminUsers.statusActive')}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-300">{entry.email || '-'}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {(entry.providers || []).map((provider) => (
+                        <span key={provider} className="rounded-full border border-slate-600 px-2 py-0.5 text-xs text-slate-300">
+                          {provider}
+                        </span>
+                      ))}
+                      {!entry.providers?.length && (
+                        <span className="rounded-full border border-slate-600 px-2 py-0.5 text-xs text-slate-400">
+                          {t('adminUsers.unknownProvider')}
+                        </span>
+                      )}
+                      <Button size="sm" variant="secondary" onClick={() => handleOpenDetails(entry)}>
+                        {t('adminUsers.openDetails')}
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.lastSignIn')}</p>
-                    <p className="mt-1">{formatDate(entry.last_sign_in_at, locale)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.timezone')}</p>
-                    <p className="mt-1">{entry.timezone || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.onboarding')}</p>
-                    <p className="mt-1">{entry.onboarding_done ? t('adminUsers.completed') : t('adminUsers.incomplete')}</p>
-                  </div>
-                </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                  <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.habits')}</p>
-                    <p className="mt-2 text-xl font-semibold text-slate-50">{entry.stats?.habits || 0}</p>
+                  <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-2 xl:grid-cols-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.createdAt')}</p>
+                      <p className="mt-1">{formatDate(entry.created_at, locale)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.lastSignIn')}</p>
+                      <p className="mt-1">{formatDate(entry.last_sign_in_at, locale)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.timezone')}</p>
+                      <p className="mt-1">{entry.timezone || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.onboarding')}</p>
+                      <p className="mt-1">{entry.onboarding_done ? t('adminUsers.completed') : t('adminUsers.incomplete')}</p>
+                    </div>
                   </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.projects')}</p>
-                    <p className="mt-2 text-xl font-semibold text-slate-50">{entry.stats?.projects || 0}</p>
+
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.habits')}</p>
+                      <p className="mt-2 text-xl font-semibold text-slate-50">{entry.stats?.habits || 0}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.projects')}</p>
+                      <p className="mt-2 text-xl font-semibold text-slate-50">{entry.stats?.projects || 0}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.tasks')}</p>
+                      <p className="mt-2 text-xl font-semibold text-slate-50">{entry.stats?.tasks || 0}</p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {t('adminUsers.completedTasks', { count: entry.stats?.completed_tasks || 0 })}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.focusSessions')}</p>
+                      <p className="mt-2 text-xl font-semibold text-slate-50">{entry.stats?.focus_sessions || 0}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.focusTime')}</p>
+                      <p className="mt-2 text-xl font-semibold text-slate-50">{formatMinutesHuman(entry.stats?.focus_minutes || 0)}</p>
+                    </div>
                   </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.tasks')}</p>
-                    <p className="mt-2 text-xl font-semibold text-slate-50">{entry.stats?.tasks || 0}</p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {t('adminUsers.completedTasks', { count: entry.stats?.completed_tasks || 0 })}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.focusSessions')}</p>
-                    <p className="mt-2 text-xl font-semibold text-slate-50">{entry.stats?.focus_sessions || 0}</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.focusTime')}</p>
-                    <p className="mt-2 text-xl font-semibold text-slate-50">{formatMinutesHuman(entry.stats?.focus_minutes || 0)}</p>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
 
             {!filteredUsers.length && (
               <Card>
@@ -276,6 +365,185 @@ export default function AdminUsersPage() {
           </div>
         </>
       )}
+
+      <Modal
+        open={Boolean(selectedUser)}
+        onClose={() => {
+          if (actionLoading) return;
+          setSelectedUser(null);
+          setDetail(null);
+          setDetailError('');
+        }}
+        title={t('adminUsers.userDetails')}
+        panelClassName="max-w-4xl"
+        bodyClassName="space-y-6 max-h-[75vh] overflow-y-auto"
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button variant="secondary" onClick={() => setSelectedUser(null)} disabled={Boolean(actionLoading)}>
+              {t('adminUsers.close')}
+            </Button>
+            {selectedUser && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleUserAction(isUserSuspended(selectedUser) ? 'unsuspend' : 'suspend')}
+                  disabled={Boolean(actionLoading)}
+                >
+                  {actionLoading === 'suspend' || actionLoading === 'unsuspend'
+                    ? t('adminUsers.actionInProgress')
+                    : isUserSuspended(selectedUser)
+                      ? t('adminUsers.unsuspend')
+                      : t('adminUsers.suspend')}
+                </Button>
+                <Button variant="danger" onClick={() => handleUserAction('delete')} disabled={Boolean(actionLoading)}>
+                  {actionLoading === 'delete' ? t('adminUsers.actionInProgress') : t('adminUsers.deleteUser')}
+                </Button>
+              </div>
+            )}
+          </div>
+        }
+      >
+        {!selectedUser ? null : detailLoading ? (
+          <LoadingSpinner label={t('adminUsers.detailsLoading')} />
+        ) : (
+          <div className="space-y-6">
+            {detailError && <p className="text-sm text-red-300">{detailError}</p>}
+
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-semibold text-slate-50">{selectedUser.display_name || t('adminUsers.noName')}</h2>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      isUserSuspended(selectedUser) ? 'bg-amber-500/15 text-amber-200' : 'bg-emerald-500/15 text-emerald-200'
+                    }`}
+                  >
+                    {isUserSuspended(selectedUser) ? t('adminUsers.statusSuspended') : t('adminUsers.statusActive')}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-slate-300">{selectedUser.email || '-'}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(selectedUser.providers || []).map((provider) => (
+                  <span key={provider} className="rounded-full border border-slate-600 px-2 py-0.5 text-xs text-slate-300">
+                    {provider}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-2 xl:grid-cols-4">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.createdAt')}</p>
+                <p className="mt-1 break-all">{formatDate(selectedUser.created_at, locale)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.lastSignIn')}</p>
+                <p className="mt-1 break-all">{formatDate(selectedUser.last_sign_in_at, locale)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.emailConfirmedAt')}</p>
+                <p className="mt-1 break-all">{formatDate(selectedUser.email_confirmed_at, locale)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.authUserId')}</p>
+                <p className="mt-1 break-all text-xs text-slate-400">{selectedUser.id}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.habits')}</p>
+                <p className="mt-2 text-xl font-semibold text-slate-50">{selectedUser.stats?.habits || 0}</p>
+              </div>
+              <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.projects')}</p>
+                <p className="mt-2 text-xl font-semibold text-slate-50">{selectedUser.stats?.projects || 0}</p>
+              </div>
+              <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.tasks')}</p>
+                <p className="mt-2 text-xl font-semibold text-slate-50">{selectedUser.stats?.tasks || 0}</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {t('adminUsers.completedTasks', { count: selectedUser.stats?.completed_tasks || 0 })}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.focusSessions')}</p>
+                <p className="mt-2 text-xl font-semibold text-slate-50">{selectedUser.stats?.focus_sessions || 0}</p>
+              </div>
+              <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{t('adminUsers.focusTime')}</p>
+                <p className="mt-2 text-xl font-semibold text-slate-50">{formatMinutesHuman(selectedUser.stats?.focus_minutes || 0)}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-2">
+              <DetailSection title={t('adminUsers.recentProjects')} emptyLabel={t('adminUsers.noProjects')} hasItems={detail?.projects?.length}>
+                <div className="space-y-2">
+                  {detail?.projects?.map((project) => (
+                    <div key={project.id} className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-slate-100">{project.title}</p>
+                        <span className="text-xs text-slate-400">{project.status}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">{formatDate(project.updated_at || project.created_at, locale)}</p>
+                    </div>
+                  ))}
+                </div>
+              </DetailSection>
+
+              <DetailSection title={t('adminUsers.recentTasks')} emptyLabel={t('adminUsers.noTasks')} hasItems={detail?.tasks?.length}>
+                <div className="space-y-2">
+                  {detail?.tasks?.map((task) => (
+                    <div key={task.id} className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-slate-100">{task.title}</p>
+                        <span className="text-xs text-slate-400">{task.status}</span>
+                      </div>
+                      {task.project_title && <p className="mt-1 text-xs text-slate-400">{t('adminUsers.projectLabel', { value: task.project_title })}</p>}
+                      {task.time_spent_minutes ? (
+                        <p className="mt-1 text-xs text-slate-400">{t('adminUsers.timeSpent', { count: task.time_spent_minutes })}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </DetailSection>
+
+              <DetailSection title={t('adminUsers.recentHabits')} emptyLabel={t('adminUsers.noHabits')} hasItems={detail?.habits?.length}>
+                <div className="space-y-2">
+                  {detail?.habits?.map((habit) => (
+                    <div key={habit.id} className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-slate-100">{habit.title}</p>
+                        <span className="text-xs text-slate-400">{habit.is_active ? t('adminUsers.statusActive') : t('adminUsers.inactive')}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">{formatDate(habit.updated_at || habit.created_at, locale)}</p>
+                    </div>
+                  ))}
+                </div>
+              </DetailSection>
+
+              <DetailSection
+                title={t('adminUsers.recentFocusSessions')}
+                emptyLabel={t('adminUsers.noFocusSessions')}
+                hasItems={detail?.focusSessions?.length}
+              >
+                <div className="space-y-2">
+                  {detail?.focusSessions?.map((session) => (
+                    <div key={session.id} className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-slate-100">{formatMinutesHuman(session.duration_minutes || 0)}</p>
+                        <span className="text-xs text-slate-400">{session.date}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">{t('adminUsers.focusDate', { value: session.date || '-' })}</p>
+                    </div>
+                  ))}
+                </div>
+              </DetailSection>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

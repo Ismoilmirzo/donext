@@ -19,7 +19,7 @@ async function ensureProfile(user) {
       {
         id: user.id,
         display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || translate(getStoredLocale(), 'common.defaultUser'),
-        onboarding_done: true,
+        onboarding_done: false,
       },
       { onConflict: 'id' }
     )

@@ -18,6 +18,7 @@ This file is the source of truth for publishing and updating the public DoNext s
 - Build-time repo variables required:
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
+  - `VITE_ADMIN_EMAILS`
 - Repo must stay public on the current GitHub plan for Pages to work.
 
 ## How publishing works now
@@ -81,6 +82,7 @@ curl.exe -s "https://api.github.com/repos/$user/donext/actions/variables" `
 Expected variable names:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+- `VITE_ADMIN_EMAILS`
 
 ## Standard update flow
 
@@ -111,6 +113,7 @@ The newest `Deploy GitHub Pages` run should move from `queued` or `in_progress` 
 5. Verify production:
 ```powershell
 Invoke-WebRequest -Uri 'https://donext.uz' -UseBasicParsing
+Invoke-WebRequest -Uri 'https://donext.uz/auth/' -UseBasicParsing
 Invoke-WebRequest -Uri 'https://donext.uz/projects' -UseBasicParsing
 ```
 Expected: HTTP `200` for both.
@@ -162,6 +165,15 @@ For that fallback:
 
 - Route pages such as `/projects` return 404:
   - Ensure the workflow still copies `dist/index.html` to `dist/404.html`.
+
+- Google sign-in is disabled or returns to a blank/404 callback:
+  - Supabase Auth must have Google provider enabled.
+  - The callback URL used by the app is `https://donext.uz/auth/`.
+  - Add these redirect URLs where relevant:
+    - `https://donext.uz/auth/`
+    - `https://ismoilmirzo.github.io/donext/auth/`
+    - `http://localhost:5173/auth/`
+  - Ensure the build still publishes `dist/auth/index.html`.
 
 - `http://donext.uz` does not redirect to HTTPS:
   - Re-run the Pages update with `https_enforced: true`.

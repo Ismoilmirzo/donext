@@ -13,3 +13,7 @@ fs.copyFileSync(indexPath, path.join(distDir, '404.html'));
 const privacyDir = path.join(distDir, 'privacy');
 fs.mkdirSync(privacyDir, { recursive: true });
 fs.copyFileSync(indexPath, path.join(privacyDir, 'index.html'));
+
+const authDir = path.join(distDir, 'auth');
+fs.mkdirSync(authDir, { recursive: true });
+fs.copyFileSync(indexPath, path.join(authDir, 'index.html'));

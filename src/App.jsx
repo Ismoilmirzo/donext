@@ -41,7 +41,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/auth"
+          path="/auth/*"
           element={
             <PublicOnlyRoute>
               <AuthPage />

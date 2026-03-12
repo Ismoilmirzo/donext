@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -18,6 +18,43 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [googleEnabled, setGoogleEnabled] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAuthSettings() {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnonKey) return;
+
+      try {
+        const response = await fetch(`${supabaseUrl}/auth/v1/settings`, {
+          headers: { apikey: supabaseAnonKey },
+        });
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        if (active) {
+          setGoogleEnabled(Boolean(payload?.external?.google));
+        }
+      } catch {
+        if (active) {
+          setGoogleEnabled(null);
+        }
+      }
+    }
+
+    void loadAuthSettings();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function getAuthRedirectUrl() {
+    return new URL('/auth/', window.location.origin).toString();
+  }
 
   if (user) return <Navigate to="/habits" replace />;
 
@@ -28,7 +65,7 @@ export default function AuthPage() {
     }
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth`,
+      redirectTo: getAuthRedirectUrl(),
     });
     if (resetError) {
       setError(resetError.message);
@@ -39,10 +76,17 @@ export default function AuthPage() {
 
   async function handleGoogleAuth() {
     setError('');
+    setMessage('');
+
+    if (googleEnabled === false) {
+      setError(t('auth.googleDisabled'));
+      return;
+    }
+
     setLoading(true);
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth` },
+      options: { redirectTo: getAuthRedirectUrl() },
     });
     if (oauthError) setError(oauthError.message);
     setLoading(false);
@@ -150,9 +194,10 @@ export default function AuthPage() {
           <div className="h-px flex-1 bg-slate-700"></div>
         </div>
 
-        <Button variant="secondary" className="w-full" onClick={handleGoogleAuth} disabled={loading}>
+        <Button variant="secondary" className="w-full" onClick={handleGoogleAuth} disabled={loading || googleEnabled === false}>
           {t('auth.continueWithGoogle')}
         </Button>
+        {googleEnabled === false && <p className="mt-3 text-sm text-amber-300">{t('auth.googleDisabled')}</p>}
 
         {mode === 'login' && (
           <button onClick={handleForgotPassword} className="mt-4 text-sm text-slate-400 hover:text-slate-200">
