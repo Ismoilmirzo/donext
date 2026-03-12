@@ -7,128 +7,147 @@ This file is the source of truth for publishing and updating the public DoNext s
 - App repo: `https://github.com/Ismoilmirzo/donext`
 - Live URL: `https://donext.uz`
 - Backup Pages URL: `https://ismoilmirzo.github.io/donext/`
-- Pages source: `gh-pages` branch, root path (`/`)
-- Custom domain is preserved by `public/CNAME`.
-- `donext` must be public on current plan for Pages to work.
+- Pages source: GitHub Actions workflow from `main`
+- Workflow file: `.github/workflows/deploy-pages.yml`
+- Build-time repo variables required:
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
+- Repo must stay public on the current GitHub plan for Pages to work.
 
-## Important rules
+## How publishing works now
 
-- Do not commit secrets (`.env`, service keys, auth tokens).
-- Build from the latest `main`.
-- Always copy `index.html` to `404.html` for SPA routing.
-- Keep `.nojekyll` in published output.
+- Every push to `main` triggers the Pages workflow automatically.
+- The workflow installs dependencies with `npm ci`, runs `npm run build`, copies `dist/index.html` to `dist/404.html`, uploads `dist`, and deploys it to Pages.
+- `404.html` is required because the app uses `BrowserRouter` and needs SPA fallback handling.
 
-## One-time checks
+## One-time setup checks
 
-1. Repo visibility must be public:
+Run from repo root (`C:\Users\Asus\onedrive\desktop\momentum`).
+
+1. Get the current GitHub token from git credentials:
 ```powershell
 $req = "protocol=https`nhost=github.com`n`n"
 $credRaw = $req | git credential fill
-$token = (($credRaw -split "`n" | ? { $_ -like 'password=*' }) -replace '^password=','')
-$user = (($credRaw -split "`n" | ? { $_ -like 'username=*' }) -replace '^username=','')
+$token = (($credRaw -split "`n" | Where-Object { $_ -like 'password=*' }) -replace '^password=','')
+$user = (($credRaw -split "`n" | Where-Object { $_ -like 'username=*' }) -replace '^username=','')
+```
+
+2. Confirm the repo is public:
+```powershell
 curl.exe -s "https://api.github.com/repos/$user/donext" `
   -H "Authorization: token $token" `
   -H "Accept: application/vnd.github+json"
 ```
 Check `"private": false`.
 
-2. Pages source should be `gh-pages`:
+3. Confirm Pages is configured for workflow deployment and HTTPS:
 ```powershell
-$body = '{"source":{"branch":"gh-pages","path":"/"}}'
-curl.exe -s -X POST "https://api.github.com/repos/$user/donext/pages" `
+curl.exe -s "https://api.github.com/repos/$user/donext/pages" `
   -H "Authorization: token $token" `
   -H "Accept: application/vnd.github+json" `
-  -H "X-GitHub-Api-Version: 2022-11-28" `
-  -d $body
+  -H "X-GitHub-Api-Version: 2026-03-10"
 ```
-If POST returns 409/422, run the same with `-X PUT`.
+Expected:
+- `"build_type": "workflow"`
+- `"cname": "donext.uz"`
+- `"https_enforced": true`
 
-## Standard update flow (custom domain root)
+4. Confirm repo variables exist:
+```powershell
+curl.exe -s "https://api.github.com/repos/$user/donext/actions/variables" `
+  -H "Authorization: token $token" `
+  -H "Accept: application/vnd.github+json" `
+  -H "X-GitHub-Api-Version: 2026-03-10"
+```
+Expected variable names:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-Run from repo root (`C:\Users\Asus\onedrive\desktop\momentum`):
+## Standard update flow
 
-1. Build:
+1. Make code changes on `main`.
+
+2. Verify locally:
 ```powershell
 npm run lint
 npm run build
 ```
 
-2. Prepare temporary publish folder:
+3. Push:
 ```powershell
-$ts = Get-Date -Format 'yyyyMMddHHmmss'
-$deployDir = ".gh-pages-tmp-$ts"
-New-Item -ItemType Directory -Path $deployDir | Out-Null
-Copy-Item -Path 'dist\*' -Destination $deployDir -Recurse -Force
-Copy-Item -Path "$deployDir\index.html" -Destination "$deployDir\404.html" -Force
-New-Item -ItemType File -Path "$deployDir\.nojekyll" -Force | Out-Null
+git add .
+git commit -m "feat: describe change"
+git push origin main
 ```
 
-3. Push to `gh-pages`:
+4. Watch the deploy:
 ```powershell
-git init -b gh-pages $deployDir
-git -C $deployDir add .
-git -C $deployDir commit -m "deploy: github pages"
-git -C $deployDir remote add origin https://github.com/Ismoilmirzo/donext.git
-git -C $deployDir push -f origin gh-pages
+curl.exe -s "https://api.github.com/repos/$user/donext/actions/runs?per_page=5" `
+  -H "Authorization: token $token" `
+  -H "Accept: application/vnd.github+json" `
+  -H "X-GitHub-Api-Version: 2026-03-10"
 ```
+The newest `Deploy GitHub Pages` run should move from `queued` or `in_progress` to `completed` with success.
 
-4. Verify:
+5. Verify production:
 ```powershell
 Invoke-WebRequest -Uri 'https://donext.uz' -UseBasicParsing
+Invoke-WebRequest -Uri 'https://donext.uz/projects' -UseBasicParsing
 ```
-Expected: HTTP `200`.
+Expected: HTTP `200` for both.
 
-5. Cleanup:
+## If build variables ever need updating
+
+This app reads Supabase values at build time. Update the repository variables instead of committing `.env`.
+
+Example:
 ```powershell
-cmd /c rmdir /s /q $deployDir
+$body = '{"name":"VITE_SUPABASE_URL","value":"https://your-project.supabase.co"}'
+curl.exe -s -X PATCH "https://api.github.com/repos/$user/donext/actions/variables/VITE_SUPABASE_URL" `
+  -H "Authorization: token $token" `
+  -H "Accept: application/vnd.github+json" `
+  -H "X-GitHub-Api-Version: 2026-03-10" `
+  -d $body
 ```
+
+If the variable does not exist yet, create it with `POST` to:
+`https://api.github.com/repos/$user/donext/actions/variables`
 
 ## Fallback mode (private code repo + public hosting repo)
 
-Use this if `donext` must stay private on a plan that does not allow private Pages.
+Use this only if `donext` must stay private on a plan that does not allow Pages on the code repo.
 
 - Private code repo: `donext`
 - Public hosting repo: `donext-site`
 - Public URL: `https://ismoilmirzo.github.io/donext-site/`
 
-Deploy steps:
-
-1. Build with overridden base:
-```powershell
-npx vite build --base=/donext-site/
-```
-
-2. Repeat the same publish flow as above, but push to:
-`https://github.com/Ismoilmirzo/donext-site.git`
-
-3. Verify:
-```powershell
-Invoke-WebRequest -Uri 'https://ismoilmirzo.github.io/donext-site/' -UseBasicParsing
-```
+For that fallback:
+- build with `npx vite build --base=/donext-site/`
+- deploy the built output to the public repo instead
 
 ## Troubleshooting
 
-- `404` on `donext.uz` with asset requests pointing to `/donext/assets/...`:
-  - The app was built with the wrong Vite base path.
-  - `vite.config.js` must use `base: '/'`.
+- White page, assets trying to load from `/donext/assets/...`:
+  - `vite.config.js` was built with the wrong base.
+  - Keep `base: '/'` for `donext.uz`.
 
-- `404` on `/donext/`:
-  - Confirm repo is public.
-  - Confirm Pages is enabled and source is `gh-pages`.
-  - Wait 1-2 minutes after push; GitHub can lag.
+- Pages does not update after push:
+  - Check the latest `Deploy GitHub Pages` workflow run.
+  - Make sure Pages is set to `"build_type": "workflow"`, not `"legacy"`.
 
-- API says: `Your current plan does not support GitHub Pages for this repository`:
-  - Repo is private and plan disallows private Pages.
-  - Make repo public, or deploy via the `donext-site` fallback.
+- Workflow fails during build with missing Supabase env:
+  - Repo variables are missing or wrong.
+  - Recheck `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 
-- Route pages (for example `/projects`) show 404:
-  - Ensure `404.html` is present and is copied from `index.html`.
+- Route pages such as `/projects` return 404:
+  - Ensure the workflow still copies `dist/index.html` to `dist/404.html`.
+
+- `donext.uz` opens over HTTP:
+  - Confirm `"https_enforced": true` in the Pages API response.
 
 ## Notes about this project config
 
-- `vite.config.js` uses:
-  - `base: '/'`
-- `src/App.jsx` uses:
-  - `<BrowserRouter basename={import.meta.env.BASE_URL}>`
+- `vite.config.js` uses `base: '/'`
+- `src/App.jsx` uses `<BrowserRouter basename={import.meta.env.BASE_URL}>`
 
 For the `donext.uz` custom domain, keep Vite base at `/`.
