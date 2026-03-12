@@ -38,6 +38,7 @@ const translations = {
       language: 'Language',
       english: 'English',
       uzbek: 'Uzbek',
+      privacyPolicy: 'Privacy Policy',
       appName: 'DoNext',
       defaultUser: 'User',
     },
@@ -93,6 +94,7 @@ const translations = {
       about: 'About',
       version: 'Version: 1.0',
       sendFeedback: 'Send Feedback',
+      privacyPolicyDescription: 'Read how DoNext handles account data, app content, and browser storage.',
       saved: 'Saved',
       language: 'Language',
       languageDescription: 'Choose the app language for this browser.',
@@ -254,6 +256,127 @@ const translations = {
       title: 'Something went wrong',
       body: 'Please refresh the page. If this keeps happening, send feedback from Settings.',
     },
+    privacy: {
+      title: 'Privacy Policy',
+      effectiveDateLabel: 'Effective date',
+      effectiveDate: 'March 12, 2026',
+      intro: 'This Privacy Policy explains what DoNext collects, how it uses that information, where it is stored, and how you can control or delete your data when using the app.',
+      highlightsTitle: 'At a glance',
+      highlights: [
+        'DoNext stores the account and productivity data you add so the app can run habits, projects, tasks, focus tracking, and account settings.',
+        'DoNext currently does not use advertising trackers or sell personal information.',
+        'If you use Google Sign-In, Google handles authentication and supplies basic account data to complete sign-in.',
+        'You can request account deletion from Settings, and the app will delete the related user account and app data through Supabase.',
+      ],
+      backToHome: 'Back to Home',
+      backToSettings: 'Back to Settings',
+      sections: [
+        {
+          title: '1. Information We Collect',
+          paragraphs: [
+            'We collect information you provide directly when you create or use an account in DoNext.',
+          ],
+          bullets: [
+            'Account data such as your email address, display name, and basic authentication identifiers.',
+            'If you choose Google Sign-In, we receive the information needed to authenticate you, such as your Google account email and profile name.',
+            'App content you create, including habits, habit completion logs, projects, tasks, focus-session records, and related notes or descriptions.',
+            'Basic browser-side storage needed to keep you signed in and remember preferences such as language selection.',
+          ],
+        },
+        {
+          title: '2. How We Use Information',
+          paragraphs: [
+            'We use your information only to operate and improve the core DoNext experience.',
+          ],
+          bullets: [
+            'Create and manage your account.',
+            'Store and display your habits, projects, tasks, and focus history.',
+            'Keep your session active on your device and restore your language preference.',
+            'Support account recovery, password reset, and account deletion flows.',
+            'Respond to support or privacy questions you send to us.',
+          ],
+        },
+        {
+          title: '3. Where Your Data Is Stored',
+          paragraphs: [
+            'DoNext uses Supabase to provide authentication, database storage, and account-deletion infrastructure.',
+            'Your information may be processed on infrastructure used by Supabase and related service providers. That may include storage or processing outside your home country.',
+          ],
+          bullets: [],
+        },
+        {
+          title: '4. Browser Storage and Sessions',
+          paragraphs: [
+            'DoNext stores a persistent authentication session in your browser through Supabase so you do not need to log in on every page load.',
+            'The app also stores your selected language in local storage on the device or browser you use.',
+          ],
+          bullets: [
+            'These browser-stored values are used for core app functionality, not advertising.',
+            'Clearing browser storage may sign you out and reset local preferences.',
+          ],
+        },
+        {
+          title: '5. Sharing and Disclosure',
+          paragraphs: [
+            'We do not sell your personal information.',
+            'We only share information with service providers needed to run the app or when required by law.',
+          ],
+          bullets: [
+            'Supabase for authentication, storage, and account operations.',
+            'Google, only if you choose Google Sign-In.',
+            'Authorities or legal counterparties if we are legally required to disclose information.',
+          ],
+        },
+        {
+          title: '6. Data Retention',
+          paragraphs: [
+            'We retain your account information and app content for as long as your account remains active, unless a shorter retention period is required by law or a longer period is necessary to resolve abuse, fraud, or security issues.',
+          ],
+          bullets: [
+            'If you delete your account, DoNext sends a deletion request through Supabase to remove the user account and related app data associated with it.',
+            'Backups or cached infrastructure copies may persist temporarily for operational reasons before being overwritten or removed.',
+          ],
+        },
+        {
+          title: '7. Your Choices and Rights',
+          paragraphs: [
+            'You can review and change some account information inside the app.',
+          ],
+          bullets: [
+            'Update your display name from Settings.',
+            'Delete your account from Settings by confirming the deletion prompt.',
+            'Contact us if you have a privacy question or need help with your data.',
+          ],
+        },
+        {
+          title: '8. Children’s Privacy',
+          paragraphs: [
+            'DoNext is not intended for children under 13, and we do not knowingly collect personal information from children under 13.',
+            'If you believe a child has provided personal information to DoNext, contact us so we can review and remove it if appropriate.',
+          ],
+          bullets: [],
+        },
+        {
+          title: '9. Do Not Track Signals',
+          paragraphs: [
+            'DoNext does not currently support a separate response to browser Do Not Track signals.',
+            'Because the app does not use advertising trackers or cross-site behavioral tracking, those signals do not currently change how the service works.',
+          ],
+          bullets: [],
+        },
+        {
+          title: '10. Changes to This Policy',
+          paragraphs: [
+            'We may update this Privacy Policy from time to time as the app changes.',
+            'When we make a material change, we will update the effective date on this page.',
+          ],
+          bullets: [],
+        },
+      ],
+      contactTitle: 'Contact',
+      contactBody: 'For privacy or data questions about DoNext, contact us through Telegram.',
+      contactLinkLabel: 'Message @ismoilmirzouz',
+    },
   },
   uz: {
     nav: {
@@ -286,6 +409,7 @@ const translations = {
       language: 'Til',
       english: 'Inglizcha',
       uzbek: "O'zbekcha",
+      privacyPolicy: 'Maxfiylik siyosati',
       appName: 'DoNext',
       defaultUser: 'Foydalanuvchi',
     },
@@ -341,6 +465,7 @@ const translations = {
       about: 'Haqida',
       version: 'Versiya: 1.0',
       sendFeedback: 'Fikr yuborish',
+      privacyPolicyDescription: "DoNext akkaunt ma'lumotlari, ilova ichidagi kontent va brauzer xotirasidan qanday foydalanishini o'qing.",
       saved: 'Saqlandi',
       language: 'Til',
       languageDescription: 'Bu brauzer uchun ilova tilini tanlang.',
@@ -501,6 +626,127 @@ const translations = {
     error: {
       title: 'Xatolik yuz berdi',
       body: 'Sahifani yangilang. Muammo davom etsa, Sozlamalar orqali fikr yuboring.',
+    },
+    privacy: {
+      title: 'Maxfiylik siyosati',
+      effectiveDateLabel: 'Amal qilish sanasi',
+      effectiveDate: '2026-yil 12-mart',
+      intro: "Ushbu Maxfiylik siyosati DoNext qanday ma'lumotlarni yig'ishi, ulardan qanday foydalanishi, qayerda saqlashi va ilovadan foydalanganda ma'lumotlaringizni qanday boshqarish yoki o'chirish mumkinligini tushuntiradi.",
+      highlightsTitle: 'Qisqacha',
+      highlights: [
+        "DoNext odatlar, loyihalar, vazifalar, fokus kuzatuvi va akkaunt sozlamalarini ishlatish uchun siz kiritgan akkaunt va samaradorlik ma'lumotlarini saqlaydi.",
+        "DoNext hozircha reklama trekerlaridan foydalanmaydi va shaxsiy ma'lumotlarni sotmaydi.",
+        "Agar Google orqali kirsangiz, autentifikatsiyani Google bajaradi va kirishni yakunlash uchun asosiy akkaunt ma'lumotlarini uzatadi.",
+        "Sozlamalar bo'limidan akkauntni o'chirishni so'rashingiz mumkin, ilova Supabase orqali tegishli akkaunt va ma'lumotlarni o'chiradi.",
+      ],
+      backToHome: 'Bosh sahifaga qaytish',
+      backToSettings: 'Sozlamalarga qaytish',
+      sections: [
+        {
+          title: "1. Biz Yig'adigan Ma'lumotlar",
+          paragraphs: [
+            "DoNext akkaunt yaratganingizda yoki undan foydalanganingizda to'g'ridan-to'g'ri kiritgan ma'lumotlaringizni yig'adi.",
+          ],
+          bullets: [
+            "Email manzili, ko'rinadigan ism va asosiy autentifikatsiya identifikatorlari kabi akkaunt ma'lumotlari.",
+            "Agar Google orqali kirsangiz, sizni autentifikatsiya qilish uchun kerak bo'ladigan Google akkaunt emailingiz va profil ismingiz kabi ma'lumotlarni olamiz.",
+            "Siz yaratgan ilova ichidagi kontent: odatlar, odat bajarilish loglari, loyihalar, vazifalar, fokus sessiyalari va ularga tegishli izohlar yoki tavsiflar.",
+            "Sizni tizimda ushlab turish va til tanlovini eslab qolish uchun kerak bo'ladigan brauzer xotirasi ma'lumotlari.",
+          ],
+        },
+        {
+          title: "2. Ma'lumotlardan Qanday Foydalanamiz",
+          paragraphs: [
+            "Biz ma'lumotlardan faqat DoNext'ning asosiy funksiyalarini ishlatish va yaxshilash uchun foydalanamiz.",
+          ],
+          bullets: [
+            "Akkaunt yaratish va boshqarish.",
+            "Odatlar, loyihalar, vazifalar va fokus tarixini saqlash hamda ko'rsatish.",
+            "Qurilmangizda sessiyani faol saqlash va til tanlovini tiklash.",
+            "Parolni tiklash, akkauntni qayta tiklash va akkauntni o'chirish jarayonlarini qo'llab-quvvatlash.",
+            "Yuborgan support yoki maxfiylik savollariga javob berish.",
+          ],
+        },
+        {
+          title: "3. Ma'lumotlaringiz Qayerda Saqlanadi",
+          paragraphs: [
+            "DoNext autentifikatsiya, ma'lumotlar bazasi va akkauntni o'chirish infratuzilmasi uchun Supabase'dan foydalanadi.",
+            "Ma'lumotlaringiz Supabase va uning tegishli xizmat ko'rsatuvchi provayderlari infratuzilmasida qayta ishlanishi mumkin. Bu sizning mamlakatingiz tashqarisida saqlash yoki qayta ishlashni ham o'z ichiga olishi mumkin.",
+          ],
+          bullets: [],
+        },
+        {
+          title: '4. Brauzer Xotirasi va Sessiyalar',
+          paragraphs: [
+            "DoNext har safar qayta kirishingizga hojat qolmasligi uchun Supabase orqali brauzeringizda doimiy autentifikatsiya sessiyasini saqlaydi.",
+            "Ilova siz ishlatayotgan qurilma yoki brauzerda tanlangan tilni ham local storage orqali saqlaydi.",
+          ],
+          bullets: [
+            "Brauzerda saqlanadigan bu qiymatlar reklama uchun emas, ilovaning asosiy ishlashi uchun ishlatiladi.",
+            "Brauzer xotirasini tozalash sizni tizimdan chiqarishi va mahalliy sozlamalarni tiklashi mumkin.",
+          ],
+        },
+        {
+          title: "5. Ulashish va Oshkor Qilish",
+          paragraphs: [
+            "Biz shaxsiy ma'lumotlaringizni sotmaymiz.",
+            "Ma'lumotlarni faqat ilovani ishlatish uchun zarur bo'lgan xizmat ko'rsatuvchilar bilan yoki qonun talab qilganda ulashamiz.",
+          ],
+          bullets: [
+            "Autentifikatsiya, saqlash va akkaunt amallari uchun Supabase.",
+            "Faqat Google orqali kirishni tanlasangiz, Google.",
+            "Qonuniy talab bo'lsa, vakolatli organlar yoki huquqiy tomonlar.",
+          ],
+        },
+        {
+          title: "6. Ma'lumotlarni Saqlash Muddati",
+          paragraphs: [
+            "Agar qonun qisqaroq muddatni talab qilmasa yoki firibgarlik, suiiste'mol va xavfsizlik holatlarini ko'rib chiqish uchun uzoqroq muddat zarur bo'lmasa, akkauntingiz faol bo'lgan vaqt davomida akkaunt ma'lumotlari va ilovadagi kontentingiz saqlanadi.",
+          ],
+          bullets: [
+            "Akkauntingizni o'chirsangiz, DoNext Supabase orqali shu akkauntga bog'liq foydalanuvchi akkaunti va ilova ma'lumotlarini o'chirish so'rovini yuboradi.",
+            "Zaxira nusxalar yoki keshlangan infratuzilma nusxalari operatsion sabablarga ko'ra vaqtincha saqlanib turishi, keyin esa o'chirilishi yoki ustidan yozilishi mumkin.",
+          ],
+        },
+        {
+          title: "7. Sizning Tanlovlaringiz va Huquqlaringiz",
+          paragraphs: [
+            "Ba'zi akkaunt ma'lumotlarini ilova ichida ko'rishingiz va o'zgartirishingiz mumkin.",
+          ],
+          bullets: [
+            "Sozlamalarda ko'rinadigan ismingizni yangilang.",
+            "Sozlamalarda tasdiqlash oynasi orqali akkauntingizni o'chiring.",
+            "Maxfiylik bo'yicha savol yoki ma'lumotlaringiz bo'yicha yordam kerak bo'lsa, biz bilan bog'laning.",
+          ],
+        },
+        {
+          title: "8. Bolalar Maxfiyligi",
+          paragraphs: [
+            "DoNext 13 yoshgacha bo'lgan bolalar uchun mo'ljallanmagan va biz 13 yoshgacha bo'lgan bolalardan ataylab shaxsiy ma'lumot yig'maymiz.",
+            "Agar bola DoNext'ga shaxsiy ma'lumot yuborgan deb hisoblasangiz, uni ko'rib chiqish va kerak bo'lsa o'chirishimiz uchun biz bilan bog'laning.",
+          ],
+          bullets: [],
+        },
+        {
+          title: '9. Do Not Track Signallari',
+          paragraphs: [
+            "DoNext hozircha brauzerning Do Not Track signallariga alohida javob mexanizmini qo'llamaydi.",
+            "Ilova reklama trekerlari yoki saytlararo xulq-atvor kuzatuvidan foydalanmagani uchun bu signallar xizmat ishlashiga hozircha alohida ta'sir qilmaydi.",
+          ],
+          bullets: [],
+        },
+        {
+          title: "10. Ushbu Siyosatdagi O'zgarishlar",
+          paragraphs: [
+            "Ilova o'zgargan sari ushbu Maxfiylik siyosatini vaqti-vaqti bilan yangilashimiz mumkin.",
+            "Muhim o'zgarish bo'lsa, ushbu sahifadagi amal qilish sanasini yangilaymiz.",
+          ],
+          bullets: [],
+        },
+      ],
+      contactTitle: "Bog'lanish",
+      contactBody: "DoNext bo'yicha maxfiylik yoki ma'lumot savollari uchun Telegram orqali bog'laning.",
+      contactLinkLabel: '@ismoilmirzouz ga yozish',
     },
   },
 };

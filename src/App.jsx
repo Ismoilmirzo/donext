@@ -11,6 +11,7 @@ const AuthPage = lazy(() => import('./pages/AuthPage'));
 const FocusPage = lazy(() => import('./pages/FocusPage'));
 const HabitsPage = lazy(() => import('./pages/HabitsPage'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage'));
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -46,6 +47,7 @@ function AppRoutes() {
             </PublicOnlyRoute>
           }
         />
+        <Route path="/privacy" element={<PrivacyPage />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
