@@ -150,7 +150,12 @@ export default function SettingsPage() {
       <Card className="space-y-3">
         <h2 className="text-base font-semibold text-slate-100">{t('settings.about')}</h2>
         <p className="text-sm text-slate-300">{t('settings.version')}</p>
-        <a className="text-sm text-emerald-400 hover:text-emerald-300" href="mailto:feedback@donext.app">
+        <a
+          className="text-sm text-emerald-400 hover:text-emerald-300"
+          href="https://t.me/ismoilmirzouz"
+          target="_blank"
+          rel="noreferrer"
+        >
           {t('settings.sendFeedback')}
         </a>
       </Card>
