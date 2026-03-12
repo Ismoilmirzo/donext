@@ -9,11 +9,11 @@ This file is the source of truth for publishing and updating the public DoNext s
 - Backup Pages URL: `https://ismoilmirzo.github.io/donext/`
 - Automated deploy trigger: GitHub Actions workflow from `main`
 - Workflow file: `.github/workflows/deploy-pages.yml`
-- GitHub Pages API currently still reports:
-  - `build_type: legacy`
-  - `source.branch: gh-pages`
-- `github-pages` environment must allow deployments from:
-  - `gh-pages`
+- GitHub Pages API should report:
+  - `build_type: workflow`
+  - `source.branch: main`
+  - `https_enforced: true`
+- `github-pages` environment must allow deployments only from:
   - `main`
 - Build-time repo variables required:
   - `VITE_SUPABASE_URL`
@@ -25,7 +25,7 @@ This file is the source of truth for publishing and updating the public DoNext s
 - Every push to `main` triggers the Pages workflow automatically.
 - The workflow installs dependencies with `npm ci`, runs `npm run build`, copies `dist/index.html` to `dist/404.html`, uploads `dist`, and deploys it to the `github-pages` environment.
 - `404.html` is required because the app uses `BrowserRouter` and needs SPA fallback handling.
-- On this repository, automated deployments work after `main` is explicitly added to the `github-pages` environment branch policy.
+- The custom domain is enforced over HTTPS, so `http://donext.uz` redirects to `https://donext.uz/`.
 
 ## One-time setup checks
 
@@ -47,7 +47,7 @@ curl.exe -s "https://api.github.com/repos/$user/donext" `
 ```
 Check `"private": false`.
 
-3. Confirm Pages site exists and the custom domain is correct:
+3. Confirm Pages is configured for workflow deployment and HTTPS:
 ```powershell
 curl.exe -s "https://api.github.com/repos/$user/donext/pages" `
   -H "Authorization: token $token" `
@@ -55,7 +55,10 @@ curl.exe -s "https://api.github.com/repos/$user/donext/pages" `
   -H "X-GitHub-Api-Version: 2026-03-10"
 ```
 Expected:
+- `"build_type": "workflow"`
+- `"source.branch": "main"`
 - `"cname": "donext.uz"`
+- `"https_enforced": true`
 - `"status": "built"`
 
 4. Confirm the `github-pages` environment allows `main`:
@@ -66,7 +69,6 @@ curl.exe -s "https://api.github.com/repos/$user/donext/environments/github-pages
   -H "X-GitHub-Api-Version: 2026-03-10"
 ```
 Expected branch names:
-- `gh-pages`
 - `main`
 
 5. Confirm repo variables exist:
@@ -152,6 +154,7 @@ For that fallback:
   - Check the latest `Deploy GitHub Pages` workflow run.
   - Make sure the `github-pages` environment allows `main`.
   - Confirm repo variables still exist.
+  - Confirm the Pages API still reports `build_type: workflow`.
 
 - Workflow fails during build with missing Supabase env:
   - Repo variables are missing or wrong.
@@ -159,6 +162,10 @@ For that fallback:
 
 - Route pages such as `/projects` return 404:
   - Ensure the workflow still copies `dist/index.html` to `dist/404.html`.
+
+- `http://donext.uz` does not redirect to HTTPS:
+  - Re-run the Pages update with `https_enforced: true`.
+  - Confirm the Pages API returns `"https_enforced": true`.
 
 ## Notes about this project config
 
