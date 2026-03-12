@@ -1,0 +1,1 @@
+import{j as e}from"./index-SaMGr1kT.js";function d({value:t=0,max:s=100,colorClass:l="bg-emerald-500",className:r=""}){const a=s>0?s:100,n=Math.min(a,Math.max(0,t))/a*100;return e.jsx("div",{className:`h-2 w-full rounded-full bg-slate-700 ${r}`,children:e.jsx("div",{className:`h-2 rounded-full transition-all ${l}`,style:{width:`${n}%`}})})}export{d as P};
