@@ -2,20 +2,21 @@ import { BarChart3, CheckSquare, FolderKanban, Settings, Zap } from 'lucide-reac
 import { useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLocale } from '../../contexts/LocaleContext';
 import { useProjects } from '../../hooks/useProjects';
 import BottomNav from './BottomNav';
 
-const navLinks = [
-  { to: '/habits', label: 'Habits', Icon: CheckSquare },
-  { to: '/projects', label: 'Projects', Icon: FolderKanban },
-  { to: '/focus', label: 'Focus', Icon: Zap },
-  { to: '/stats', label: 'Stats', Icon: BarChart3 },
-  { to: '/settings', label: 'Settings', Icon: Settings },
-];
-
 export default function AppShell() {
   const { profile } = useAuth();
+  const { t } = useLocale();
   const { checkForStaleProjects } = useProjects();
+  const navLinks = [
+    { to: '/habits', label: t('nav.habits'), Icon: CheckSquare },
+    { to: '/projects', label: t('nav.projects'), Icon: FolderKanban },
+    { to: '/focus', label: t('nav.focus'), Icon: Zap },
+    { to: '/stats', label: t('nav.stats'), Icon: BarChart3 },
+    { to: '/settings', label: t('nav.settings'), Icon: Settings },
+  ];
 
   useEffect(() => {
     void checkForStaleProjects();
@@ -45,7 +46,7 @@ export default function AppShell() {
             ))}
           </nav>
           <p className="mt-auto text-xs text-slate-500">
-            {profile?.display_name ? `Signed in as ${profile.display_name}` : 'One task at a time'}
+            {profile?.display_name ? t('app.signedInAs', { name: profile.display_name }) : t('app.oneTaskAtATime')}
           </p>
         </aside>
 
@@ -53,13 +54,13 @@ export default function AppShell() {
           <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-900/90 px-4 py-3 backdrop-blur md:px-6">
             <div className="mx-auto flex max-w-5xl items-center justify-between">
               <Link to="/habits" className="text-lg font-semibold text-emerald-400 md:hidden">
-                DoNext
+                {t('common.appName')}
               </Link>
               <p className="hidden text-sm text-slate-400 md:block">
-                {profile?.display_name ? `Hi, ${profile.display_name}` : 'Welcome back'}
+                {profile?.display_name ? t('app.hiName', { name: profile.display_name }) : t('app.welcomeBack')}
               </p>
               <NavLink to="/settings" className="text-sm text-slate-400 hover:text-slate-100 md:hidden">
-                Settings
+                {t('nav.settings')}
               </NavLink>
             </div>
           </header>

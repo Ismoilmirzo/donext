@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays, eachDayOfInterval, parseISO, startOfMonth } from 'date-fns';
+import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
@@ -94,7 +95,7 @@ export function useHabits() {
 
   const toggleHabit = useCallback(
     async (habitId, date, currentValue) => {
-      if (!user) return { data: null, error: new Error('Not authenticated') };
+      if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const nextValue = !currentValue;
 
       setLogs((prev) => {
@@ -129,7 +130,7 @@ export function useHabits() {
 
   const addHabit = useCallback(
     async (title, icon = '✓', color = '#10B981') => {
-      if (!user) return { data: null, error: new Error('Not authenticated') };
+      if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const maxSort = habits.reduce((max, habit) => Math.max(max, habit.sort_order || 0), 0);
 
       const { data, error } = await supabase

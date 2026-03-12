@@ -8,6 +8,7 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ProgressBar from '../components/ui/ProgressBar';
+import { useLocale } from '../contexts/LocaleContext';
 import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
 import { formatMinutesHuman } from '../lib/dates';
@@ -15,6 +16,7 @@ import { formatMinutesHuman } from '../lib/dates';
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useLocale();
   const { projects, fetchProjects, updateProject, archiveProject, deleteProject, completeProject } = useProjects();
   const { tasks, loading, addTask, updateTask, reorderTasks } = useTasks(id);
   const [modalOpen, setModalOpen] = useState(false);
@@ -39,7 +41,7 @@ export default function ProjectDetailPage() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  if (loading || !project) return <LoadingSpinner label="Loading project..." />;
+  if (loading || !project) return <LoadingSpinner label={t('projects.loadingProject')} />;
 
   const completed = tasks.filter((task) => task.status === 'completed').length;
   const total = tasks.length;
@@ -76,7 +78,7 @@ export default function ProjectDetailPage() {
       setError(completeError.message);
       return;
     }
-    setToast(`Project complete! Total focus time: ${formatMinutesHuman(totalFocusMinutes)}.`);
+    setToast(t('projects.projectCompleteToast', { value: formatMinutesHuman(totalFocusMinutes) }));
     await fetchProjects();
   }
 
@@ -97,7 +99,7 @@ export default function ProjectDetailPage() {
       <Card>
         <div className="mb-3 flex items-center justify-between gap-3">
           <Link to="/projects" className="text-sm text-slate-400 hover:text-slate-100">
-            ← Back to Projects
+            {t('projects.backToProjects')}
           </Link>
           <ProjectStatusBadge status={project.status} needsReview={project.hasAutoReviewPending} />
         </div>
@@ -108,12 +110,8 @@ export default function ProjectDetailPage() {
             {project.description && <p className="mt-1 text-sm text-slate-400">{project.description}</p>}
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setProjectModalOpen(true)}
-            >
-              Edit Project
+            <Button variant="secondary" size="sm" onClick={() => setProjectModalOpen(true)}>
+              {t('projects.editProject')}
             </Button>
             <Button
               variant="secondary"
@@ -124,13 +122,13 @@ export default function ProjectDetailPage() {
                 else navigate('/projects');
               }}
             >
-              Archive
+              {t('common.archive')}
             </Button>
             <Button
               variant="danger"
               size="sm"
               onClick={async () => {
-                if (!window.confirm('Delete this project and all tasks?')) return;
+                if (!window.confirm(t('projects.deleteProjectConfirm'))) return;
                 const { error: deleteError } = await deleteProject(id);
                 if (deleteError) {
                   setError(deleteError.message);
@@ -139,20 +137,18 @@ export default function ProjectDetailPage() {
                 navigate('/projects', { replace: true });
               }}
             >
-              Delete
+              {t('common.delete')}
             </Button>
           </div>
         </div>
 
         <div className="mt-4 space-y-2">
           <div className="flex justify-between text-xs text-slate-400">
-            <span>
-              {completed}/{total} tasks
-            </span>
+            <span>{t('projects.taskCount', { completed, total })}</span>
             <span>{percent}%</span>
           </div>
           <ProgressBar value={percent} max={100} />
-          <p className="text-xs text-slate-500">Total focus time: {formatMinutesHuman(totalFocusMinutes)}</p>
+          <p className="text-xs text-slate-500">{t('projects.totalFocusTime', { value: formatMinutesHuman(totalFocusMinutes) })}</p>
         </div>
         {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
       </Card>
@@ -179,13 +175,9 @@ export default function ProjectDetailPage() {
             setModalOpen(true);
           }}
         >
-          + Add Task
+          {t('projects.addTask')}
         </Button>
-        {allDone && (
-          <Button onClick={handleCompleteProject}>
-            Mark Project Complete
-          </Button>
-        )}
+        {allDone && <Button onClick={handleCompleteProject}>{t('projects.markProjectComplete')}</Button>}
       </div>
 
       <AddTaskModal

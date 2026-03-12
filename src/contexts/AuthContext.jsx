@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
@@ -17,7 +18,7 @@ async function ensureProfile(user) {
     .upsert(
       {
         id: user.id,
-        display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || translate(getStoredLocale(), 'common.defaultUser'),
         onboarding_done: true,
       },
       { onConflict: 'id' }
@@ -48,7 +49,7 @@ export function AuthProvider({ children }) {
 
   const updateProfile = useCallback(
     async (updates) => {
-      if (!user) return { data: null, error: new Error('Not authenticated') };
+      if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const { data, error } = await supabase
         .from('profiles')
         .update({ ...updates, updated_at: new Date().toISOString() })

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays } from 'date-fns';
+import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
@@ -84,7 +85,7 @@ export function useProjects() {
 
   const createProject = useCallback(
     async (title, description = '', color = '#6366F1') => {
-      if (!user) return { data: null, error: new Error('Not authenticated') };
+      if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const { data, error } = await supabase
         .from('projects')
         .insert({
@@ -166,8 +167,8 @@ export function useProjects() {
       return supabase.from('tasks').insert({
         user_id: user.id,
         project_id: project.id,
-        title: `Review ${project.title} and add next steps`,
-        description: 'Project has been idle for 3 days after all tasks were finished.',
+        title: translate(getStoredLocale(), 'system.staleReviewTitle', { project: project.title }),
+        description: translate(getStoredLocale(), 'system.staleReviewDescription'),
         sort_order: maxSort + 1,
         is_auto_generated: true,
         status: 'pending',

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
@@ -50,7 +51,7 @@ export function useTasks(projectId = null) {
 
   const addTask = useCallback(
     async (targetProjectId, title, description = '', position = 'end') => {
-      if (!user || !targetProjectId) return { data: null, error: new Error('Missing project') };
+      if (!user || !targetProjectId) return { data: null, error: new Error(translate(getStoredLocale(), 'system.missingProject')) };
 
       const current = targetProjectId === projectId ? tasks : [];
       const pending = current.filter((task) => task.status !== 'completed');
@@ -115,7 +116,7 @@ export function useTasks(projectId = null) {
   const completeTask = useCallback(
     async (id, timeSpentMinutes) => {
       const currentTask = tasks.find((task) => task.id === id);
-      if (!currentTask || !user) return { data: null, error: new Error('Task not found') };
+      if (!currentTask || !user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.taskNotFound')) };
 
       const completedAt = new Date().toISOString();
       const { data, error } = await supabase

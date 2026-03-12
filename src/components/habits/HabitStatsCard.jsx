@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
+import { useLocale } from '../../contexts/LocaleContext';
 import Card from '../ui/Card';
 
 export default function HabitStatsCard({ habits = [], logs = [] }) {
+  const { t } = useLocale();
   const rows = useMemo(() => {
     const today = new Date();
     const month = today.getMonth();
@@ -26,7 +28,7 @@ export default function HabitStatsCard({ habits = [], logs = [] }) {
 
   return (
     <Card>
-      <h3 className="text-base font-semibold text-slate-100">Per-Habit Completion</h3>
+      <h3 className="text-base font-semibold text-slate-100">{t('habits.perHabitCompletion')}</h3>
       <div className="mt-3 space-y-3">
         {rows.map((habit) => (
           <div key={habit.id}>

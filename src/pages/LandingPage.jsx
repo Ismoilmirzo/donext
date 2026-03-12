@@ -1,27 +1,30 @@
 import { BarChart3, CheckSquare, FolderKanban, Zap } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-
-const features = [
-  {
-    title: 'Daily Habits',
-    description: 'Check off your habits every day and watch your consistency compound.',
-    Icon: CheckSquare,
-  },
-  {
-    title: 'Random Task Picker',
-    description: 'Hit one button and DoNext picks the next project task for you.',
-    Icon: Zap,
-  },
-  {
-    title: 'Focus Analytics',
-    description: 'Track focus time, project effort, and trend charts in one place.',
-    Icon: BarChart3,
-  },
-];
+import { useLocale } from '../contexts/LocaleContext';
 
 export default function LandingPage() {
   const { user } = useAuth();
+  const { t } = useLocale();
+
+  const features = [
+    {
+      title: t('landing.habitsTitle'),
+      description: t('landing.habitsDescription'),
+      Icon: CheckSquare,
+    },
+    {
+      title: t('landing.randomTitle'),
+      description: t('landing.randomDescription'),
+      Icon: Zap,
+    },
+    {
+      title: t('landing.analyticsTitle'),
+      description: t('landing.analyticsDescription'),
+      Icon: BarChart3,
+    },
+  ];
+
   if (user) return <Navigate to="/habits" replace />;
 
   return (
@@ -30,30 +33,28 @@ export default function LandingPage() {
         <header className="flex items-center justify-between py-4">
           <span className="inline-flex items-center gap-2 text-xl font-bold text-emerald-400">
             <FolderKanban className="h-5 w-5" />
-            DoNext
+            {t('common.appName')}
           </span>
           <Link to="/auth" className="text-sm text-slate-300 hover:text-slate-100">
-            Log in
+            {t('landing.logIn')}
           </Link>
         </header>
 
         <main className="pt-16 text-center">
-          <h1 className="text-4xl font-bold leading-tight sm:text-6xl">Stop overthinking. Start doing.</h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base text-slate-300 sm:text-lg">
-            Track your daily habits. Let the app pick your next task. See your progress in clear, motivating charts.
-          </p>
+          <h1 className="text-4xl font-bold leading-tight sm:text-6xl">{t('landing.headline')}</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-base text-slate-300 sm:text-lg">{t('landing.subheadline')}</p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               to="/auth"
               className="rounded-lg bg-emerald-500 px-6 py-3 font-medium text-white transition-colors hover:bg-emerald-600"
             >
-              Get Started Free →
+              {t('landing.getStarted')}
             </Link>
             <Link
               to="/auth"
               className="rounded-lg border border-slate-600 px-6 py-3 text-slate-200 transition-colors hover:bg-slate-800"
             >
-              Already have an account? Log in
+              {t('landing.alreadyHaveAccount')}
             </Link>
           </div>
         </main>

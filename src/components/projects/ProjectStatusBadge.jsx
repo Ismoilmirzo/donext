@@ -1,3 +1,5 @@
+import { useLocale } from '../../contexts/LocaleContext';
+
 const styles = {
   active: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
   completed: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
@@ -6,13 +8,15 @@ const styles = {
 };
 
 export default function ProjectStatusBadge({ status = 'active', needsReview = false }) {
+  const { t } = useLocale();
+
   if (needsReview) {
-    return <span className={`rounded-full border px-2 py-0.5 text-xs ${styles.review}`}>Needs Review</span>;
+    return <span className={`rounded-full border px-2 py-0.5 text-xs ${styles.review}`}>{t('projectStatus.review')}</span>;
   }
 
   return (
     <span className={`rounded-full border px-2 py-0.5 text-xs ${styles[status] || styles.active}`}>
-      {status[0].toUpperCase() + status.slice(1)}
+      {t(`projectStatus.${status}`)}
     </span>
   );
 }

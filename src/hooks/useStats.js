@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { differenceInCalendarDays } from 'date-fns';
+import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,7 +9,7 @@ export function useStats() {
 
   const getFocusStats = useCallback(
     async (startDate, endDate) => {
-      if (!user) return { data: null, error: new Error('Not authenticated') };
+      if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const { data: sessions, error } = await supabase
         .from('focus_sessions')
         .select('*, project:projects(title,color)')
@@ -26,7 +27,7 @@ export function useStats() {
         if (!byProject[key]) {
           byProject[key] = {
             project_id: session.project_id,
-            title: session.project?.title || 'Unassigned',
+            title: session.project?.title || translate(getStoredLocale(), 'system.unassigned'),
             color: session.project?.color || '#64748b',
             minutes: 0,
           };
@@ -49,7 +50,7 @@ export function useStats() {
 
   const getHabitStats = useCallback(
     async (startDate, endDate) => {
-      if (!user) return { data: null, error: new Error('Not authenticated') };
+      if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const { data: habits, error: habitsError } = await supabase
         .from('habits')
         .select('*')
@@ -87,7 +88,7 @@ export function useStats() {
   );
 
   const getProjectStats = useCallback(async () => {
-    if (!user) return { data: null, error: new Error('Not authenticated') };
+    if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
     const { data: projects, error: projectsError } = await supabase
       .from('projects')
       .select('*')

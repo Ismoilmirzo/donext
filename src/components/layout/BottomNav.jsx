@@ -1,14 +1,16 @@
 import { BarChart3, CheckSquare, FolderKanban, Zap } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
-
-const links = [
-  { to: '/habits', label: 'Habits', Icon: CheckSquare },
-  { to: '/projects', label: 'Projects', Icon: FolderKanban },
-  { to: '/focus', label: 'Focus', Icon: Zap },
-  { to: '/stats', label: 'Stats', Icon: BarChart3 },
-];
+import { useLocale } from '../../contexts/LocaleContext';
 
 export default function BottomNav() {
+  const { t } = useLocale();
+  const links = [
+    { to: '/habits', label: t('nav.habits'), Icon: CheckSquare },
+    { to: '/projects', label: t('nav.projects'), Icon: FolderKanban },
+    { to: '/focus', label: t('nav.focus'), Icon: Zap },
+    { to: '/stats', label: t('nav.stats'), Icon: BarChart3 },
+  ];
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-700 bg-slate-900/95 backdrop-blur md:hidden">
       <div className="mx-auto grid max-w-md grid-cols-4 px-2 py-2">

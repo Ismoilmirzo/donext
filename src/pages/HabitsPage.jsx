@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarCheck2, Plus } from 'lucide-react';
-import { format, startOfMonth } from 'date-fns';
+import { startOfMonth } from 'date-fns';
 import AddHabitModal from '../components/habits/AddHabitModal';
 import HabitList from '../components/habits/HabitList';
 import HabitMonthlyGrid from '../components/habits/HabitMonthlyGrid';
@@ -12,10 +12,13 @@ import Card from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ProgressBar from '../components/ui/ProgressBar';
+import { useLocale } from '../contexts/LocaleContext';
 import { calculateStreak, useHabits } from '../hooks/useHabits';
+import { getLocaleTag } from '../lib/i18n';
 import { toISODate } from '../lib/dates';
 
 export default function HabitsPage() {
+  const { locale, t } = useLocale();
   const {
     habits,
     logs,
@@ -53,6 +56,7 @@ export default function HabitsPage() {
   const total = habits.length;
   const percent = total ? Math.round((completed / total) * 100) : 0;
   const streak = calculateStreak(logs, habits.length, new Date());
+  const todayLabel = new Intl.DateTimeFormat(getLocaleTag(locale), { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date());
 
   async function handleToggle(habit) {
     const currentValue = Boolean(checkedMap[habit.id]);
@@ -79,17 +83,15 @@ export default function HabitsPage() {
     setModalOpen(false);
   }
 
-  if (loading) return <LoadingSpinner label="Loading habits..." />;
+  if (loading) return <LoadingSpinner label={t('habits.loading')} />;
 
   return (
     <div className="space-y-4">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h1 className="text-xl font-semibold text-slate-50">Today · {format(new Date(), 'EEEE, MMM d')}</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              {completed}/{total} habits complete ({percent}%)
-            </p>
+            <h1 className="text-xl font-semibold text-slate-50">{t('habits.title', { date: todayLabel })}</h1>
+            <p className="mt-1 text-sm text-slate-400">{t('habits.summary', { completed, total, percent })}</p>
           </div>
           <Button
             onClick={() => {
@@ -99,7 +101,7 @@ export default function HabitsPage() {
             className="inline-flex items-center gap-1"
           >
             <Plus className="h-4 w-4" />
-            Add Habit
+            {t('habits.addHabit')}
           </Button>
         </div>
         <div className="mt-3">
@@ -111,9 +113,9 @@ export default function HabitsPage() {
       {!habits.length ? (
         <EmptyState
           icon={<CalendarCheck2 className="h-5 w-5 text-emerald-400" />}
-          title="No habits yet."
-          message="Add your first daily habit to start tracking."
-          ctaLabel="Add Habit"
+          title={t('habits.noHabitsTitle')}
+          message={t('habits.noHabitsMessage')}
+          ctaLabel={t('habits.addHabit')}
           onCta={() => setModalOpen(true)}
         />
       ) : (
@@ -133,7 +135,7 @@ export default function HabitsPage() {
             setMenuHabitId(null);
           }}
           onDelete={async (habit) => {
-            const confirmed = window.confirm(`Delete "${habit.title}" permanently?`);
+            const confirmed = window.confirm(t('habits.deleteHabitConfirm', { title: habit.title }));
             if (!confirmed) return;
             const { error: deleteError } = await deleteHabit(habit.id);
             if (deleteError) setError(deleteError.message);

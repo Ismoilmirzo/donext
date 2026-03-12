@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
-import { eachDayOfInterval, endOfMonth, format, isAfter, startOfMonth } from 'date-fns';
-import Card from '../ui/Card';
+import { eachDayOfInterval, endOfMonth, isAfter, startOfMonth } from 'date-fns';
 import { calculateStreak } from '../../hooks/useHabits';
 import { toISODate } from '../../lib/dates';
+import { useLocale } from '../../contexts/LocaleContext';
+import { getLocaleTag } from '../../lib/i18n';
+import Card from '../ui/Card';
 
 function intensityClass(rate) {
   if (rate <= 0) return 'bg-slate-800';
@@ -13,6 +15,7 @@ function intensityClass(rate) {
 }
 
 export default function HabitMonthlyGrid({ habits = [], logs = [] }) {
+  const { locale, t } = useLocale();
   const today = useMemo(() => new Date(), []);
   const monthStart = startOfMonth(today);
   const monthEnd = endOfMonth(today);
@@ -31,10 +34,11 @@ export default function HabitMonthlyGrid({ habits = [], logs = [] }) {
   const totalDays = rows.filter((row) => !row.isFuture).length;
   const monthlyRate = totalDays ? Math.round((doneDays / totalDays) * 100) : 0;
   const streak = calculateStreak(logs, habits.length, today);
+  const monthLabel = new Intl.DateTimeFormat(getLocaleTag(locale), { month: 'long' }).format(today);
 
   return (
     <Card>
-      <h3 className="text-base font-semibold text-slate-100">Monthly Heatmap</h3>
+      <h3 className="text-base font-semibold text-slate-100">{t('habits.monthlyHeatmap')}</h3>
       <div className="mt-3 grid grid-cols-7 gap-1">
         {rows.map((row) => (
           <div
@@ -47,9 +51,9 @@ export default function HabitMonthlyGrid({ habits = [], logs = [] }) {
         ))}
       </div>
       <p className="mt-3 text-sm text-slate-400">
-        {format(today, 'MMMM')}: {monthlyRate}% · {doneDays}/{totalDays} days
+        {t('habits.monthlySummary', { month: monthLabel, rate: monthlyRate, done: doneDays, total: totalDays })}
       </p>
-      <p className="mt-1 text-sm text-emerald-300">🔥 {streak.current} days</p>
+      <p className="mt-1 text-sm text-emerald-300">{t('habits.streakDays', { count: streak.current })}</p>
     </Card>
   );
 }

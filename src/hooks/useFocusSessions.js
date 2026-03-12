@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
@@ -35,7 +36,7 @@ export function useFocusSessions() {
 
   const createSession = useCallback(
     async (taskId, projectId, date, durationMinutes) => {
-      if (!user) return { data: null, error: new Error('Not authenticated') };
+      if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const payload = {
         user_id: user.id,
         task_id: taskId || null,

@@ -11,16 +11,19 @@ import Card from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useAuth } from '../contexts/AuthContext';
+import { useLocale } from '../contexts/LocaleContext';
 import { useFocusSessions } from '../hooks/useFocusSessions';
 import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
-import { selectRandomProject } from '../lib/random';
 import { formatMinutesHuman } from '../lib/dates';
+import { getLocaleTag } from '../lib/i18n';
+import { selectRandomProject } from '../lib/random';
 import { supabase } from '../lib/supabase';
 
 export default function FocusPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { locale, t } = useLocale();
   const { activeProjects, fetchProjects, loading: projectsLoading } = useProjects();
   const { sessions, getTodaySessions } = useFocusSessions();
   const [eligible, setEligible] = useState([]);
@@ -160,22 +163,22 @@ export default function FocusPage() {
       .in('status', ['pending', 'in_progress']);
 
     if ((remaining || []).length === 0) {
-      setFeedback(`🎉 All tasks in ${activePair.project.title} are done! Add more tasks or complete the project.`);
+      setFeedback(t('focus.allDoneFeedback', { project: activePair.project.title }));
       setPostCompleteState('all_done');
     } else {
-      setFeedback('✓ Task complete! Start another task or take a break.');
+      setFeedback(t('focus.taskCompleteFeedback'));
       setPostCompleteState('more_remaining');
     }
   }
 
-  if (projectsLoading || loading) return <LoadingSpinner label="Loading focus..." />;
+  if (projectsLoading || loading) return <LoadingSpinner label={t('focus.loading')} />;
 
   return (
     <div className="space-y-4">
       <Card>
-        <h1 className="text-xl font-semibold text-slate-50">Focus</h1>
+        <h1 className="text-xl font-semibold text-slate-50">{t('focus.title')}</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Today&apos;s focus: {formatMinutesHuman(todayMinutes)} across {todaysSessions.length} sessions.
+          {t('focus.todaysFocus', { minutes: formatMinutesHuman(todayMinutes), count: todaysSessions.length })}
         </p>
       </Card>
 
@@ -193,12 +196,10 @@ export default function FocusPage() {
                   pickRandom();
                 }}
               >
-                Start Another Task
+                {t('focus.startAnotherTask')}
               </Button>
             )}
-            {postCompleteState === 'all_done' && (
-              <Button onClick={() => navigate('/projects')}>Go to Project</Button>
-            )}
+            {postCompleteState === 'all_done' && <Button onClick={() => navigate('/projects')}>{t('focus.goToProject')}</Button>}
             <Button
               variant="secondary"
               onClick={() => {
@@ -206,7 +207,7 @@ export default function FocusPage() {
                 setPostCompleteState(null);
               }}
             >
-              Done for Now
+              {t('focus.doneForNow')}
             </Button>
           </div>
         </Card>
@@ -217,8 +218,8 @@ export default function FocusPage() {
           {!eligible.length ? (
             <EmptyState
               icon={<ListChecks className="h-5 w-5 text-emerald-400" />}
-              title="No focus sessions yet."
-              message="Create project tasks first, then start a task here."
+              title={t('focus.noFocusTitle')}
+              message={t('focus.noFocusMessage')}
             />
           ) : (
             <Card className="space-y-3">
@@ -227,7 +228,7 @@ export default function FocusPage() {
                 onClick={() => setManualOpen((prev) => !prev)}
                 className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200"
               >
-                or pick manually
+                {t('focus.pickManual')}
                 <ChevronDown className={`h-4 w-4 transition-transform ${manualOpen ? 'rotate-180' : ''}`} />
               </button>
               {manualOpen && (
@@ -276,17 +277,17 @@ export default function FocusPage() {
       )}
 
       <Card>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recent completed tasks</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('focus.recentCompleted')}</h2>
         <div className="mt-2 space-y-2">
           {recentDone.map((task) => (
             <div key={task.id} className="rounded-md border border-slate-700 bg-slate-800 p-2 text-sm">
               <p className="text-slate-200">{task.title}</p>
               <p className="text-xs text-slate-500">
-                {task.project?.title || 'Project'} · {task.completed_at ? new Date(task.completed_at).toLocaleDateString() : ''}
+                {task.project?.title || t('taskRow.projectFallback')} · {task.completed_at ? new Date(task.completed_at).toLocaleDateString(getLocaleTag(locale)) : ''}
               </p>
             </div>
           ))}
-          {!recentDone.length && <p className="text-sm text-slate-500">No completed tasks yet.</p>}
+          {!recentDone.length && <p className="text-sm text-slate-500">{t('focus.noCompleted')}</p>}
         </div>
       </Card>
 

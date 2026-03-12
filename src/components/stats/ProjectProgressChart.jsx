@@ -1,11 +1,14 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import Card from '../ui/Card';
+import { useLocale } from '../../contexts/LocaleContext';
 import { formatMinutesHuman } from '../../lib/dates';
+import Card from '../ui/Card';
 
 export default function ProjectProgressChart({ projects = [] }) {
+  const { t } = useLocale();
+
   return (
     <Card>
-      <h3 className="text-base font-semibold text-slate-100">Focus by Project</h3>
+      <h3 className="text-base font-semibold text-slate-100">{t('stats.focusByProject')}</h3>
       <div className="mt-3 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -16,7 +19,7 @@ export default function ProjectProgressChart({ projects = [] }) {
             </Pie>
             <Tooltip
               contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-              formatter={(value) => [formatMinutesHuman(value), 'Focus']}
+              formatter={(value) => [formatMinutesHuman(value), t('stats.focusLegend')]}
             />
           </PieChart>
         </ResponsiveContainer>

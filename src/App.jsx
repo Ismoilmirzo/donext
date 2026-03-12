@@ -5,6 +5,7 @@ import ErrorBoundary from './components/layout/ErrorBoundary';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useLocale } from './contexts/LocaleContext';
 
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const FocusPage = lazy(() => import('./pages/FocusPage'));
@@ -17,14 +18,17 @@ const StatsPage = lazy(() => import('./pages/StatsPage'));
 
 function PublicOnlyRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <LoadingSpinner fullScreen label="Loading..." />;
+  const { t } = useLocale();
+  if (loading) return <LoadingSpinner fullScreen label={t('common.loading')} />;
   if (user) return <Navigate to="/habits" replace />;
   return children;
 }
 
 function AppRoutes() {
+  const { t } = useLocale();
+
   return (
-    <Suspense fallback={<LoadingSpinner fullScreen label="Loading..." />}>
+    <Suspense fallback={<LoadingSpinner fullScreen label={t('common.loading')} />}>
       <Routes>
         <Route
           path="/"

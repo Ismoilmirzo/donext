@@ -1,7 +1,9 @@
+import { useLocale } from '../../contexts/LocaleContext';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 
 export default function RandomProjectCard({ project, task, onStart }) {
+  const { t } = useLocale();
   if (!project || !task) return null;
 
   return (
@@ -11,13 +13,13 @@ export default function RandomProjectCard({ project, task, onStart }) {
         <span>{project.title}</span>
       </div>
       <p className="text-xs uppercase tracking-wide text-slate-500">
-        Task #{(project.completedTasks || 0) + 1} of {project.totalTasks || 0}
+        {t('focus.randomTaskOf', { current: (project.completedTasks || 0) + 1, total: project.totalTasks || 0 })}
       </p>
       <h3 className="mt-2 text-xl font-semibold text-slate-50">{task.title}</h3>
       {task.description && <p className="mt-2 text-sm text-slate-400">{task.description}</p>}
       <div className="mt-4">
         <Button onClick={onStart} className="w-full">
-          Let's Go ▶
+          {t('focus.letsGo')}
         </Button>
       </div>
     </Card>

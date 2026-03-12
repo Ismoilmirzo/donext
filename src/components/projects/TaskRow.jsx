@@ -1,7 +1,10 @@
 import { CheckCircle2, Circle } from 'lucide-react';
+import { useLocale } from '../../contexts/LocaleContext';
+import { getLocaleTag } from '../../lib/i18n';
 import { formatMinutesHuman } from '../../lib/dates';
 
 export default function TaskRow({ task, isNext = false, onClick }) {
+  const { locale, t } = useLocale();
   const isCompleted = task.status === 'completed';
 
   return (
@@ -14,7 +17,7 @@ export default function TaskRow({ task, isNext = false, onClick }) {
             ? 'border-emerald-500/60 bg-emerald-500/10'
             : 'border-slate-700 bg-slate-800 hover:bg-slate-700/60'
       }`}
-      title={!isCompleted ? 'Go to Focus tab to start working on this' : undefined}
+      title={!isCompleted ? t('taskRow.startHint') : undefined}
     >
       <div className="flex items-start gap-2">
         {isCompleted ? (
@@ -27,8 +30,7 @@ export default function TaskRow({ task, isNext = false, onClick }) {
           {task.description && <p className="mt-1 text-xs text-slate-400">{task.description}</p>}
           {isCompleted && (
             <p className="mt-1 text-xs text-slate-500">
-              {formatMinutesHuman(task.time_spent_minutes || 0)} ·{' '}
-              {task.completed_at ? new Date(task.completed_at).toLocaleDateString() : ''}
+              {formatMinutesHuman(task.time_spent_minutes || 0)} · {task.completed_at ? new Date(task.completed_at).toLocaleDateString(getLocaleTag(locale)) : ''}
             </p>
           )}
         </div>

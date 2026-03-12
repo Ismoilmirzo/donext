@@ -1,14 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLocale } from '../../contexts/LocaleContext';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-
-const MOTIVATION = [
-  'Small steps still move mountains.',
-  'DoNext beats intensity.',
-  'Keep going. You are building proof.',
-  'Focus now. Clarity later.',
-  'Done is better than perfect.',
-];
 
 function formatElapsed(seconds) {
   const s = Math.max(0, Math.floor(seconds));
@@ -19,12 +12,17 @@ function formatElapsed(seconds) {
 }
 
 export default function ActiveTaskScreen({ project, task, onDone }) {
+  const { t } = useLocale();
   const [elapsed, setElapsed] = useState(0);
   const [startedAt, setStartedAt] = useState(() =>
     task?.started_at ? new Date(task.started_at).getTime() : Date.now()
   );
 
-  const quote = useMemo(() => MOTIVATION[Math.abs((task?.id || '').split('').reduce((sum, c) => sum + c.charCodeAt(0), 0)) % MOTIVATION.length], [task?.id]);
+  const motivation = t('focus.motivations');
+  const quote = useMemo(
+    () => motivation[Math.abs((task?.id || '').split('').reduce((sum, c) => sum + c.charCodeAt(0), 0)) % motivation.length],
+    [motivation, task?.id]
+  );
 
   useEffect(() => {
     setStartedAt(task?.started_at ? new Date(task.started_at).getTime() : Date.now());
@@ -46,7 +44,7 @@ export default function ActiveTaskScreen({ project, task, onDone }) {
       <p className="font-mono text-4xl font-bold text-emerald-300">{formatElapsed(elapsed)}</p>
       <p className="text-sm text-slate-400">{quote}</p>
       <Button onClick={() => onDone?.(elapsed)} className="w-full py-4 text-lg">
-        ✓ I'm Done
+        {t('focus.doneButton')}
       </Button>
     </Card>
   );

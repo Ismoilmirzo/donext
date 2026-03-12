@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom';
+import { useLocale } from '../../contexts/LocaleContext';
+import { getLocaleTag } from '../../lib/i18n';
+import { formatMinutesHuman, formatRelativeTime } from '../../lib/dates';
+import Button from '../ui/Button';
 import Card from '../ui/Card';
 import ProgressBar from '../ui/ProgressBar';
-import Button from '../ui/Button';
 import ProjectStatusBadge from './ProjectStatusBadge';
-import { formatMinutesHuman, formatRelativeTime } from '../../lib/dates';
 
 export default function ProjectCard({ project, onReopen, onArchive }) {
+  const { locale, t } = useLocale();
   const total = project.totalTasks || 0;
   const completed = project.completedTasks || 0;
   const percent = total ? Math.round((completed / total) * 100) : 0;
@@ -24,27 +27,29 @@ export default function ProjectCard({ project, onReopen, onArchive }) {
 
       {project.status === 'completed' ? (
         <div className="mt-3 space-y-2 text-sm text-slate-400">
-          <p>Completed: {project.completed_at ? new Date(project.completed_at).toLocaleDateString() : '—'}</p>
-          <p>Total focus: {formatMinutesHuman(project.focusMinutes || 0)}</p>
+          <p>
+            {t('projects.completedOn')}: {project.completed_at ? new Date(project.completed_at).toLocaleDateString(getLocaleTag(locale)) : t('projects.noDate')}
+          </p>
+          <p>
+            {t('projects.totalFocus')}: {formatMinutesHuman(project.focusMinutes || 0)}
+          </p>
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={() => onReopen?.(project)}>
-              Reopen
+              {t('common.restore')}
             </Button>
             <Button size="sm" variant="secondary" onClick={() => onArchive?.(project)}>
-              Archive
+              {t('common.archive')}
             </Button>
           </div>
         </div>
       ) : (
         <div className="mt-3 space-y-2">
           <div className="flex justify-between text-xs text-slate-400">
-            <span>
-              {completed}/{total} tasks
-            </span>
+            <span>{t('projects.taskCount', { completed, total })}</span>
             <span>{percent}%</span>
           </div>
           <ProgressBar value={percent} max={100} />
-          <p className="text-xs text-slate-500">Last worked: {formatRelativeTime(project.lastWorkedAt)}</p>
+          <p className="text-xs text-slate-500">{t('projects.lastWorked', { value: formatRelativeTime(project.lastWorkedAt) })}</p>
         </div>
       )}
     </Card>

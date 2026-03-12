@@ -6,9 +6,11 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { useLocale } from '../contexts/LocaleContext';
 import { useProjects } from '../hooks/useProjects';
 
 export default function ProjectsPage() {
+  const { t } = useLocale();
   const {
     activeProjects,
     completedProjects,
@@ -42,29 +44,29 @@ export default function ProjectsPage() {
     await fetchProjects();
   }
 
-  if (loading) return <LoadingSpinner label="Loading projects..." />;
+  if (loading) return <LoadingSpinner label={t('projects.loading')} />;
 
   return (
     <div className="space-y-4">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold text-slate-50">Projects</h1>
+          <h1 className="text-xl font-semibold text-slate-50">{t('projects.title')}</h1>
           <Button onClick={() => setModalOpen(true)} className="inline-flex items-center gap-1">
             <Plus className="h-4 w-4" />
-            New Project
+            {t('projects.newProject')}
           </Button>
         </div>
         {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
       </Card>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Active ({activeProjects.length})</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('projects.activeCount', { count: activeProjects.length })}</h2>
         {!activeProjects.length ? (
           <EmptyState
             icon={<FolderKanban className="h-5 w-5 text-emerald-400" />}
-            title="No projects yet."
-            message="Create your first one to start tracking progress."
-            ctaLabel="Create Project"
+            title={t('projects.noProjectsTitle')}
+            message={t('projects.noProjectsMessage')}
+            ctaLabel={t('projects.createProject')}
             onCta={() => setModalOpen(true)}
           />
         ) : (
@@ -88,7 +90,7 @@ export default function ProjectsPage() {
           onClick={() => setShowCompleted((prev) => !prev)}
           className="text-sm font-semibold uppercase tracking-wide text-slate-500"
         >
-          Completed ({completedProjects.length}) {showCompleted ? '▲' : '▼'}
+          {t('projects.completedCount', { count: completedProjects.length })} {showCompleted ? '▲' : '▼'}
         </button>
         {showCompleted &&
           completedProjects.map((project) => (
