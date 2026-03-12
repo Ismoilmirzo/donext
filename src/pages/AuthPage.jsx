@@ -15,6 +15,8 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [pendingVerification, setPendingVerification] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -56,6 +58,14 @@ export default function AuthPage() {
     return new URL('/auth/', window.location.origin).toString();
   }
 
+  function resetAuthState(nextMode) {
+    setMode(nextMode);
+    setPendingVerification(false);
+    setVerificationCode('');
+    setError('');
+    setMessage('');
+  }
+
   if (user) return <Navigate to="/habits" replace />;
 
   async function handleForgotPassword() {
@@ -92,7 +102,56 @@ export default function AuthPage() {
     setLoading(false);
   }
 
+  async function handleVerifyCode(event) {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: normalizedEmail,
+      token: verificationCode.trim(),
+      type: 'signup',
+      options: { redirectTo: getAuthRedirectUrl() },
+    });
+
+    if (verifyError) {
+      setError(verifyError.message);
+    } else {
+      setMessage(t('auth.verificationSuccess'));
+    }
+
+    setLoading(false);
+  }
+
+  async function handleResendCode() {
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email: normalizedEmail,
+      options: { emailRedirectTo: getAuthRedirectUrl() },
+    });
+
+    if (resendError) {
+      setError(resendError.message);
+    } else {
+      setMessage(t('auth.verificationCodeSent', { email: normalizedEmail }));
+    }
+
+    setLoading(false);
+  }
+
   async function handleSubmit(event) {
+    if (mode === 'signup' && pendingVerification) {
+      await handleVerifyCode(event);
+      return;
+    }
+
     event.preventDefault();
     setError('');
     setMessage('');
@@ -113,11 +172,16 @@ export default function AuthPage() {
           data: {
             full_name: displayName.trim() || normalizedEmail.split('@')[0],
           },
+          emailRedirectTo: getAuthRedirectUrl(),
         },
       });
 
       if (signUpError) setError(signUpError.message);
-      else setMessage(t('auth.accountCreated'));
+      else {
+        setPendingVerification(true);
+        setVerificationCode('');
+        setMessage(t('auth.verificationCodeSent', { email: normalizedEmail }));
+      }
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
@@ -143,21 +207,13 @@ export default function AuthPage() {
 
         <div className="mb-4 grid grid-cols-2 rounded-lg bg-slate-900 p-1">
           <button
-            onClick={() => {
-              setMode('signup');
-              setError('');
-              setMessage('');
-            }}
+            onClick={() => resetAuthState('signup')}
             className={`rounded-md px-3 py-2 text-sm ${mode === 'signup' ? 'bg-slate-700 text-slate-100' : 'text-slate-400'}`}
           >
             {t('auth.signUp')}
           </button>
           <button
-            onClick={() => {
-              setMode('login');
-              setError('');
-              setMessage('');
-            }}
+            onClick={() => resetAuthState('login')}
             className={`rounded-md px-3 py-2 text-sm ${mode === 'login' ? 'bg-slate-700 text-slate-100' : 'text-slate-400'}`}
           >
             {t('auth.logIn')}
@@ -165,12 +221,24 @@ export default function AuthPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {mode === 'signup' && (
+          {mode === 'signup' && !pendingVerification && (
             <Input placeholder={t('auth.displayName')} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           )}
           <Input type="email" placeholder={t('auth.email')} value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Input type="password" placeholder={t('auth.password')} value={password} onChange={(e) => setPassword(e.target.value)} required />
-          {mode === 'signup' && (
+          {mode === 'signup' && pendingVerification ? (
+            <>
+              <p className="text-sm text-slate-400">{t('auth.verificationHint', { email: email.trim().toLowerCase() || '-' })}</p>
+              <Input
+                placeholder={t('auth.verificationCode')}
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                required
+              />
+            </>
+          ) : (
+            <Input type="password" placeholder={t('auth.password')} value={password} onChange={(e) => setPassword(e.target.value)} required />
+          )}
+          {mode === 'signup' && !pendingVerification && (
             <Input
               type="password"
               placeholder={t('auth.confirmPassword')}
@@ -184,8 +252,25 @@ export default function AuthPage() {
           {message && <p className="text-sm text-emerald-400">{message}</p>}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? t('auth.pleaseWait') : mode === 'signup' ? t('auth.createAccountAction') : t('auth.logIn')}
+            {loading
+              ? t('auth.pleaseWait')
+              : mode === 'signup'
+                ? pendingVerification
+                  ? t('auth.verifyCode')
+                  : t('auth.createAccountAction')
+                : t('auth.logIn')}
           </Button>
+
+          {mode === 'signup' && pendingVerification && (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" onClick={handleResendCode} disabled={loading}>
+                {t('auth.resendCode')}
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => resetAuthState('signup')} disabled={loading}>
+                {t('auth.backToSignUp')}
+              </Button>
+            </div>
+          )}
         </form>
 
         <div className="my-4 flex items-center gap-2">
