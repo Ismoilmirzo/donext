@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useLocale } from './contexts/LocaleContext';
 
 const AuthPage = lazy(() => import('./pages/AuthPage'));
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const FocusPage = lazy(() => import('./pages/FocusPage'));
 const HabitsPage = lazy(() => import('./pages/HabitsPage'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -51,6 +52,7 @@ function AppRoutes() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
+            <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/habits" element={<HabitsPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />

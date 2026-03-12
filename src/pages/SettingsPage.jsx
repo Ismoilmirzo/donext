@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
 import { useProfile } from '../hooks/useProfile';
 import { useProjects } from '../hooks/useProjects';
+import { isConfiguredAdmin } from '../lib/admin';
 import { supabase } from '../lib/supabase';
 
 export default function SettingsPage() {
@@ -16,6 +17,7 @@ export default function SettingsPage() {
   const { locale, locales, setLocale, t } = useLocale();
   const { profile, loading: profileLoading, updateProfile } = useProfile();
   const { archivedProjects, reopenProject } = useProjects();
+  const canAccessAdmin = isConfiguredAdmin(user);
 
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [statusMessage, setStatusMessage] = useState('');
@@ -146,6 +148,16 @@ export default function SettingsPage() {
           </Button>
         </div>
       </Card>
+
+      {canAccessAdmin && (
+        <Card className="space-y-3">
+          <h2 className="text-base font-semibold text-slate-100">{t('settings.admin')}</h2>
+          <p className="text-sm text-slate-400">{t('settings.adminDescription')}</p>
+          <Link to="/admin/users" className="text-sm text-emerald-400 hover:text-emerald-300">
+            {t('settings.viewUsers')}
+          </Link>
+        </Card>
+      )}
 
       <Card className="space-y-3">
         <h2 className="text-base font-semibold text-slate-100">{t('settings.about')}</h2>
