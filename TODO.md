@@ -2,6 +2,65 @@
 
 ---
 
+## UX: Activation, Discoverability, and Pre-Login Language
+
+**Priority: HIGH** - New users currently have to infer the product flow on their own. The app needs a clearer first-run path and better guidance before and after sign-in.
+
+### Goals
+
+- [x] Add language switching before login on public pages.
+- [x] Give first-time users a clear in-app welcome/setup path.
+- [x] Explain how Habits, Projects, Focus, and Stats fit together.
+- [x] Improve empty states so they teach the next step instead of only stating that data is missing.
+- [x] Make Focus less mysterious by explaining how project picking works.
+- [x] Keep the UX lightweight; avoid turning DoNext into a heavy project-management tutorial.
+
+### Executed Plan
+
+#### U1. Pre-login language switch
+- [x] Create a reusable locale switcher component using the existing `LocaleContext`.
+- [x] Add it to the Landing page header.
+- [x] Add it to the Auth page card/header.
+- [x] Add it to the Privacy Policy page header.
+
+#### U2. First-run activation page
+- [x] Create a protected `WelcomePage` for first-time users.
+- [x] Use `profiles.onboarding_done` to route newly signed-in users to `/welcome`.
+- [x] Show a simple product explanation for Habits, Projects, Focus, and Stats.
+- [x] Show a setup checklist based on actual user data:
+  - first habit
+  - first project
+  - first task
+  - first focus session
+- [x] Add a clear primary CTA that sends the user to the next missing step.
+- [x] Add a finish/continue CTA that marks onboarding as complete and opens the main app.
+- [x] Add an in-app banner so the setup guide stays discoverable until onboarding is completed.
+
+#### U3. Public-page clarity
+- [x] Expand the Landing page with a more concrete “How DoNext works” section.
+- [x] Add one realistic example flow so the random-picker concept feels tangible.
+- [x] Improve Auth page helper copy so users understand sign-up, verification, and what happens next.
+
+#### U4. In-app discoverability improvements
+- [x] Improve project empty-state guidance.
+- [x] Improve focus empty-state guidance and add a direct CTA to Projects.
+- [x] Add a small Focus explainer card for first-use understanding.
+- [x] Add a Stats empty-state guidance card for users without enough data yet.
+
+### Verification
+
+- [x] Public pages load in both English and Uzbek.
+- [x] Language can be changed before login and persists across routes.
+- [x] New authenticated users are redirected to `/welcome` until onboarding is completed.
+- [x] Welcome page reflects setup progress from real user data.
+- [x] The welcome CTA routes to the next logical step.
+- [x] Focus and Stats empty states provide clear next actions.
+- [x] `npm run lint` passes.
+- [x] `npm run build` passes.
+- [ ] Final changes are pushed and deployed to `donext.uz`.
+
+---
+
 ## BUG: Focus Time Calculation Allows Invalid Data
 
 **Priority: HIGH** — Corrupts all focus analytics (Stats page, project focus totals, daily focus bars).

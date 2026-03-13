@@ -17,6 +17,7 @@ import MonthlyOverviewCard from '../components/stats/MonthlyOverviewCard';
 import ProjectProgressChart from '../components/stats/ProjectProgressChart';
 import WeeklyOverviewCard from '../components/stats/WeeklyOverviewCard';
 import Card from '../components/ui/Card';
+import EmptyState from '../components/ui/EmptyState';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useLocale } from '../contexts/LocaleContext';
 import { useHabits } from '../hooks/useHabits';
@@ -196,6 +197,11 @@ export default function StatsPage() {
           date: new Intl.DateTimeFormat(getLocaleTag(locale), { month: 'short', day: 'numeric' }).format(parseISO(freezeNotice.date)),
         })
     : '';
+  const hasMeaningfulStats =
+    (focusData.focusMinutes || 0) > 0 ||
+    (focusData.totalMinutes || 0) > 0 ||
+    (habitData.perHabit?.length || 0) > 0 ||
+    (projectData.tasksCompleted || 0) > 0;
 
   if (loading) return <LoadingSpinner label={t('stats.loading')} />;
 
@@ -222,6 +228,9 @@ export default function StatsPage() {
       </Card>
       {error && <Card className="border-red-500/30 bg-red-500/10 text-sm text-red-200">{error}</Card>}
       {freezeNotice && <Card className="border-sky-500/30 bg-sky-500/10 text-sm text-sky-100">{freezeNoticeText}</Card>}
+      {!hasMeaningfulStats && (
+        <EmptyState title={t('stats.emptyTitle')} message={t('stats.emptyMessage')} />
+      )}
 
       <FocusTimeChart
         focusMinutes={focusData.focusMinutes || 0}

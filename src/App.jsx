@@ -17,12 +17,13 @@ const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage'));
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const StatsPage = lazy(() => import('./pages/StatsPage'));
+const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 
 function PublicOnlyRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { t } = useLocale();
   if (loading) return <LoadingSpinner fullScreen label={t('common.loading')} />;
-  if (user) return <Navigate to="/habits" replace />;
+  if (user) return <Navigate to={profile?.onboarding_done ? '/habits' : '/welcome'} replace />;
   return children;
 }
 
@@ -52,6 +53,7 @@ function AppRoutes() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
+            <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/habits" element={<HabitsPage />} />
             <Route path="/projects" element={<ProjectsPage />} />

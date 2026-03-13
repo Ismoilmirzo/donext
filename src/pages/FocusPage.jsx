@@ -225,11 +225,27 @@ export default function FocusPage() {
 
       {!activePair && !selected && (
         <>
+          <Card className="space-y-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-100">{t('focus.howItWorksTitle')}</h2>
+              <p className="mt-1 text-sm text-slate-400">{t('focus.howItWorksBody')}</p>
+            </div>
+            <ul className="space-y-2 text-sm text-slate-300">
+              {[t('focus.howItWorksPoint1'), t('focus.howItWorksPoint2'), t('focus.howItWorksPoint3')].map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="text-emerald-400">•</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
           {!eligible.length ? (
             <EmptyState
               icon={<ListChecks className="h-5 w-5 text-emerald-400" />}
               title={t('focus.noFocusTitle')}
               message={t('focus.noFocusMessage')}
+              ctaLabel={t('focus.noFocusCta')}
+              onCta={() => navigate('/projects')}
             />
           ) : (
             <Card className="space-y-3">

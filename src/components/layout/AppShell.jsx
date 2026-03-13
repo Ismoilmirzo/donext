@@ -1,6 +1,6 @@
 import { BarChart3, CheckSquare, FolderKanban, Settings, Zap } from 'lucide-react';
 import { useEffect } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocale } from '../../contexts/LocaleContext';
 import { useProjects } from '../../hooks/useProjects';
@@ -10,6 +10,7 @@ export default function AppShell() {
   const { profile } = useAuth();
   const { t } = useLocale();
   const { checkForStaleProjects } = useProjects();
+  const location = useLocation();
   const navLinks = [
     { to: '/habits', label: t('nav.habits'), Icon: CheckSquare },
     { to: '/projects', label: t('nav.projects'), Icon: FolderKanban },
@@ -66,6 +67,16 @@ export default function AppShell() {
           </header>
 
           <main className="mx-auto w-full max-w-5xl px-4 pb-24 pt-6 sm:px-6 md:pb-8">
+            {!profile?.onboarding_done && location.pathname !== '/welcome' && (
+              <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p>{t('app.setupBanner')}</p>
+                  <Link to="/welcome" className="font-medium text-emerald-300 hover:text-emerald-200">
+                    {t('app.openSetupGuide')}
+                  </Link>
+                </div>
+              </div>
+            )}
             <Outlet />
           </main>
         </div>

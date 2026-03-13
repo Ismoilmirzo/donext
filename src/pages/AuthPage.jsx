@@ -3,12 +3,13 @@ import { Link, Navigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
+import LocaleSwitcher from '../components/ui/LocaleSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
 import { supabase } from '../lib/supabase';
 
 export default function AuthPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { t } = useLocale();
   const [mode, setMode] = useState('signup');
   const [displayName, setDisplayName] = useState('');
@@ -66,7 +67,7 @@ export default function AuthPage() {
     setMessage('');
   }
 
-  if (user) return <Navigate to="/habits" replace />;
+  if (user) return <Navigate to={profile?.onboarding_done ? '/habits' : '/welcome'} replace />;
 
   async function handleForgotPassword() {
     if (!email) {
@@ -196,13 +197,25 @@ export default function AuthPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4">
       <Card className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <Link to="/" className="text-xl font-semibold text-emerald-400">
-            {t('common.appName')}
-          </Link>
-          <h1 className="mt-3 text-2xl font-bold text-slate-100">
-            {mode === 'signup' ? t('auth.createAccount') : t('auth.welcomeBack')}
-          </h1>
+        <div className="mb-6">
+          <div className="flex items-start justify-between gap-3">
+            <Link to="/" className="text-xl font-semibold text-emerald-400">
+              {t('common.appName')}
+            </Link>
+            <LocaleSwitcher />
+          </div>
+          <div className="mt-5 text-center">
+            <h1 className="text-2xl font-bold text-slate-100">
+              {mode === 'signup' ? t('auth.createAccount') : t('auth.welcomeBack')}
+            </h1>
+            <p className="mt-2 text-sm text-slate-400">
+              {mode === 'signup'
+                ? pendingVerification
+                  ? t('auth.verificationHelper')
+                  : t('auth.signupHelper')
+                : t('auth.loginHelper')}
+            </p>
+          </div>
         </div>
 
         <div className="mb-4 grid grid-cols-2 rounded-lg bg-slate-900 p-1">
@@ -283,11 +296,18 @@ export default function AuthPage() {
           {t('auth.continueWithGoogle')}
         </Button>
         {googleEnabled === false && <p className="mt-3 text-sm text-amber-300">{t('auth.googleDisabled')}</p>}
+        {googleEnabled !== false && <p className="mt-3 text-sm text-slate-400">{t('auth.googleHelper')}</p>}
 
         {mode === 'login' && (
           <button onClick={handleForgotPassword} className="mt-4 text-sm text-slate-400 hover:text-slate-200">
             {t('auth.forgotPassword')}
           </button>
+        )}
+
+        {mode === 'signup' && (
+          <p className="mt-4 text-center text-xs leading-5 text-slate-500">
+            {t('auth.afterSignupHint')}
+          </p>
         )}
 
         <div className="mt-6 text-center">

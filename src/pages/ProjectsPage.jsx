@@ -92,6 +92,13 @@ export default function ProjectsPage() {
         {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
       </Card>
 
+      {!activeProjects.length && !completedProjects.length && !archivedProjects.length && (
+        <Card className="space-y-2">
+          <h2 className="text-base font-semibold text-slate-100">{t('projects.getStartedTitle')}</h2>
+          <p className="text-sm text-slate-400">{t('projects.getStartedBody')}</p>
+        </Card>
+      )}
+
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('projects.activeCount', { count: activeProjects.length })}</h2>
         {!activeProjects.length ? (

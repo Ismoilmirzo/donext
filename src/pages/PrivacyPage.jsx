@@ -1,6 +1,7 @@
 import { ArrowLeft, FolderKanban, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
+import LocaleSwitcher from '../components/ui/LocaleSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
 
@@ -43,10 +44,13 @@ export default function PrivacyPage() {
             <FolderKanban className="h-5 w-5" />
             {t('common.appName')}
           </Link>
-          <Link to={backPath} className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-slate-100">
-            <ArrowLeft className="h-4 w-4" />
-            {backLabel}
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <LocaleSwitcher />
+            <Link to={backPath} className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-slate-100">
+              <ArrowLeft className="h-4 w-4" />
+              {backLabel}
+            </Link>
+          </div>
         </header>
 
         <Card className="space-y-4 border-emerald-500/20 bg-slate-800/80">
