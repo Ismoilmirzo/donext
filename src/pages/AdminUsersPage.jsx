@@ -3,6 +3,7 @@ import { ArrowLeft, Shield, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import Input from '../components/ui/Input';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Modal from '../components/ui/Modal';
@@ -46,6 +47,7 @@ export default function AdminUsersPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [actionLoading, setActionLoading] = useState('');
+  const [pendingAction, setPendingAction] = useState('');
 
   const getAccessToken = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -174,15 +176,6 @@ export default function AdminUsersPage() {
   async function handleUserAction(action) {
     if (!selectedUser) return;
 
-    const confirmMessage =
-      action === 'delete'
-        ? t('adminUsers.confirmDelete')
-        : action === 'suspend'
-          ? t('adminUsers.confirmSuspend')
-          : t('adminUsers.confirmUnsuspend');
-
-    if (!window.confirm(confirmMessage)) return;
-
     setActionLoading(action);
     setDetailError('');
     setStatusMessage('');
@@ -208,6 +201,15 @@ export default function AdminUsersPage() {
       setActionLoading('');
     }
   }
+
+  const actionConfig =
+    pendingAction === 'delete'
+      ? { title: t('adminUsers.deleteUser'), message: t('adminUsers.confirmDelete'), label: t('adminUsers.deleteUser'), variant: 'danger' }
+      : pendingAction === 'suspend'
+        ? { title: t('adminUsers.suspend'), message: t('adminUsers.confirmSuspend'), label: t('adminUsers.suspend'), variant: 'secondary' }
+        : pendingAction === 'unsuspend'
+          ? { title: t('adminUsers.unsuspend'), message: t('adminUsers.confirmUnsuspend'), label: t('adminUsers.unsuspend'), variant: 'primary' }
+          : null;
 
   if (loading) return <LoadingSpinner label={t('adminUsers.loading')} />;
 
@@ -387,7 +389,7 @@ export default function AdminUsersPage() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="ghost"
-                  onClick={() => handleUserAction(isUserSuspended(selectedUser) ? 'unsuspend' : 'suspend')}
+                  onClick={() => setPendingAction(isUserSuspended(selectedUser) ? 'unsuspend' : 'suspend')}
                   disabled={Boolean(actionLoading)}
                 >
                   {actionLoading === 'suspend' || actionLoading === 'unsuspend'
@@ -396,7 +398,7 @@ export default function AdminUsersPage() {
                       ? t('adminUsers.unsuspend')
                       : t('adminUsers.suspend')}
                 </Button>
-                <Button variant="danger" onClick={() => handleUserAction('delete')} disabled={Boolean(actionLoading)}>
+                <Button variant="danger" onClick={() => setPendingAction('delete')} disabled={Boolean(actionLoading)}>
                   {actionLoading === 'delete' ? t('adminUsers.actionInProgress') : t('adminUsers.deleteUser')}
                 </Button>
               </div>
@@ -545,6 +547,22 @@ export default function AdminUsersPage() {
           </div>
         )}
       </Modal>
+
+      <ConfirmActionModal
+        open={Boolean(pendingAction)}
+        onClose={() => setPendingAction('')}
+        onConfirm={async () => {
+          const action = pendingAction;
+          setPendingAction('');
+          await handleUserAction(action);
+        }}
+        title={actionConfig?.title || ''}
+        message={actionConfig?.message || ''}
+        confirmLabel={actionConfig?.label || t('common.confirm')}
+        cancelLabel={t('common.cancel')}
+        confirmVariant={actionConfig?.variant || 'primary'}
+        loading={Boolean(actionLoading)}
+      />
     </div>
   );
 }

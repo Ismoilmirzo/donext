@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import Input from '../components/ui/Input';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Modal from '../components/ui/Modal';
@@ -25,6 +26,8 @@ export default function SettingsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteText, setDeleteText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [restoreProject, setRestoreProject] = useState(null);
+  const [restoring, setRestoring] = useState(false);
 
   if (profileLoading) return <LoadingSpinner label={t('settings.loading')} />;
 
@@ -88,6 +91,18 @@ export default function SettingsPage() {
     setDeleting(false);
   }
 
+  async function handleRestoreProject() {
+    if (!restoreProject) return;
+    setRestoring(true);
+    const { error: reopenError } = await reopenProject(restoreProject.id);
+    setRestoring(false);
+    if (reopenError) {
+      setError(reopenError.message);
+      return;
+    }
+    setRestoreProject(null);
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -129,12 +144,15 @@ export default function SettingsPage() {
           {archivedProjects.map((project) => (
             <div key={project.id} className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
               <p className="text-sm text-slate-200">{project.title}</p>
-              <Button size="sm" variant="secondary" onClick={() => reopenProject(project.id)}>
+              <Button size="sm" variant="secondary" onClick={() => setRestoreProject(project)}>
                 {t('common.restore')}
               </Button>
             </div>
           ))}
         </div>
+        <Link to="/projects" className="text-sm text-emerald-400 hover:text-emerald-300">
+          {t('projects.openArchive')}
+        </Link>
       </Card>
 
       <Card className="space-y-3">
@@ -198,6 +216,18 @@ export default function SettingsPage() {
           <Input value={deleteText} onChange={(e) => setDeleteText(e.target.value)} placeholder={t('settings.deletePlaceholder')} />
         </div>
       </Modal>
+
+      <ConfirmActionModal
+        open={Boolean(restoreProject)}
+        onClose={() => setRestoreProject(null)}
+        onConfirm={handleRestoreProject}
+        title={t('projects.confirmRestoreTitle')}
+        message={t('projects.confirmRestoreBody', { title: restoreProject?.title || '' })}
+        confirmLabel={t('common.restore')}
+        cancelLabel={t('common.cancel')}
+        confirmVariant="primary"
+        loading={restoring}
+      />
     </div>
   );
 }

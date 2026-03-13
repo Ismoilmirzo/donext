@@ -4,6 +4,7 @@ import CreateProjectModal from '../components/projects/CreateProjectModal';
 import ProjectCard from '../components/projects/ProjectCard';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import EmptyState from '../components/ui/EmptyState';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useLocale } from '../contexts/LocaleContext';
@@ -14,6 +15,7 @@ export default function ProjectsPage() {
   const {
     activeProjects,
     completedProjects,
+    archivedProjects,
     loading,
     createProject,
     completeProject,
@@ -25,7 +27,10 @@ export default function ProjectsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [error, setError] = useState('');
+  const [pendingAction, setPendingAction] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     void checkForStaleProjects();
@@ -45,6 +50,34 @@ export default function ProjectsPage() {
   }
 
   if (loading) return <LoadingSpinner label={t('projects.loading')} />;
+
+  async function handleProjectAction() {
+    if (!pendingAction?.project) return;
+    setActionLoading(true);
+    setError('');
+
+    let result;
+    if (pendingAction.type === 'archive') {
+      result = await archiveProject(pendingAction.project.id);
+    } else {
+      result = await reopenProject(pendingAction.project.id);
+    }
+
+    setActionLoading(false);
+    if (result?.error) {
+      setError(result.error.message);
+      return;
+    }
+
+    setPendingAction(null);
+  }
+
+  const confirmTitle =
+    pendingAction?.type === 'archive' ? t('projects.confirmArchiveTitle') : t('projects.confirmRestoreTitle');
+  const confirmBody =
+    pendingAction?.type === 'archive'
+      ? t('projects.confirmArchiveBody', { title: pendingAction?.project?.title || '' })
+      : t('projects.confirmRestoreBody', { title: pendingAction?.project?.title || '' });
 
   return (
     <div className="space-y-4">
@@ -74,11 +107,8 @@ export default function ProjectsPage() {
             <ProjectCard
               key={project.id}
               project={project}
-              onArchive={() => archiveProject(project.id)}
-              onReopen={async () => {
-                const { error: reopenError } = await reopenProject(project.id);
-                if (reopenError) setError(reopenError.message);
-              }}
+              onArchive={() => setPendingAction({ type: 'archive', project })}
+              onReopen={() => setPendingAction({ type: 'restore', project })}
               onComplete={() => completeProject(project.id)}
             />
           ))
@@ -97,19 +127,48 @@ export default function ProjectsPage() {
             <ProjectCard
               key={project.id}
               project={project}
-              onArchive={async () => {
-                const { error: archiveError } = await archiveProject(project.id);
-                if (archiveError) setError(archiveError.message);
-              }}
-              onReopen={async () => {
-                const { error: reopenError } = await reopenProject(project.id);
-                if (reopenError) setError(reopenError.message);
-              }}
+              onArchive={() => setPendingAction({ type: 'archive', project })}
+              onReopen={() => setPendingAction({ type: 'restore', project })}
             />
           ))}
       </section>
 
+      <section className="space-y-3">
+        <button
+          onClick={() => setShowArchived((prev) => !prev)}
+          className="text-sm font-semibold uppercase tracking-wide text-slate-500"
+        >
+          {t('projects.archivedCount', { count: archivedProjects.length })} {showArchived ? '▲' : '▼'}
+        </button>
+        {showArchived &&
+          (archivedProjects.length ? (
+            archivedProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onReopen={() => setPendingAction({ type: 'restore', project })}
+              />
+            ))
+          ) : (
+            <Card>
+              <p className="text-sm text-slate-500">{t('projects.noArchivedProjectsTitle')}</p>
+            </Card>
+          ))}
+      </section>
+
       <CreateProjectModal open={modalOpen} onClose={() => setModalOpen(false)} onSave={handleCreate} saving={saving} />
+
+      <ConfirmActionModal
+        open={Boolean(pendingAction)}
+        onClose={() => setPendingAction(null)}
+        onConfirm={handleProjectAction}
+        title={confirmTitle}
+        message={confirmBody}
+        confirmLabel={pendingAction?.type === 'archive' ? t('common.archive') : t('common.restore')}
+        cancelLabel={t('common.cancel')}
+        confirmVariant={pendingAction?.type === 'archive' ? 'secondary' : 'primary'}
+        loading={actionLoading}
+      />
     </div>
   );
 }

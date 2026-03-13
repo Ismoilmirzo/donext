@@ -74,6 +74,19 @@ export default function ProjectCard({ project, onReopen, onArchive }) {
             <p>{t('projects.efficiencyRate', { value: project.efficiencyRate || 0 })}</p>
           </div>
           <p className="text-xs text-slate-500">{t('projects.lastWorked', { value: formatRelativeTime(project.lastWorkedAt) })}</p>
+          {project.status === 'archived' ? (
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={() => onReopen?.(project)}>
+                {t('common.restore')}
+              </Button>
+            </div>
+          ) : onArchive ? (
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={() => onArchive?.(project)}>
+                {t('common.archive')}
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
     </Card>

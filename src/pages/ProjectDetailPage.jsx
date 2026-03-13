@@ -7,6 +7,7 @@ import ReorderableTasks from '../components/projects/ReorderableTasks';
 import ProjectStatusBadge from '../components/projects/ProjectStatusBadge';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ProgressBar from '../components/ui/ProgressBar';
 import { useLocale } from '../contexts/LocaleContext';
@@ -19,7 +20,7 @@ export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { locale, t } = useLocale();
-  const { projects, fetchProjects, updateProject, archiveProject, deleteProject, completeProject } = useProjects();
+  const { projects, fetchProjects, updateProject, archiveProject, deleteProject, completeProject, reopenProject } = useProjects();
   const { tasks, loading, addTask, updateTask, reorderTasks } = useTasks(id);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -28,6 +29,8 @@ export default function ProjectDetailPage() {
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
   const [projectModalOpen, setProjectModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const project = useMemo(() => projects.find((item) => item.id === id), [id, projects]);
 
@@ -79,17 +82,6 @@ export default function ProjectDetailPage() {
     setModalOpen(false);
   }
 
-  async function handleCompleteProject() {
-    setError('');
-    const { error: completeError } = await completeProject(id);
-    if (completeError) {
-      setError(completeError.message);
-      return;
-    }
-    setToast(t('projects.projectCompleteToast', { value: formatMinutesHuman(totalFocusMinutes) }));
-    await fetchProjects();
-  }
-
   async function handleSaveProject(payload) {
     setProjectSaving(true);
     const { error: updateError } = await updateProject(id, payload);
@@ -101,6 +93,72 @@ export default function ProjectDetailPage() {
     setProjectModalOpen(false);
     await fetchProjects();
   }
+
+  async function handleConfirmAction() {
+    if (!pendingAction) return;
+    setActionLoading(true);
+    setError('');
+
+    let result = null;
+    if (pendingAction === 'archive') {
+      result = await archiveProject(id);
+    } else if (pendingAction === 'restore') {
+      result = await reopenProject(id);
+    } else if (pendingAction === 'complete') {
+      result = await completeProject(id);
+    } else if (pendingAction === 'delete') {
+      result = await deleteProject(id);
+    }
+
+    setActionLoading(false);
+
+    if (result?.error) {
+      setError(result.error.message);
+      return;
+    }
+
+    setPendingAction(null);
+
+    if (pendingAction === 'delete') {
+      navigate('/projects', { replace: true });
+      return;
+    }
+
+    if (pendingAction === 'complete') {
+      setToast(t('projects.projectCompleteToast', { value: formatMinutesHuman(totalFocusMinutes) }));
+    } else if (pendingAction === 'archive') {
+      navigate('/projects');
+    }
+
+    await fetchProjects();
+  }
+
+  const confirmMap = {
+    archive: {
+      title: t('projects.confirmArchiveTitle'),
+      body: t('projects.confirmArchiveBody', { title: project.title }),
+      label: t('common.archive'),
+      variant: 'secondary',
+    },
+    restore: {
+      title: t('projects.confirmRestoreTitle'),
+      body: t('projects.confirmRestoreBody', { title: project.title }),
+      label: t('common.restore'),
+      variant: 'primary',
+    },
+    complete: {
+      title: t('projects.confirmCompleteTitle'),
+      body: t('projects.confirmCompleteBody', { title: project.title }),
+      label: t('projects.markProjectComplete'),
+      variant: 'primary',
+    },
+    delete: {
+      title: t('common.delete'),
+      body: t('projects.deleteProjectConfirm'),
+      label: t('common.delete'),
+      variant: 'danger',
+    },
+  };
 
   return (
     <div className="space-y-4">
@@ -147,26 +205,14 @@ export default function ProjectDetailPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={async () => {
-                const { error: archiveError } = await archiveProject(id);
-                if (archiveError) setError(archiveError.message);
-                else navigate('/projects');
-              }}
+              onClick={() => setPendingAction(project.status === 'active' ? 'archive' : 'restore')}
             >
-              {t('common.archive')}
+              {project.status === 'active' ? t('common.archive') : t('common.restore')}
             </Button>
             <Button
               variant="danger"
               size="sm"
-              onClick={async () => {
-                if (!window.confirm(t('projects.deleteProjectConfirm'))) return;
-                const { error: deleteError } = await deleteProject(id);
-                if (deleteError) {
-                  setError(deleteError.message);
-                  return;
-                }
-                navigate('/projects', { replace: true });
-              }}
+              onClick={() => setPendingAction('delete')}
             >
               {t('common.delete')}
             </Button>
@@ -213,7 +259,7 @@ export default function ProjectDetailPage() {
         >
           {t('projects.addTask')}
         </Button>
-        {allDone && <Button onClick={handleCompleteProject}>{t('projects.markProjectComplete')}</Button>}
+        {allDone && <Button onClick={() => setPendingAction('complete')}>{t('projects.markProjectComplete')}</Button>}
       </div>
 
       <AddTaskModal
@@ -233,6 +279,18 @@ export default function ProjectDetailPage() {
         onSave={handleSaveProject}
         saving={projectSaving}
         initialProject={project}
+      />
+
+      <ConfirmActionModal
+        open={Boolean(pendingAction)}
+        onClose={() => setPendingAction(null)}
+        onConfirm={handleConfirmAction}
+        title={confirmMap[pendingAction]?.title || ''}
+        message={confirmMap[pendingAction]?.body || ''}
+        confirmLabel={confirmMap[pendingAction]?.label || t('common.confirm')}
+        cancelLabel={t('common.cancel')}
+        confirmVariant={confirmMap[pendingAction]?.variant || 'primary'}
+        loading={actionLoading}
       />
     </div>
   );

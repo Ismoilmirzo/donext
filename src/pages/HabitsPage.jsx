@@ -9,6 +9,7 @@ import HabitStreakCard from '../components/habits/HabitStreakCard';
 import HabitWeeklyChart from '../components/habits/HabitWeeklyChart';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import EmptyState from '../components/ui/EmptyState';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ProgressBar from '../components/ui/ProgressBar';
@@ -39,6 +40,8 @@ export default function HabitsPage() {
   const [editingHabit, setEditingHabit] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [pendingHabitAction, setPendingHabitAction] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const todayIso = toISODate(new Date());
 
   useEffect(() => {
@@ -90,6 +93,22 @@ export default function HabitsPage() {
     setSaving(false);
     setEditingHabit(null);
     setModalOpen(false);
+  }
+
+  async function handleHabitAction() {
+    if (!pendingHabitAction?.habit) return;
+    setActionLoading(true);
+    const result =
+      pendingHabitAction.type === 'archive'
+        ? await archiveHabit(pendingHabitAction.habit.id)
+        : await deleteHabit(pendingHabitAction.habit.id);
+    setActionLoading(false);
+    if (result?.error) {
+      setError(result.error.message);
+      return;
+    }
+    setPendingHabitAction(null);
+    setMenuHabitId(null);
   }
 
   if (loading) return <LoadingSpinner label={t('habits.loading')} />;
@@ -145,16 +164,10 @@ export default function HabitsPage() {
             setModalOpen(true);
           }}
           onArchive={async (habit) => {
-            const { error: archiveError } = await archiveHabit(habit.id);
-            if (archiveError) setError(archiveError.message);
-            setMenuHabitId(null);
+            setPendingHabitAction({ type: 'archive', habit });
           }}
           onDelete={async (habit) => {
-            const confirmed = window.confirm(t('habits.deleteHabitConfirm', { title: habit.title }));
-            if (!confirmed) return;
-            const { error: deleteError } = await deleteHabit(habit.id);
-            if (deleteError) setError(deleteError.message);
-            setMenuHabitId(null);
+            setPendingHabitAction({ type: 'delete', habit });
           }}
           onReorder={async (habit, direction) => {
             const { error: reorderError } = await reorderHabits(habit.id, direction);
@@ -187,6 +200,22 @@ export default function HabitsPage() {
         onSave={handleSaveHabit}
         editingHabit={editingHabit}
         saving={saving}
+      />
+
+      <ConfirmActionModal
+        open={Boolean(pendingHabitAction)}
+        onClose={() => setPendingHabitAction(null)}
+        onConfirm={handleHabitAction}
+        title={pendingHabitAction?.type === 'archive' ? t('habits.confirmArchiveTitle') : t('habits.confirmDeleteTitle')}
+        message={
+          pendingHabitAction?.type === 'archive'
+            ? t('habits.confirmArchiveBody', { title: pendingHabitAction?.habit?.title || '' })
+            : t('habits.confirmDeleteBody', { title: pendingHabitAction?.habit?.title || '' })
+        }
+        confirmLabel={pendingHabitAction?.type === 'archive' ? t('common.archive') : t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        confirmVariant={pendingHabitAction?.type === 'archive' ? 'secondary' : 'danger'}
+        loading={actionLoading}
       />
     </div>
   );
