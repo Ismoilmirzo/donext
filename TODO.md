@@ -51,10 +51,10 @@
 - [x] If no preferred-time project matches, Focus still picks from all eligible projects.
 - [x] Active task screen shows task description when it exists.
 - [x] `manifest.json` and service worker are included in the production build.
-- [ ] The app still loads on `donext.uz` after deployment.
+- [x] The app still loads on `donext.uz` after deployment.
 - [x] `npm run lint` passes.
 - [x] `npm run build` passes.
-- [ ] Final changes are pushed and deployed to `donext.uz`.
+- [x] Final changes are pushed and deployed to `donext.uz`.
 
 ---
 
