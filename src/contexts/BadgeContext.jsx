@@ -141,21 +141,28 @@ export function BadgeProvider({ children }) {
     }
 
     setLoading(true);
-    const [rowsRes, nextStats] = await Promise.all([
-      supabase.from('badges').select('*').eq('user_id', user.id).order('unlocked_at', { ascending: true }),
-      gatherBadgeStats(user.id),
-    ]);
+    try {
+      const [rowsRes, nextStats] = await Promise.all([
+        supabase.from('badges').select('*').eq('user_id', user.id).order('unlocked_at', { ascending: true }),
+        gatherBadgeStats(user.id),
+      ]);
 
-    if (rowsRes.error) {
+      if (rowsRes.error) {
+        throw rowsRes.error;
+      }
+
+      const enriched = enrichRows(rowsRes.data || [], nextStats);
+      setStats(nextStats);
+      setBadges(enriched);
+      setQueue(enriched.filter((badge) => badge.unlocked && badge.seen === false));
+    } catch (error) {
+      setQueue([]);
+      setStats(null);
+      setBadges([]);
+      throw error;
+    } finally {
       setLoading(false);
-      throw rowsRes.error;
     }
-
-    const enriched = enrichRows(rowsRes.data || [], nextStats);
-    setStats(nextStats);
-    setBadges(enriched);
-    setQueue(enriched.filter((badge) => badge.unlocked && badge.seen === false));
-    setLoading(false);
   }, [enrichRows, user]);
 
   useEffect(() => {
