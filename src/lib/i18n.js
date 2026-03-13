@@ -208,9 +208,13 @@ const translations = {
           name: 'Night',
           description: 'Dark theme with cool blue highlights.',
         },
-        tinted: {
-          name: 'Tinted',
-          description: 'Tinted blue theme for a softer dark look.',
+        midnight: {
+          name: 'Midnight',
+          description: 'Pure black with indigo accents. Saves battery on OLED.',
+        },
+        mocha: {
+          name: 'Mocha',
+          description: 'Warm dark theme with amber accents.',
         },
       },
       deleteModalTitle: 'Delete account',
@@ -849,9 +853,13 @@ const translations = {
           name: 'Night',
           description: 'Tungi mavzu va salqin kok urgular.',
         },
-        tinted: {
-          name: 'Tinted',
-          description: 'Kok tusli qorongu mavzu.',
+        midnight: {
+          name: 'Midnight',
+          description: 'Qop-qora mavzu, OLED ekranlar uchun.',
+        },
+        mocha: {
+          name: 'Mocha',
+          description: 'Iliq qorongu mavzu, sariq urgular.',
         },
       },
       deleteModalTitle: "Akkauntni o'chirish",

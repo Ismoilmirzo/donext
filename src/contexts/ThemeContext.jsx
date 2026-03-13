@@ -6,18 +6,23 @@ export const DEFAULT_THEME = 'night';
 export const THEMES = {
   day: {
     value: 'day',
-    preview: ['#f5f7fb', '#ffffff', '#3390ec'],
-    themeColor: '#f5f7fb',
+    preview: ['#eff3f7', '#ffffff', '#3390ec'],
+    themeColor: '#eff3f7',
   },
   night: {
     value: 'night',
     preview: ['#0e1621', '#17212b', '#64a8ea'],
     themeColor: '#0e1621',
   },
-  tinted: {
-    value: 'tinted',
-    preview: ['#182533', '#22303c', '#7ab7ff'],
-    themeColor: '#182533',
+  midnight: {
+    value: 'midnight',
+    preview: ['#000000', '#121212', '#818cf8'],
+    themeColor: '#000000',
+  },
+  mocha: {
+    value: 'mocha',
+    preview: ['#1e1714', '#28201c', '#f5a623'],
+    themeColor: '#1e1714',
   },
 };
 
@@ -39,7 +44,7 @@ export function ThemeProvider({ children }) {
     }
 
     document.documentElement.dataset.theme = nextTheme;
-    document.documentElement.style.colorScheme = nextTheme === 'day' ? 'light' : 'dark';
+    document.documentElement.style.colorScheme = nextTheme === 'day' ? 'light dark' : 'dark';
 
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {

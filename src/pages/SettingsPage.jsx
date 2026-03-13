@@ -134,7 +134,7 @@ export default function SettingsPage() {
       <Card className="space-y-3">
         <h2 className="text-base font-semibold text-slate-100">{t('settings.theme')}</h2>
         <p className="text-sm text-slate-400">{t('settings.themeDescription')}</p>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 grid-cols-2">
           {Object.entries(themes).map(([value, config]) => (
             <button
               key={value}
