@@ -1,64 +1,102 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { addDays, eachDayOfInterval, parseISO, startOfMonth } from 'date-fns';
+import { eachDayOfInterval, startOfMonth } from 'date-fns';
 import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
-
-export function calculateStreak(habitLogs = [], activeHabitCount = 0, today = new Date()) {
-  if (!activeHabitCount) return { current: 0, longest: 0 };
-
-  const completionByDate = new Map();
-  habitLogs.forEach((log) => {
-    if (!completionByDate.has(log.date)) completionByDate.set(log.date, 0);
-    if (log.completed) completionByDate.set(log.date, completionByDate.get(log.date) + 1);
-  });
-
-  const sortedDates = Array.from(completionByDate.keys()).sort();
-  let longest = 0;
-  let current = 0;
-  let running = 0;
-  let cursor = toISODate(today);
-
-  while (true) {
-    const completed = completionByDate.get(cursor) || 0;
-    const rate = activeHabitCount > 0 ? completed / activeHabitCount : 0;
-    if (rate >= 0.8) {
-      current += 1;
-      cursor = toISODate(addDays(parseISO(cursor), -1));
-    } else {
-      break;
-    }
-  }
-
-  sortedDates.forEach((date, index) => {
-    const completed = completionByDate.get(date) || 0;
-    const rate = activeHabitCount > 0 ? completed / activeHabitCount : 0;
-    if (rate >= 0.8) {
-      if (index === 0) running = 1;
-      else {
-        const prev = sortedDates[index - 1];
-        const expected = toISODate(addDays(parseISO(prev), 1));
-        running = expected === date ? running + 1 : 1;
-      }
-      longest = Math.max(longest, running);
-    } else {
-      running = 0;
-    }
-  });
-
-  return { current, longest };
-}
+import { calculateStreakMetrics, getWeekStartIso, planAutomaticStreakFreezes } from '../lib/streaks';
 
 export function useHabits() {
   const { user } = useAuth();
   const [habits, setHabits] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [allLogs, setAllLogs] = useState([]);
+  const [streakFreezes, setStreakFreezes] = useState([]);
+  const [freezeNotice, setFreezeNotice] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const refreshStreakState = useCallback(
+    async ({ applyAutoFreeze = false } = {}) => {
+      if (!user) {
+        setAllLogs([]);
+        setStreakFreezes([]);
+        setFreezeNotice(null);
+        return { data: { allLogs: [], freezeDates: [] }, error: null };
+      }
+
+      const [logsRes, freezesRes] = await Promise.all([
+        supabase.from('habit_logs').select('*').eq('user_id', user.id),
+        supabase.from('streak_freezes').select('*').eq('user_id', user.id).order('date', { ascending: true }),
+      ]);
+
+      if (logsRes.error || freezesRes.error) {
+        return { data: null, error: logsRes.error || freezesRes.error };
+      }
+
+      let nextAllLogs = logsRes.data || [];
+      let nextFreezes = freezesRes.data || [];
+
+      if (applyAutoFreeze) {
+        const plannedDates = planAutomaticStreakFreezes({
+          logs: nextAllLogs,
+          freezeDates: nextFreezes.map((freeze) => freeze.date),
+          activeHabitCount: habits.length,
+          today: new Date(),
+        });
+
+        if (plannedDates.length) {
+          const inserts = plannedDates.map((date) => ({
+            user_id: user.id,
+            date,
+            week_start_date: getWeekStartIso(date),
+            source: 'auto',
+          }));
+          const { error: insertError } = await supabase.from('streak_freezes').upsert(inserts, { onConflict: 'user_id,date' });
+          if (insertError) {
+            return { data: null, error: insertError };
+          }
+
+          const { data: refreshedFreezes, error: refreshedFreezeError } = await supabase
+            .from('streak_freezes')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('date', { ascending: true });
+
+          if (refreshedFreezeError) {
+            return { data: null, error: refreshedFreezeError };
+          }
+
+          nextFreezes = refreshedFreezes || [];
+
+          const streakAfterFreeze = calculateStreakMetrics({
+            logs: nextAllLogs,
+            freezeDates: nextFreezes.map((freeze) => freeze.date),
+            activeHabitCount: habits.length,
+            today: new Date(),
+          });
+          const latestApplied = plannedDates.sort().pop();
+          setFreezeNotice({
+            date: latestApplied,
+            streakDays: streakAfterFreeze.current,
+            count: plannedDates.length,
+          });
+        } else {
+          setFreezeNotice(null);
+        }
+      }
+
+      setAllLogs(nextAllLogs);
+      setStreakFreezes(nextFreezes);
+      return { data: { allLogs: nextAllLogs, freezeDates: nextFreezes }, error: null };
+    },
+    [habits.length, user]
+  );
 
   const fetchHabits = useCallback(async () => {
     if (!user) {
       setHabits([]);
+      setAllLogs([]);
+      setStreakFreezes([]);
       setLoading(false);
       return { data: [], error: null };
     }
@@ -69,7 +107,9 @@ export function useHabits() {
       .eq('user_id', user.id)
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
-    if (!error) setHabits(data || []);
+    if (!error) {
+      setHabits(data || []);
+    }
     setLoading(false);
     return { data, error };
   }, [user]);
@@ -87,10 +127,16 @@ export function useHabits() {
         .eq('user_id', user.id)
         .gte('date', startDate)
         .lte('date', endDate);
-      if (!error) setLogs(data || []);
+
+      if (!error) {
+        setLogs(data || []);
+        const streakState = await refreshStreakState({ applyAutoFreeze: true });
+        if (streakState.error) return { data: null, error: streakState.error };
+      }
+
       return { data, error };
     },
-    [user]
+    [refreshStreakState, user]
   );
 
   const toggleHabit = useCallback(
@@ -99,6 +145,10 @@ export function useHabits() {
       const nextValue = !currentValue;
 
       setLogs((prev) => {
+        const withoutTarget = prev.filter((row) => !(row.habit_id === habitId && row.date === date));
+        return [...withoutTarget, { habit_id: habitId, date, completed: nextValue, user_id: user.id }];
+      });
+      setAllLogs((prev) => {
         const withoutTarget = prev.filter((row) => !(row.habit_id === habitId && row.date === date));
         return [...withoutTarget, { habit_id: habitId, date, completed: nextValue, user_id: user.id }];
       });
@@ -121,6 +171,19 @@ export function useHabits() {
         setLogs((prev) => {
           const withoutTarget = prev.filter((row) => !(row.habit_id === habitId && row.date === date));
           return [...withoutTarget, { habit_id: habitId, date, completed: currentValue, user_id: user.id }];
+        });
+        setAllLogs((prev) => {
+          const withoutTarget = prev.filter((row) => !(row.habit_id === habitId && row.date === date));
+          return [...withoutTarget, { habit_id: habitId, date, completed: currentValue, user_id: user.id }];
+        });
+      } else if (data) {
+        setLogs((prev) => {
+          const withoutTarget = prev.filter((row) => !(row.habit_id === habitId && row.date === date));
+          return [...withoutTarget, data];
+        });
+        setAllLogs((prev) => {
+          const withoutTarget = prev.filter((row) => !(row.habit_id === habitId && row.date === date));
+          return [...withoutTarget, data];
         });
       }
       return { data, error };
@@ -234,9 +297,23 @@ export function useHabits() {
     void fetchHabits();
   }, [fetchHabits]);
 
+  const streak = useMemo(
+    () =>
+      calculateStreakMetrics({
+        logs: allLogs,
+        freezeDates: streakFreezes.map((freeze) => freeze.date),
+        activeHabitCount: habits.length,
+        today: new Date(),
+      }),
+    [allLogs, habits.length, streakFreezes]
+  );
+
   return {
     habits,
     logs,
+    streakFreezes,
+    streak,
+    freezeNotice,
     loading,
     completedToday,
     monthRange,

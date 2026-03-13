@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import AddTaskModal from '../components/projects/AddTaskModal';
 import CreateProjectModal from '../components/projects/CreateProjectModal';
+import ProjectPriorityBadge from '../components/projects/ProjectPriorityBadge';
 import ReorderableTasks from '../components/projects/ReorderableTasks';
 import ProjectStatusBadge from '../components/projects/ProjectStatusBadge';
 import Button from '../components/ui/Button';
@@ -12,11 +13,12 @@ import { useLocale } from '../contexts/LocaleContext';
 import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
 import { formatMinutesHuman } from '../lib/dates';
+import { getLocaleTag } from '../lib/i18n';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const { projects, fetchProjects, updateProject, archiveProject, deleteProject, completeProject } = useProjects();
   const { tasks, loading, addTask, updateTask, reorderTasks } = useTasks(id);
   const [modalOpen, setModalOpen] = useState(false);
@@ -114,6 +116,29 @@ export default function ProjectDetailPage() {
           <div>
             <h1 className="text-xl font-semibold text-slate-50">{project.title}</h1>
             {project.description && <p className="mt-1 text-sm text-slate-400">{project.description}</p>}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <ProjectPriorityBadge priority={project.priority_tag} effectivePriority={project.effectivePriority} deadlineMeta={project} />
+              {project.hasDeadline && (
+                <span className="text-xs text-slate-500">
+                  {project.isOverdue
+                    ? t('projects.deadlineOverdue', {
+                        date: new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale)),
+                      })
+                    : project.daysUntilDeadline === 0
+                      ? t('projects.deadlineToday', {
+                          date: new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale)),
+                        })
+                    : project.isDueSoon
+                      ? t('projects.deadlineSoon', {
+                          count: project.daysUntilDeadline,
+                          date: new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale)),
+                        })
+                      : t('projects.deadlineOn', {
+                          date: new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale)),
+                        })}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" onClick={() => setProjectModalOpen(true)}>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarCheck2, Plus } from 'lucide-react';
-import { startOfMonth } from 'date-fns';
+import { isYesterday, parseISO, startOfMonth } from 'date-fns';
 import AddHabitModal from '../components/habits/AddHabitModal';
 import HabitList from '../components/habits/HabitList';
 import HabitMonthlyGrid from '../components/habits/HabitMonthlyGrid';
@@ -13,7 +13,7 @@ import EmptyState from '../components/ui/EmptyState';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ProgressBar from '../components/ui/ProgressBar';
 import { useLocale } from '../contexts/LocaleContext';
-import { calculateStreak, useHabits } from '../hooks/useHabits';
+import { useHabits } from '../hooks/useHabits';
 import { getLocaleTag } from '../lib/i18n';
 import { toISODate } from '../lib/dates';
 
@@ -30,6 +30,8 @@ export default function HabitsPage() {
     archiveHabit,
     deleteHabit,
     reorderHabits,
+    streak,
+    freezeNotice,
   } = useHabits();
 
   const [menuHabitId, setMenuHabitId] = useState(null);
@@ -55,8 +57,15 @@ export default function HabitsPage() {
   const completed = habits.filter((habit) => checkedMap[habit.id]).length;
   const total = habits.length;
   const percent = total ? Math.round((completed / total) * 100) : 0;
-  const streak = calculateStreak(logs, habits.length, new Date());
   const todayLabel = new Intl.DateTimeFormat(getLocaleTag(locale), { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date());
+  const freezeNoticeText = freezeNotice
+    ? isYesterday(parseISO(freezeNotice.date))
+      ? t('habits.freezeNoticeYesterday', { streak: freezeNotice.streakDays })
+      : t('habits.freezeNoticeDate', {
+          streak: freezeNotice.streakDays,
+          date: new Intl.DateTimeFormat(getLocaleTag(locale), { month: 'short', day: 'numeric' }).format(parseISO(freezeNotice.date)),
+        })
+    : '';
 
   async function handleToggle(habit) {
     const currentValue = Boolean(checkedMap[habit.id]);
@@ -110,6 +119,12 @@ export default function HabitsPage() {
         {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
       </Card>
 
+      {freezeNotice && (
+        <Card className="border-sky-500/30 bg-sky-500/10 text-sm text-sky-100">
+          {freezeNoticeText}
+        </Card>
+      )}
+
       {!habits.length ? (
         <EmptyState
           icon={<CalendarCheck2 className="h-5 w-5 text-emerald-400" />}
@@ -150,12 +165,17 @@ export default function HabitsPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <HabitWeeklyChart habits={habits} logs={logs} />
-        <HabitMonthlyGrid habits={habits} logs={logs} />
+        <HabitMonthlyGrid habits={habits} logs={logs} streak={streak} freezeDates={streak.freezeDates} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <HabitStatsCard habits={habits} logs={logs} />
-        <HabitStreakCard current={streak.current} longest={streak.longest} />
+        <HabitStreakCard
+          current={streak.current}
+          longest={streak.longest}
+          weeklyRemaining={streak.weeklyRemaining}
+          weeklyLimit={streak.weeklyLimit}
+        />
       </div>
 
       <AddHabitModal

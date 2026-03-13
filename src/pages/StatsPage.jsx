@@ -3,6 +3,8 @@ import {
   addDays,
   endOfMonth,
   endOfWeek,
+  isYesterday,
+  parseISO,
   startOfMonth,
   startOfWeek,
   subMonths,
@@ -17,7 +19,7 @@ import WeeklyOverviewCard from '../components/stats/WeeklyOverviewCard';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useLocale } from '../contexts/LocaleContext';
-import { calculateStreak, useHabits } from '../hooks/useHabits';
+import { useHabits } from '../hooks/useHabits';
 import { useStats } from '../hooks/useStats';
 import { getLocaleTag } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -45,7 +47,7 @@ function getPeriodDates(mode) {
 export default function StatsPage() {
   const { locale, t } = useLocale();
   const { getFocusStats, getHabitStats, getProjectStats } = useStats();
-  const { habits, logs, fetchHabitLogs } = useHabits();
+  const { freezeNotice, streak, fetchHabitLogs } = useHabits();
   const [period, setPeriod] = useState('week');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -171,7 +173,6 @@ export default function StatsPage() {
 
   const bestHabit = habitData.perHabit?.[0] || null;
   const worstHabit = habitData.perHabit?.[habitData.perHabit.length - 1] || null;
-  const streak = calculateStreak(logs, habits.length, new Date());
   const deltaMinutes = (focusData.focusMinutes || 0) - (prevFocusData.focusMinutes || 0);
 
   const currentChunk = monthlyTrendRows.slice(-4);
@@ -181,6 +182,14 @@ export default function StatsPage() {
   const trendPercent = previousMonthTotal
     ? ((thisMonthTotal - previousMonthTotal) / previousMonthTotal) * 100
     : 0;
+  const freezeNoticeText = freezeNotice
+    ? isYesterday(parseISO(freezeNotice.date))
+      ? t('habits.freezeNoticeYesterday', { streak: freezeNotice.streakDays })
+      : t('habits.freezeNoticeDate', {
+          streak: freezeNotice.streakDays,
+          date: new Intl.DateTimeFormat(getLocaleTag(locale), { month: 'short', day: 'numeric' }).format(parseISO(freezeNotice.date)),
+        })
+    : '';
 
   if (loading) return <LoadingSpinner label={t('stats.loading')} />;
 
@@ -206,6 +215,7 @@ export default function StatsPage() {
         </div>
       </Card>
       {error && <Card className="border-red-500/30 bg-red-500/10 text-sm text-red-200">{error}</Card>}
+      {freezeNotice && <Card className="border-sky-500/30 bg-sky-500/10 text-sm text-sky-100">{freezeNoticeText}</Card>}
 
       <FocusTimeChart
         focusMinutes={focusData.focusMinutes || 0}

@@ -34,7 +34,7 @@ export default function ProjectsPage() {
   async function handleCreate(payload) {
     setSaving(true);
     setError('');
-    const { error: createError } = await createProject(payload.title, payload.description, payload.color);
+    const { error: createError } = await createProject(payload);
     setSaving(false);
     if (createError) {
       setError(createError.message);

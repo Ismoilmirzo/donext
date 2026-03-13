@@ -1,4 +1,5 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { getProjectPriorityWeight } from './projectPriority';
 
 function getWeight(daysSinceLastWork) {
   if (daysSinceLastWork === null) return 10;
@@ -23,7 +24,8 @@ export function selectRandomProject(projects = [], focusSessions = []) {
     const daysSince = lastSessionDate
       ? Math.max(0, differenceInCalendarDays(today, parseISO(lastSessionDate)))
       : null;
-    const weight = getWeight(daysSince);
+    const recencyWeight = getWeight(daysSince);
+    const weight = recencyWeight * getProjectPriorityWeight(project, today);
     return { ...project, __weight: weight };
   });
 

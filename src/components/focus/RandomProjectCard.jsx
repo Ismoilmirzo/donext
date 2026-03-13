@@ -1,9 +1,11 @@
 import { useLocale } from '../../contexts/LocaleContext';
+import { getLocaleTag } from '../../lib/i18n';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import ProjectPriorityBadge from '../projects/ProjectPriorityBadge';
 
 export default function RandomProjectCard({ project, task, onStart }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   if (!project || !task) return null;
 
   return (
@@ -11,6 +13,22 @@ export default function RandomProjectCard({ project, task, onStart }) {
       <div className="mb-2 flex items-center gap-2 text-sm text-slate-400">
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: project.color || '#6366F1' }}></span>
         <span>{project.title}</span>
+      </div>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <ProjectPriorityBadge priority={project.priority_tag} effectivePriority={project.effectivePriority} deadlineMeta={project} />
+        {project.hasDeadline && (
+          <span className="text-xs text-slate-500">
+            {project.isOverdue
+              ? t('projects.deadlineOverdueCompact')
+              : project.daysUntilDeadline === 0
+                ? t('projects.deadlineTodayCompact')
+              : project.isDueSoon
+                ? t('projects.deadlineSoonCompact', { count: project.daysUntilDeadline })
+                : t('projects.deadlineDateCompact', {
+                    date: new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale)),
+                  })}
+          </span>
+        )}
       </div>
       <p className="text-xs uppercase tracking-wide text-slate-500">
         {t('focus.randomTaskOf', { current: (project.completedTasks || 0) + 1, total: project.totalTasks || 0 })}

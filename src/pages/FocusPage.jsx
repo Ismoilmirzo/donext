@@ -17,8 +17,19 @@ import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
+import { getEffectiveProjectPriority, getProjectDeadlineMeta } from '../lib/projectPriority';
 import { selectRandomProject } from '../lib/random';
 import { supabase } from '../lib/supabase';
+
+function normalizeProject(project) {
+  if (!project) return project;
+  return {
+    ...project,
+    priority_tag: project.priority_tag || 'normal',
+    effectivePriority: getEffectiveProjectPriority(project),
+    ...getProjectDeadlineMeta(project),
+  };
+}
 
 export default function FocusPage() {
   const navigate = useNavigate();
@@ -80,7 +91,7 @@ export default function FocusPage() {
       .maybeSingle();
 
     if (data?.id) {
-      setActivePair({ project: data.project, task: data });
+      setActivePair({ project: normalizeProject(data.project), task: data });
     }
   }, [user]);
 
@@ -132,7 +143,7 @@ export default function FocusPage() {
       return;
     }
     setActivePair({
-      project: pair.project,
+      project: normalizeProject(pair.project),
       task: { ...pair.task, status: 'in_progress', started_at: new Date().toISOString() },
     });
     setSelected(null);
@@ -239,7 +250,11 @@ export default function FocusPage() {
                       className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-left text-sm hover:bg-slate-700"
                     >
                       <p className="text-slate-200">{pair.project.title}</p>
-                      <p className="text-xs text-slate-400">{pair.task.title}</p>
+                      <p className="text-xs text-slate-400">
+                        {pair.project.effectivePriority === 'urgent' ? t('projects.priority.urgent') : t(`projects.priority.${pair.project.priority_tag || 'normal'}`)}
+                        {' · '}
+                        {pair.task.title}
+                      </p>
                     </button>
                   ))}
                 </div>

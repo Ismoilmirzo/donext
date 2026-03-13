@@ -5,7 +5,17 @@ import { formatMinutesHuman, formatRelativeTime } from '../../lib/dates';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import ProgressBar from '../ui/ProgressBar';
+import ProjectPriorityBadge from './ProjectPriorityBadge';
 import ProjectStatusBadge from './ProjectStatusBadge';
+
+function formatDeadline(project, locale, t) {
+  if (!project?.hasDeadline || !project?.deadline_date) return t('projects.noDeadline');
+  const label = new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale));
+  if (project.isOverdue) return t('projects.deadlineOverdue', { date: label });
+  if (project.daysUntilDeadline === 0) return t('projects.deadlineToday', { date: label });
+  if (project.isDueSoon) return t('projects.deadlineSoon', { count: project.daysUntilDeadline, date: label });
+  return t('projects.deadlineOn', { date: label });
+}
 
 export default function ProjectCard({ project, onReopen, onArchive }) {
   const { locale, t } = useLocale();
@@ -21,6 +31,10 @@ export default function ProjectCard({ project, onReopen, onArchive }) {
             {project.title}
           </Link>
           {project.description && <p className="mt-1 text-sm text-slate-400">{project.description}</p>}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <ProjectPriorityBadge priority={project.priority_tag} effectivePriority={project.effectivePriority} deadlineMeta={project} />
+            {project.hasDeadline && <span className="text-xs text-slate-500">{formatDeadline(project, locale, t)}</span>}
+          </div>
         </div>
         <ProjectStatusBadge status={project.status} needsReview={project.hasAutoReviewPending} />
       </div>

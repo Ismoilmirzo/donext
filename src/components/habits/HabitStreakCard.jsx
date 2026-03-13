@@ -1,7 +1,7 @@
 import { useLocale } from '../../contexts/LocaleContext';
 import Card from '../ui/Card';
 
-export default function HabitStreakCard({ current = 0, longest = 0 }) {
+export default function HabitStreakCard({ current = 0, longest = 0, weeklyRemaining = 0, weeklyLimit = 1 }) {
   const { t } = useLocale();
 
   return (
@@ -17,6 +17,7 @@ export default function HabitStreakCard({ current = 0, longest = 0 }) {
           <p className="mt-1 text-2xl font-bold text-slate-100">{t('habits.longestDays', { count: longest })}</p>
         </div>
       </div>
+      <p className="mt-3 text-sm text-slate-400">{t('habits.freezeRemaining', { remaining: weeklyRemaining, total: weeklyLimit })}</p>
     </Card>
   );
 }

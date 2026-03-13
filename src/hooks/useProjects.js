@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays } from 'date-fns';
 import { getStoredLocale, translate } from '../lib/i18n';
+import { getEffectiveProjectPriority, getProjectDeadlineMeta } from '../lib/projectPriority';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
 
 function summarizeProject(project, tasks = []) {
+  const deadlineMeta = getProjectDeadlineMeta(project);
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((task) => task.status === 'completed').length;
   const pendingTasks = tasks.filter((task) => task.status !== 'completed').length;
@@ -25,6 +27,9 @@ function summarizeProject(project, tasks = []) {
 
   return {
     ...project,
+    priority_tag: project.priority_tag || 'normal',
+    effectivePriority: getEffectiveProjectPriority(project),
+    ...deadlineMeta,
     totalTasks,
     completedTasks,
     pendingTasks,
@@ -93,7 +98,7 @@ export function useProjects() {
   }, [user]);
 
   const createProject = useCallback(
-    async (title, description = '', color = '#6366F1') => {
+    async ({ title, description = '', color = '#6366F1', priority_tag = 'normal', deadline_date = null }) => {
       if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const { data, error } = await supabase
         .from('projects')
@@ -102,6 +107,8 @@ export function useProjects() {
           title: title.trim(),
           description: description.trim(),
           color,
+          priority_tag,
+          deadline_date: deadline_date || null,
           status: 'active',
         })
         .select('*')
@@ -123,7 +130,17 @@ export function useProjects() {
 
     if (!error && data) {
       setProjects((prev) =>
-        prev.map((project) => (project.id === id ? { ...project, ...data } : project))
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const deadlineMeta = getProjectDeadlineMeta(data);
+          return {
+            ...project,
+            ...data,
+            priority_tag: data.priority_tag || 'normal',
+            effectivePriority: getEffectiveProjectPriority(data),
+            ...deadlineMeta,
+          };
+        })
       );
     }
     return { data, error };
