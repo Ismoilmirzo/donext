@@ -4,6 +4,14 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
 
+function getElapsedMinutes(startedAt, fallbackMinutes = 1) {
+  const fallback = Math.max(1, Number(fallbackMinutes) || 1);
+  if (!startedAt) return fallback;
+  const startedMs = new Date(startedAt).getTime();
+  if (!Number.isFinite(startedMs)) return fallback;
+  return Math.max(1, Math.ceil((Date.now() - startedMs) / 60000));
+}
+
 export function useTasks(projectId = null) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
@@ -119,11 +127,14 @@ export function useTasks(projectId = null) {
       if (!currentTask || !user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.taskNotFound')) };
 
       const completedAt = new Date().toISOString();
+      const elapsedMinutes = getElapsedMinutes(currentTask.started_at, timeSpentMinutes);
+      const validMinutes = Math.max(1, Math.min(Number(timeSpentMinutes) || 0, elapsedMinutes));
+
       const { data, error } = await supabase
         .from('tasks')
         .update({
           status: 'completed',
-          time_spent_minutes: Math.max(0, Number(timeSpentMinutes) || 0),
+          time_spent_minutes: validMinutes,
           completed_at: completedAt,
           updated_at: completedAt,
         })
@@ -138,7 +149,7 @@ export function useTasks(projectId = null) {
         task_id: id,
         project_id: currentTask.project_id,
         date: toISODate(new Date()),
-        duration_minutes: Math.max(0, Number(timeSpentMinutes) || 0),
+        duration_minutes: validMinutes,
       });
       if (sessionResult.error) return { data, error: sessionResult.error };
 

@@ -32,7 +32,6 @@ export default function FocusPage() {
   const [rerollsLeft, setRerollsLeft] = useState(1);
   const [manualOpen, setManualOpen] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [postCompleteState, setPostCompleteState] = useState(null);
   const [error, setError] = useState('');
@@ -269,8 +268,7 @@ export default function FocusPage() {
         <ActiveTaskScreen
           project={activePair.project}
           task={activePair.task}
-          onDone={(elapsed) => {
-            setTimerSeconds(elapsed);
+          onDone={() => {
             setCompleteModalOpen(true);
           }}
         />
@@ -294,7 +292,7 @@ export default function FocusPage() {
       <CompleteTaskModal
         open={completeModalOpen}
         onClose={() => setCompleteModalOpen(false)}
-        timerSeconds={timerSeconds}
+        startedAt={activePair?.task?.started_at}
         onSave={handleSaveCompletion}
       />
     </div>

@@ -197,7 +197,8 @@ const translations = {
       reroll: 'Pick a different one ({{count}})',
       niceWork: 'Nice work!',
       focusedTimePrompt: 'How much focused time did you spend?',
-      timerSays: 'Timer says: {{hours}}h {{minutes}}m',
+      timerSays: 'Elapsed: {{hours}}h {{minutes}}m (maximum)',
+      timeExceedsMax: 'Time will be capped to actual elapsed time',
       saveContinue: 'Save & Continue',
       doneButton: "I'm Done",
       motivations: [
@@ -642,7 +643,8 @@ const translations = {
       reroll: 'Boshqasini tanlash ({{count}})',
       niceWork: 'Zo‘r ish!',
       focusedTimePrompt: 'Qancha fokus vaqti sarfladingiz?',
-      timerSays: 'Taymer ko‘rsatdi: {{hours}}soat {{minutes}}daq',
+      timerSays: 'Vaqt: {{hours}}soat {{minutes}}daq (maksimum)',
+      timeExceedsMax: 'Vaqt haqiqiy vaqtga cheklanadi',
       saveContinue: 'Saqlash va davom etish',
       doneButton: 'Tugatdim',
       motivations: [

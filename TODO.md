@@ -1,4 +1,82 @@
-# DONEXT v1 → v3 Migration TODO
+# DONEXT — Active TODO
+
+---
+
+## BUG: Focus Time Calculation Allows Invalid Data
+
+**Priority: HIGH** — Corrupts all focus analytics (Stats page, project focus totals, daily focus bars).
+
+### Problem
+
+When completing a task, the user is shown a time input pre-filled from the elapsed timer. They can freely edit it to **any value** — including time far exceeding what actually elapsed. There is no validation anywhere in the chain.
+
+**Example:** User starts a task, works for 3 minutes, taps "I'm Done", then types "5 hours 30 minutes" in the completion modal. The system happily saves 330 minutes to both `tasks.time_spent_minutes` and `focus_sessions.duration_minutes`. All stats, charts, and totals are now wrong.
+
+### Root Cause (4 files)
+
+1. **`CompleteTaskModal.jsx`** — Receives `timerSeconds` (elapsed) but only uses it as a pre-fill default. No max enforcement. User can type anything.
+2. **`TimeInput.jsx`** — Hours field has no upper limit (`min="0"` only). Minutes capped at 59, but that's just per-field, not total.
+3. **`FocusPage.jsx`** — Passes `timerSeconds` (local state from `ActiveTaskScreen`) but does NOT pass `started_at` (the DB source of truth). The modal has no way to compute the real ceiling.
+4. **`useTasks.js:completeTask()`** — Stores `Math.max(0, Number(timeSpentMinutes))` — only floors at 0, no ceiling. Same uncapped value goes to `focus_sessions`.
+
+### Fix Plan
+
+**Principle:** User can reduce logged time (to subtract breaks) but cannot exceed actual elapsed wall-clock time. Minimum 1 minute.
+
+#### F1. Pass `startedAt` to `CompleteTaskModal`
+**File:** `FocusPage.jsx`
+- Change: Instead of (or in addition to) `timerSeconds`, pass `startedAt={activePair.task.started_at}` as a prop to `CompleteTaskModal`
+- The modal will compute `maxMinutes` from this, which is the real elapsed ceiling
+
+#### F2. Add max-time enforcement in `CompleteTaskModal`
+**File:** `CompleteTaskModal.jsx`
+- Compute `maxMinutes = Math.max(1, Math.ceil((Date.now() - new Date(startedAt).getTime()) / 60000))` on modal open
+- Pre-fill hours/minutes from `maxMinutes` (not from the passed-in `timerSeconds` — use the DB truth)
+- Clamp `totalMinutes` to `[1, maxMinutes]` before calling `onSave`
+- Show the max as context: "Maximum: Xh Ym (actual elapsed time)"
+- If user's input exceeds max, show inline warning and clamp on save
+
+#### F3. Add `maxTotal` prop to `TimeInput`
+**File:** `TimeInput.jsx`
+- Accept optional `maxTotalMinutes` prop
+- When provided, clamp the combined `hours * 60 + minutes` to not exceed it
+- When user increases hours beyond what's possible, auto-reduce; same for minutes
+- Visual indicator when at maximum (e.g., muted text "max reached")
+
+#### F4. Add server-side validation in `completeTask()`
+**File:** `useTasks.js`
+- Before saving, compute `elapsedMinutes = Math.ceil((Date.now() - new Date(task.started_at).getTime()) / 60000)`
+- Clamp: `validMinutes = Math.max(1, Math.min(timeSpentMinutes, elapsedMinutes))`
+- Use `validMinutes` for both `tasks.time_spent_minutes` and `focus_sessions.duration_minutes`
+- This is the safety net — even if UI validation is bypassed, data stays valid
+
+#### F5. Handle edge cases
+- **Task started days ago** (user left app open): `maxMinutes` could be huge. This is actually correct — they might have worked that long. The cap prevents fabrication but allows legitimate long sessions.
+- **Clock skew / started_at in future**: Floor `maxMinutes` at 1 minute minimum.
+- **Modal opened, time passes, then save**: Recompute `maxMinutes` at save time (not just on open). Use the value at save time for the clamp.
+
+### Files to Change
+
+| File | Change |
+|------|--------|
+| `src/pages/FocusPage.jsx` | Pass `startedAt` prop to CompleteTaskModal |
+| `src/components/focus/CompleteTaskModal.jsx` | Compute max from `startedAt`, clamp input, show max context |
+| `src/components/ui/TimeInput.jsx` | Add `maxTotalMinutes` prop with clamping |
+| `src/hooks/useTasks.js` | Clamp `timeSpentMinutes` to elapsed time in `completeTask()` |
+
+### Verification
+
+After implementing, test these scenarios:
+- [ ] Start task, work 5 min, complete — can enter 1-5 min, cannot enter 6+
+- [ ] Start task, work 2 hours, complete — pre-fills 2h 0m, can reduce, cannot exceed
+- [ ] Try typing 99 in hours field — gets clamped to max
+- [ ] Start task, navigate away, come back 30 min later, complete — timer shows correct 30 min, max is 30
+- [ ] Check Stats page — focus time numbers match actual elapsed times
+- [ ] Check project detail — total focus time is sum of valid task times
+
+---
+
+# DONEXT v1 → v3 Migration TODO (Reference — Completed)
 
 > **Goal:** Transform current app (AI-powered weekly life planner with pillars)
 > into v3 (Habits + Projects & Tasks with random picker and rich analytics).
