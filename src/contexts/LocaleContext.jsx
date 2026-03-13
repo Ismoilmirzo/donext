@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_LOCALE, getStoredLocale, LOCALES, setStoredLocale, translate } from '../lib/i18n';
 
 const LocaleContext = createContext(null);

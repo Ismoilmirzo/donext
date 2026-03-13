@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocale } from '../../contexts/LocaleContext';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -10,6 +10,8 @@ function formatElapsed(seconds) {
   const secs = s % 60;
   return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
+
+const DEFAULT_TITLE = 'DoNext';
 
 export default function ActiveTaskScreen({ project, task, onDone }) {
   const { t } = useLocale();
@@ -30,11 +32,20 @@ export default function ActiveTaskScreen({ project, task, onDone }) {
 
   useEffect(() => {
     function tick() {
-      setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+      const nextElapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      setElapsed(nextElapsed);
+      if (typeof document !== 'undefined') {
+        document.title = `⏱ ${formatElapsed(nextElapsed)} — ${DEFAULT_TITLE}`;
+      }
     }
     tick();
     const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      if (typeof document !== 'undefined') {
+        document.title = DEFAULT_TITLE;
+      }
+    };
   }, [startedAt]);
 
   return (
@@ -43,7 +54,15 @@ export default function ActiveTaskScreen({ project, task, onDone }) {
       <h2 className="text-2xl font-semibold text-slate-50">{task?.title}</h2>
       <p className="font-mono text-4xl font-bold text-emerald-300">{formatElapsed(elapsed)}</p>
       <p className="text-sm text-slate-400">{quote}</p>
-      <Button onClick={() => onDone?.(elapsed)} className="w-full py-4 text-lg">
+      <Button
+        onClick={() => {
+          if (typeof document !== 'undefined') {
+            document.title = DEFAULT_TITLE;
+          }
+          onDone?.(elapsed);
+        }}
+        className="w-full py-4 text-lg"
+      >
         {t('focus.doneButton')}
       </Button>
     </Card>
