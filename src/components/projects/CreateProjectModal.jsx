@@ -5,7 +5,7 @@ import ColorPicker from '../ui/ColorPicker';
 import Input from '../ui/Input';
 import Modal from '../ui/Modal';
 import TextArea from '../ui/TextArea';
-import { PROJECT_PRIORITY_OPTIONS } from '../../lib/projectPriority';
+import { PROJECT_PREFERRED_TIME_OPTIONS, PROJECT_PRIORITY_OPTIONS } from '../../lib/projectPriority';
 
 export default function CreateProjectModal({ open, onClose, onSave, saving = false, initialProject = null }) {
   const { t } = useLocale();
@@ -13,6 +13,7 @@ export default function CreateProjectModal({ open, onClose, onSave, saving = fal
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#6366F1');
   const [priority, setPriority] = useState('normal');
+  const [preferredTime, setPreferredTime] = useState('any');
   const [deadlineDate, setDeadlineDate] = useState('');
 
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function CreateProjectModal({ open, onClose, onSave, saving = fal
     setDescription(initialProject?.description || '');
     setColor(initialProject?.color || '#6366F1');
     setPriority(initialProject?.priority_tag || 'normal');
+    setPreferredTime(initialProject?.preferred_time || 'any');
     setDeadlineDate(initialProject?.deadline_date || '');
   }, [initialProject, open]);
 
@@ -31,6 +33,7 @@ export default function CreateProjectModal({ open, onClose, onSave, saving = fal
       description: description.trim(),
       color,
       priority_tag: priority,
+      preferred_time: preferredTime,
       deadline_date: deadlineDate || null,
     });
   }
@@ -77,6 +80,21 @@ export default function CreateProjectModal({ open, onClose, onSave, saving = fal
               </option>
             ))}
           </select>
+        </label>
+        <label className="space-y-1">
+          <span className="text-xs uppercase tracking-wide text-slate-500">{t('projects.preferredTimeLabel')}</span>
+          <select
+            value={preferredTime}
+            onChange={(e) => setPreferredTime(e.target.value)}
+            className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-slate-50 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            {PROJECT_PREFERRED_TIME_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {t(`projects.preferredTime.${option}`)}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500">{t('projects.preferredTimeHint')}</p>
         </label>
         <label className="space-y-1">
           <span className="text-xs uppercase tracking-wide text-slate-500">{t('projects.deadlineLabel')}</span>

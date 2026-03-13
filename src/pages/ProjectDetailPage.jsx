@@ -176,6 +176,9 @@ export default function ProjectDetailPage() {
             {project.description && <p className="mt-1 text-sm text-slate-400">{project.description}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <ProjectPriorityBadge priority={project.priority_tag} effectivePriority={project.effectivePriority} deadlineMeta={project} />
+              <span className="text-xs text-slate-500">
+                {t('projects.preferredTimeSummary', { value: t(`projects.preferredTime.${project.preferred_time || 'any'}`) })}
+              </span>
               {project.hasDeadline && (
                 <span className="text-xs text-slate-500">
                   {project.isOverdue

@@ -2,6 +2,62 @@
 
 ---
 
+## Focus Intelligence, Task Context, and PWA Installability
+
+**Priority: HIGH** - These changes tighten the app's core daily loop: smarter random picking, clearer task context, and easier repeat opening from the home screen.
+
+### Goals
+
+- [x] Keep the Focus picker opinionated, but give the user one re-roll per selection cycle.
+- [x] Add project preferred time so random selection respects morning, afternoon, and evening.
+- [x] Make task context visible during active focus by surfacing task notes below the title.
+- [x] Make DoNext installable as a minimal PWA on phones and desktop.
+- [x] Preserve the current product philosophy: guided choice, not full manual planning overload.
+
+### Execution Plan
+
+#### F1. Re-roll behavior
+- [x] Review the existing `RerollButton` flow and tighten it into a clear one-re-roll-per-selection-cycle rule.
+- [x] Prevent repeat re-roll chaining after the single retry is consumed.
+- [x] Reset the re-roll allowance only when a new focus selection cycle begins.
+- [x] Clarify the button copy/feedback so users know the second choice is final unless they switch to manual pick.
+
+#### F2. Preferred time on projects
+- [x] Add a migration for `projects.preferred_time` with allowed values: `any`, `morning`, `afternoon`, `evening`.
+- [x] Add project create/edit controls for preferred time.
+- [x] Reflect preferred time in project summaries and badges/details where useful.
+- [x] Update random project selection logic:
+  - prefer matching current time bucket + `any`
+  - fall back to all eligible projects if no preferred-time match exists
+- [x] Keep weighted randomness and deadline urgency intact on top of this filter.
+
+#### F3. Task descriptions / notes
+- [x] Confirm task description storage already exists and keep it backward-compatible.
+- [x] Surface task description more clearly on the active focus screen.
+- [x] Make sure task create/edit flows keep using a textarea and save descriptions correctly.
+- [x] Preserve description visibility on project task rows and random pick cards.
+
+#### F4. PWA / installability
+- [x] Upgrade the manifest to match the current brand and theme color requirements.
+- [x] Add install-grade app icons in `public/`.
+- [x] Add a minimal service worker for offline shell caching.
+- [x] Register the service worker from the frontend entrypoint.
+- [x] Ensure SPA routes still work with GitHub Pages and custom domain hosting.
+
+### Verification
+
+- [x] Focus shows one re-roll, then disables or locks it until a new pick cycle starts.
+- [x] Preferred-time projects are favored for the matching part of the day.
+- [x] If no preferred-time project matches, Focus still picks from all eligible projects.
+- [x] Active task screen shows task description when it exists.
+- [x] `manifest.json` and service worker are included in the production build.
+- [ ] The app still loads on `donext.uz` after deployment.
+- [x] `npm run lint` passes.
+- [x] `npm run build` passes.
+- [ ] Final changes are pushed and deployed to `donext.uz`.
+
+---
+
 ## UX: Activation, Discoverability, and Pre-Login Language
 
 **Priority: HIGH** - New users currently have to infer the product flow on their own. The app needs a clearer first-run path and better guidance before and after sign-in.

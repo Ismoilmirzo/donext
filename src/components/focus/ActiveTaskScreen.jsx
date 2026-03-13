@@ -12,6 +12,7 @@ function formatElapsed(seconds) {
 }
 
 const DEFAULT_TITLE = 'DoNext';
+const TIMER_PREFIX = '\u23F1';
 
 export default function ActiveTaskScreen({ project, task, onDone }) {
   const { t } = useLocale();
@@ -35,7 +36,7 @@ export default function ActiveTaskScreen({ project, task, onDone }) {
       const nextElapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
       setElapsed(nextElapsed);
       if (typeof document !== 'undefined') {
-        document.title = `⏱ ${formatElapsed(nextElapsed)} — ${DEFAULT_TITLE}`;
+        document.title = `${TIMER_PREFIX} ${formatElapsed(nextElapsed)} - ${DEFAULT_TITLE}`;
       }
     }
     tick();
@@ -52,6 +53,7 @@ export default function ActiveTaskScreen({ project, task, onDone }) {
     <Card className="space-y-4 text-center">
       <p className="text-sm text-slate-400">{project?.title}</p>
       <h2 className="text-2xl font-semibold text-slate-50">{task?.title}</h2>
+      {task?.description && <p className="mx-auto max-w-xl text-sm leading-6 text-slate-400">{task.description}</p>}
       <p className="font-mono text-4xl font-bold text-emerald-300">{formatElapsed(elapsed)}</p>
       <p className="text-sm text-slate-400">{quote}</p>
       <Button

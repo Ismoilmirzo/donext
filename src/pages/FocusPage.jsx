@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ListChecks } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ActiveTaskScreen from '../components/focus/ActiveTaskScreen';
@@ -17,7 +17,7 @@ import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
-import { getEffectiveProjectPriority, getProjectDeadlineMeta } from '../lib/projectPriority';
+import { getEffectiveProjectPriority, getProjectDeadlineMeta, normalizeProjectPreferredTime } from '../lib/projectPriority';
 import { selectRandomProject } from '../lib/random';
 import { supabase } from '../lib/supabase';
 
@@ -26,6 +26,7 @@ function normalizeProject(project) {
   return {
     ...project,
     priority_tag: project.priority_tag || 'normal',
+    preferred_time: normalizeProjectPreferredTime(project.preferred_time),
     effectivePriority: getEffectiveProjectPriority(project),
     ...getProjectDeadlineMeta(project),
   };
@@ -123,14 +124,26 @@ export default function FocusPage() {
     [todaysSessions]
   );
 
-  function pickRandom() {
+  function pickRandom(options = {}) {
     if (!eligible.length) return;
     const projectChoice = selectRandomProject(
       eligible.map((pair) => pair.project),
-      sessions
+      sessions,
+      options
     );
     const pair = eligible.find((entry) => entry.project.id === projectChoice?.id) || null;
     setSelected(pair);
+  }
+
+  function beginSelectionCycle() {
+    setRerollsLeft(1);
+    pickRandom();
+  }
+
+  function handleReroll() {
+    if (rerollsLeft <= 0 || !selected?.project?.id) return;
+    setRerollsLeft(0);
+    pickRandom({ excludeProjectIds: [selected.project.id] });
   }
 
   async function startSelected(pair = selected) {
@@ -147,6 +160,7 @@ export default function FocusPage() {
       task: { ...pair.task, status: 'in_progress', started_at: new Date().toISOString() },
     });
     setSelected(null);
+    setManualOpen(false);
     setRerollsLeft(1);
     await fetchEligible();
   }
@@ -203,7 +217,7 @@ export default function FocusPage() {
                 onClick={() => {
                   setFeedback('');
                   setPostCompleteState(null);
-                  pickRandom();
+                  beginSelectionCycle();
                 }}
               >
                 {t('focus.startAnotherTask')}
@@ -233,7 +247,7 @@ export default function FocusPage() {
             <ul className="space-y-2 text-sm text-slate-300">
               {[t('focus.howItWorksPoint1'), t('focus.howItWorksPoint2'), t('focus.howItWorksPoint3')].map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-emerald-400">•</span>
+                  <span className="text-emerald-400">*</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -249,7 +263,7 @@ export default function FocusPage() {
             />
           ) : (
             <Card className="space-y-3">
-              <StartTaskButton onClick={pickRandom} />
+              <StartTaskButton onClick={beginSelectionCycle} />
               <button
                 onClick={() => setManualOpen((prev) => !prev)}
                 className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200"
@@ -268,7 +282,7 @@ export default function FocusPage() {
                       <p className="text-slate-200">{pair.project.title}</p>
                       <p className="text-xs text-slate-400">
                         {pair.project.effectivePriority === 'urgent' ? t('projects.priority.urgent') : t(`projects.priority.${pair.project.priority_tag || 'normal'}`)}
-                        {' · '}
+                        {' | '}
                         {pair.task.title}
                       </p>
                     </button>
@@ -286,12 +300,17 @@ export default function FocusPage() {
           <RerollButton
             remaining={rerollsLeft}
             hidden={eligible.length <= 1}
-            onClick={() => {
-              if (rerollsLeft <= 0) return;
-              setRerollsLeft((prev) => prev - 1);
-              pickRandom();
-            }}
+            onClick={handleReroll}
           />
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setSelected(null);
+              setManualOpen(true);
+            }}
+          >
+            {t('focus.switchToManual')}
+          </Button>
         </div>
       )}
 
@@ -312,7 +331,7 @@ export default function FocusPage() {
             <div key={task.id} className="rounded-md border border-slate-700 bg-slate-800 p-2 text-sm">
               <p className="text-slate-200">{task.title}</p>
               <p className="text-xs text-slate-500">
-                {task.project?.title || t('taskRow.projectFallback')} · {task.completed_at ? new Date(task.completed_at).toLocaleDateString(getLocaleTag(locale)) : ''}
+                {task.project?.title || t('taskRow.projectFallback')} | {task.completed_at ? new Date(task.completed_at).toLocaleDateString(getLocaleTag(locale)) : ''}
               </p>
             </div>
           ))}

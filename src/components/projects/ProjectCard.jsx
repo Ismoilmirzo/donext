@@ -34,6 +34,9 @@ export default function ProjectCard({ project, onReopen, onArchive }) {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <ProjectPriorityBadge priority={project.priority_tag} effectivePriority={project.effectivePriority} deadlineMeta={project} />
             {project.hasDeadline && <span className="text-xs text-slate-500">{formatDeadline(project, locale, t)}</span>}
+            <span className="text-xs text-slate-500">
+              {t('projects.preferredTimeSummary', { value: t(`projects.preferredTime.${project.preferred_time || 'any'}`) })}
+            </span>
           </div>
         </div>
         <ProjectStatusBadge status={project.status} needsReview={project.hasAutoReviewPending} />

@@ -16,6 +16,9 @@ export default function RandomProjectCard({ project, task, onStart }) {
       </div>
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <ProjectPriorityBadge priority={project.priority_tag} effectivePriority={project.effectivePriority} deadlineMeta={project} />
+        <span className="text-xs text-slate-500">
+          {t('projects.preferredTimeSummary', { value: t(`projects.preferredTime.${project.preferred_time || 'any'}`) })}
+        </span>
         {project.hasDeadline && (
           <span className="text-xs text-slate-500">
             {project.isOverdue

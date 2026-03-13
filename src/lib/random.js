@@ -1,13 +1,18 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { getProjectPriorityWeight } from './projectPriority';
+import { filterProjectsByPreferredTime, getProjectPriorityWeight } from './projectPriority.js';
 
 function getWeight(daysSinceLastWork) {
   if (daysSinceLastWork === null) return 10;
   return Math.max(1, daysSinceLastWork + 1);
 }
 
-export function selectRandomProject(projects = [], focusSessions = []) {
+export function selectRandomProject(projects = [], focusSessions = [], options = {}) {
   if (!projects.length) return null;
+  const now = options.now || new Date();
+  const excludedProjectIds = new Set(options.excludeProjectIds || []);
+  const projectsAfterExclude = projects.filter((project) => !excludedProjectIds.has(project.id));
+  const pool = filterProjectsByPreferredTime(projectsAfterExclude.length ? projectsAfterExclude : projects, now);
+  if (!pool.length) return null;
 
   const lastSessionByProject = new Map();
   focusSessions.forEach((session) => {
@@ -18,14 +23,13 @@ export function selectRandomProject(projects = [], focusSessions = []) {
     }
   });
 
-  const today = new Date();
-  const weightedProjects = projects.map((project) => {
+  const weightedProjects = pool.map((project) => {
     const lastSessionDate = lastSessionByProject.get(project.id) || null;
     const daysSince = lastSessionDate
-      ? Math.max(0, differenceInCalendarDays(today, parseISO(lastSessionDate)))
+      ? Math.max(0, differenceInCalendarDays(now, parseISO(lastSessionDate)))
       : null;
     const recencyWeight = getWeight(daysSince);
-    const weight = recencyWeight * getProjectPriorityWeight(project, today);
+    const weight = recencyWeight * getProjectPriorityWeight(project, now);
     return { ...project, __weight: weight };
   });
 

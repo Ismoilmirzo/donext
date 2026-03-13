@@ -1,12 +1,35 @@
 import { differenceInCalendarDays, parseISO, startOfToday } from 'date-fns';
 
 export const PROJECT_PRIORITY_OPTIONS = ['urgent', 'normal', 'someday'];
+export const PROJECT_PREFERRED_TIME_OPTIONS = ['any', 'morning', 'afternoon', 'evening'];
 
 export const PROJECT_PRIORITY_WEIGHTS = {
   urgent: 5,
   normal: 2,
   someday: 1,
 };
+
+export function normalizeProjectPreferredTime(value) {
+  return PROJECT_PREFERRED_TIME_OPTIONS.includes(value) ? value : 'any';
+}
+
+export function getCurrentPreferredTimeBucket(now = new Date()) {
+  const hour = now.getHours();
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 18) return 'afternoon';
+  return 'evening';
+}
+
+export function projectMatchesPreferredTime(project, now = new Date()) {
+  const preferredTime = normalizeProjectPreferredTime(project?.preferred_time);
+  return preferredTime === 'any' || preferredTime === getCurrentPreferredTimeBucket(now);
+}
+
+export function filterProjectsByPreferredTime(projects = [], now = new Date()) {
+  if (!projects.length) return [];
+  const preferred = projects.filter((project) => projectMatchesPreferredTime(project, now));
+  return preferred.length ? preferred : projects;
+}
 
 function parseDeadline(deadlineDate) {
   if (!deadlineDate) return null;

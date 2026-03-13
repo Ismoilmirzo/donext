@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays } from 'date-fns';
 import { getStoredLocale, translate } from '../lib/i18n';
-import { getEffectiveProjectPriority, getProjectDeadlineMeta } from '../lib/projectPriority';
+import { getEffectiveProjectPriority, getProjectDeadlineMeta, normalizeProjectPreferredTime } from '../lib/projectPriority';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
@@ -28,6 +28,7 @@ function summarizeProject(project, tasks = []) {
   return {
     ...project,
     priority_tag: project.priority_tag || 'normal',
+    preferred_time: normalizeProjectPreferredTime(project.preferred_time),
     effectivePriority: getEffectiveProjectPriority(project),
     ...deadlineMeta,
     totalTasks,
@@ -98,7 +99,14 @@ export function useProjects() {
   }, [user]);
 
   const createProject = useCallback(
-    async ({ title, description = '', color = '#6366F1', priority_tag = 'normal', deadline_date = null }) => {
+    async ({
+      title,
+      description = '',
+      color = '#6366F1',
+      priority_tag = 'normal',
+      preferred_time = 'any',
+      deadline_date = null,
+    }) => {
       if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const { data, error } = await supabase
         .from('projects')
@@ -108,6 +116,7 @@ export function useProjects() {
           description: description.trim(),
           color,
           priority_tag,
+          preferred_time: normalizeProjectPreferredTime(preferred_time),
           deadline_date: deadline_date || null,
           status: 'active',
         })
@@ -137,6 +146,7 @@ export function useProjects() {
             ...project,
             ...data,
             priority_tag: data.priority_tag || 'normal',
+            preferred_time: normalizeProjectPreferredTime(data.preferred_time),
             effectivePriority: getEffectiveProjectPriority(data),
             ...deadlineMeta,
           };
