@@ -1,23 +1,23 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 export const THEME_STORAGE_KEY = 'donext-theme';
-export const DEFAULT_THEME = 'midnight';
+export const DEFAULT_THEME = 'night';
 
 export const THEMES = {
-  midnight: {
-    value: 'midnight',
-    preview: ['#0f172a', '#1e293b', '#10b981'],
-    themeColor: '#0f172a',
+  day: {
+    value: 'day',
+    preview: ['#f5f7fb', '#ffffff', '#3390ec'],
+    themeColor: '#f5f7fb',
   },
-  grove: {
-    value: 'grove',
-    preview: ['#071a13', '#122820', '#34d399'],
-    themeColor: '#071a13',
+  night: {
+    value: 'night',
+    preview: ['#0e1621', '#17212b', '#64a8ea'],
+    themeColor: '#0e1621',
   },
-  ember: {
-    value: 'ember',
-    preview: ['#20101a', '#321a2d', '#fb7185'],
-    themeColor: '#20101a',
+  tinted: {
+    value: 'tinted',
+    preview: ['#182533', '#22303c', '#7ab7ff'],
+    themeColor: '#182533',
   },
 };
 
@@ -39,7 +39,7 @@ export function ThemeProvider({ children }) {
     }
 
     document.documentElement.dataset.theme = nextTheme;
-    document.documentElement.style.colorScheme = 'dark';
+    document.documentElement.style.colorScheme = nextTheme === 'day' ? 'light' : 'dark';
 
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {

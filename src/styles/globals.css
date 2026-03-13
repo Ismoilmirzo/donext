@@ -1,67 +1,67 @@
 @import 'tailwindcss';
 
 :root,
-[data-theme='midnight'] {
-  --dn-page-top: #0f172a;
-  --dn-page-bottom: #020617;
-  --dn-page-rgb: 15 23 42;
-  --dn-surface-1: rgba(30, 41, 59, 0.88);
-  --dn-surface-2: rgba(30, 41, 59, 0.68);
-  --dn-surface-3: rgba(51, 65, 85, 0.72);
-  --dn-border: rgba(71, 85, 105, 0.82);
-  --dn-border-soft: rgba(71, 85, 105, 0.42);
-  --dn-text: #f8fafc;
-  --dn-text-soft: #cbd5e1;
-  --dn-text-muted: #94a3b8;
-  --dn-accent: #10b981;
-  --dn-accent-strong: #059669;
-  --dn-accent-soft: rgba(16, 185, 129, 0.14);
-  --dn-accent-rgb: 16 185 129;
+[data-theme='night'] {
+  --dn-page-top: #0e1621;
+  --dn-page-bottom: #09111a;
+  --dn-page-rgb: 14 22 33;
+  --dn-surface-1: rgba(23, 33, 43, 0.92);
+  --dn-surface-2: rgba(23, 33, 43, 0.76);
+  --dn-surface-3: rgba(38, 53, 69, 0.84);
+  --dn-border: rgba(71, 95, 121, 0.84);
+  --dn-border-soft: rgba(71, 95, 121, 0.4);
+  --dn-text: #e8f1f8;
+  --dn-text-soft: #c6d4e1;
+  --dn-text-muted: #8ea2b7;
+  --dn-accent: #64a8ea;
+  --dn-accent-strong: #4b93db;
+  --dn-accent-soft: rgba(100, 168, 234, 0.16);
+  --dn-accent-rgb: 100 168 234;
   --dn-danger: #ef4444;
   --dn-warning: #f59e0b;
-  --dn-shadow: 0 18px 40px rgba(2, 6, 23, 0.26);
+  --dn-shadow: 0 18px 40px rgba(4, 12, 20, 0.3);
 }
 
-[data-theme='grove'] {
-  --dn-page-top: #071a13;
-  --dn-page-bottom: #020c09;
-  --dn-page-rgb: 7 26 19;
-  --dn-surface-1: rgba(18, 40, 32, 0.9);
-  --dn-surface-2: rgba(14, 34, 27, 0.72);
-  --dn-surface-3: rgba(24, 52, 42, 0.78);
-  --dn-border: rgba(53, 89, 75, 0.84);
-  --dn-border-soft: rgba(53, 89, 75, 0.42);
-  --dn-text: #f3fbf7;
-  --dn-text-soft: #d5efe3;
-  --dn-text-muted: #9ec0b0;
-  --dn-accent: #34d399;
-  --dn-accent-strong: #10b981;
-  --dn-accent-soft: rgba(52, 211, 153, 0.16);
-  --dn-accent-rgb: 52 211 153;
-  --dn-danger: #fb7185;
-  --dn-warning: #fbbf24;
-  --dn-shadow: 0 18px 40px rgba(1, 10, 7, 0.34);
+[data-theme='day'] {
+  --dn-page-top: #eff3f7;
+  --dn-page-bottom: #dde6ef;
+  --dn-page-rgb: 239 243 247;
+  --dn-surface-1: rgba(255, 255, 255, 0.94);
+  --dn-surface-2: rgba(255, 255, 255, 0.76);
+  --dn-surface-3: rgba(225, 233, 242, 0.92);
+  --dn-border: rgba(186, 198, 212, 0.92);
+  --dn-border-soft: rgba(186, 198, 212, 0.56);
+  --dn-text: #17212b;
+  --dn-text-soft: #334155;
+  --dn-text-muted: #6b7c90;
+  --dn-accent: #3390ec;
+  --dn-accent-strong: #2b7fd3;
+  --dn-accent-soft: rgba(51, 144, 236, 0.14);
+  --dn-accent-rgb: 51 144 236;
+  --dn-danger: #dc2626;
+  --dn-warning: #d97706;
+  --dn-shadow: 0 18px 40px rgba(148, 163, 184, 0.24);
 }
 
-[data-theme='ember'] {
-  --dn-page-top: #20101a;
-  --dn-page-bottom: #12070e;
-  --dn-page-rgb: 32 16 26;
-  --dn-surface-1: rgba(50, 26, 45, 0.9);
-  --dn-surface-2: rgba(41, 20, 36, 0.72);
-  --dn-surface-3: rgba(68, 33, 59, 0.8);
-  --dn-border: rgba(120, 61, 92, 0.84);
-  --dn-border-soft: rgba(120, 61, 92, 0.4);
-  --dn-text: #fff7fa;
-  --dn-text-soft: #f8d9e3;
-  --dn-text-muted: #c79aac;
-  --dn-accent: #fb7185;
-  --dn-accent-strong: #f97316;
-  --dn-accent-soft: rgba(251, 113, 133, 0.16);
-  --dn-accent-rgb: 251 113 133;
+[data-theme='tinted'] {
+  --dn-page-top: #182533;
+  --dn-page-bottom: #101b27;
+  --dn-page-rgb: 24 37 51;
+  --dn-surface-1: rgba(34, 48, 60, 0.92);
+  --dn-surface-2: rgba(34, 48, 60, 0.78);
+  --dn-surface-3: rgba(49, 68, 87, 0.86);
+  --dn-border: rgba(86, 110, 136, 0.86);
+  --dn-border-soft: rgba(86, 110, 136, 0.42);
+  --dn-text: #edf4fb;
+  --dn-text-soft: #cfdae6;
+  --dn-text-muted: #a4b6c8;
+  --dn-accent: #7ab7ff;
+  --dn-accent-strong: #5da5f5;
+  --dn-accent-soft: rgba(122, 183, 255, 0.16);
+  --dn-accent-rgb: 122 183 255;
   --dn-danger: #ef4444;
-  --dn-warning: #fb923c;
-  --dn-shadow: 0 18px 40px rgba(17, 7, 14, 0.34);
+  --dn-warning: #f59e0b;
+  --dn-shadow: 0 18px 40px rgba(8, 15, 24, 0.34);
 }
 
 html,
@@ -73,7 +73,7 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top, rgb(var(--dn-accent-rgb) / 0.18), transparent 34%),
+    radial-gradient(circle at top, rgb(var(--dn-accent-rgb) / 0.14), transparent 34%),
     linear-gradient(180deg, var(--dn-page-top), var(--dn-page-bottom));
   color: var(--dn-text);
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
@@ -120,7 +120,7 @@ a {
 }
 
 .dn-link:hover {
-  color: color-mix(in srgb, var(--dn-accent) 82%, white);
+  color: color-mix(in srgb, var(--dn-accent) 82%, var(--dn-text));
 }
 
 .dn-link-muted {
@@ -179,7 +179,7 @@ a {
 }
 
 .dn-button-danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--dn-danger) 86%, black);
+  background: color-mix(in srgb, var(--dn-danger) 86%, var(--dn-page-bottom));
 }
 
 .dn-button-ghost {
@@ -197,7 +197,7 @@ a {
   border: 1px solid var(--dn-border);
   background: var(--dn-surface-2);
   color: var(--dn-text);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.02);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 .dn-input::placeholder {
@@ -215,7 +215,7 @@ a {
 }
 
 .dn-modal-backdrop {
-  background: rgb(2 6 23 / 0.72);
+  background: rgb(var(--dn-page-rgb) / 0.68);
   backdrop-filter: blur(6px);
 }
 
@@ -281,8 +281,8 @@ a {
 }
 
 .dn-theme-swatch {
-  border: 1px solid rgb(255 255 255 / 0.08);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  border: 1px solid rgb(var(--dn-page-rgb) / 0.18);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
 }
 
 .dn-shell-nav {
@@ -312,15 +312,15 @@ a {
 .dn-onboarding-banner {
   border-color: rgb(var(--dn-accent-rgb) / 0.28);
   background: rgb(var(--dn-accent-rgb) / 0.12);
-  color: color-mix(in srgb, var(--dn-accent) 35%, white);
+  color: color-mix(in srgb, var(--dn-accent) 35%, var(--dn-text));
 }
 
 .dn-onboarding-banner a {
-  color: color-mix(in srgb, var(--dn-accent) 72%, white);
+  color: color-mix(in srgb, var(--dn-accent) 72%, var(--dn-text));
 }
 
 .dn-onboarding-banner a:hover {
-  color: color-mix(in srgb, var(--dn-accent) 86%, white);
+  color: color-mix(in srgb, var(--dn-accent) 86%, var(--dn-text));
 }
 
 .from-slate-900 {
@@ -391,7 +391,7 @@ a {
 }
 
 .border-slate-600 {
-  border-color: color-mix(in srgb, var(--dn-border) 82%, white 10%) !important;
+  border-color: color-mix(in srgb, var(--dn-border) 88%, var(--dn-text) 8%) !important;
 }
 
 .text-slate-50,
@@ -444,11 +444,11 @@ a {
 }
 
 .text-emerald-100 {
-  color: color-mix(in srgb, var(--dn-accent) 32%, white) !important;
+  color: color-mix(in srgb, var(--dn-accent) 32%, var(--dn-text)) !important;
 }
 
 .text-emerald-100\/80 {
-  color: color-mix(in srgb, var(--dn-accent) 24%, white) !important;
+  color: color-mix(in srgb, var(--dn-accent) 24%, var(--dn-text)) !important;
 }
 
 @keyframes habitCheck {

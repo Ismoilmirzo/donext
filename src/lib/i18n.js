@@ -200,17 +200,17 @@ const translations = {
       themeDescription: 'Choose the visual style for this browser. It applies across the whole app.',
       themeSelected: 'Current theme',
       themes: {
-        midnight: {
-          name: 'Midnight',
-          description: 'Deep navy surfaces with emerald highlights.',
+        day: {
+          name: 'Day',
+          description: 'Telegram-style light theme with clean blue accents.',
         },
-        grove: {
-          name: 'Grove',
-          description: 'Dark green surfaces with fresh mint accents.',
+        night: {
+          name: 'Night',
+          description: 'Telegram-style dark theme with cool blue highlights.',
         },
-        ember: {
-          name: 'Ember',
-          description: 'Warm plum surfaces with coral accents.',
+        tinted: {
+          name: 'Tinted',
+          description: 'Telegram-style tinted blue theme for a softer dark look.',
         },
       },
       deleteModalTitle: 'Delete account',
@@ -841,17 +841,17 @@ const translations = {
       themeDescription: 'Bu brauzer uchun korinish uslubini tanlang. U butun ilovaga qollanadi.',
       themeSelected: 'Joriy mavzu',
       themes: {
-        midnight: {
-          name: 'Midnight',
-          description: 'Chuqur koyi sathlar va zumrad urgulari.',
+        day: {
+          name: 'Day',
+          description: 'Telegram uslubidagi yorug mavzu va toza kok urgular.',
         },
-        grove: {
-          name: 'Grove',
-          description: 'Qoramtir yashil sathlar va yalpiz urgulari.',
+        night: {
+          name: 'Night',
+          description: 'Telegram uslubidagi tungi mavzu va salqin kok urgular.',
         },
-        ember: {
-          name: 'Ember',
-          description: 'Iliq olcha sathlar va marjon urgulari.',
+        tinted: {
+          name: 'Tinted',
+          description: 'Telegram uslubidagi kok tusli qorongu mavzu.',
         },
       },
       deleteModalTitle: "Akkauntni o'chirish",
