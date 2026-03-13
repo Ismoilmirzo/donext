@@ -4,6 +4,7 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import LocaleSwitcher from '../components/ui/LocaleSwitcher';
+import ThemeToggle from '../components/ui/ThemeToggle';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
 import { supabase } from '../lib/supabase';
@@ -202,7 +203,10 @@ export default function AuthPage() {
             <Link to="/" className="dn-brand text-xl font-semibold">
               {t('common.appName')}
             </Link>
-            <LocaleSwitcher />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <LocaleSwitcher />
+            </div>
           </div>
           <div className="mt-5 text-center">
             <h1 className="text-2xl font-bold text-slate-100">

@@ -1,6 +1,7 @@
 import { BarChart3, CheckSquare, FolderKanban, Zap } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 import LocaleSwitcher from '../components/ui/LocaleSwitcher';
+import ThemeToggle from '../components/ui/ThemeToggle';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
 
@@ -43,6 +44,7 @@ export default function LandingPage() {
             {t('common.appName')}
           </span>
           <div className="flex flex-wrap items-center gap-3">
+            <ThemeToggle />
             <LocaleSwitcher />
             <Link to="/auth" className="dn-link-muted text-sm">
               {t('landing.logIn')}

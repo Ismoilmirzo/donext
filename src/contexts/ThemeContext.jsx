@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 export const THEME_STORAGE_KEY = 'donext-theme';
-export const DEFAULT_THEME = 'night';
+
+function getSystemDefault() {
+  if (typeof window === 'undefined') return 'night';
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'day' : 'night';
+}
 
 export const THEMES = {
   day: {
@@ -29,16 +33,16 @@ export const THEMES = {
 const ThemeContext = createContext(null);
 
 function getStoredTheme() {
-  if (typeof window === 'undefined') return DEFAULT_THEME;
+  if (typeof window === 'undefined') return getSystemDefault();
   const value = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return THEMES[value] ? value : DEFAULT_THEME;
+  return THEMES[value] ? value : getSystemDefault();
 }
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => getStoredTheme());
 
   useEffect(() => {
-    const nextTheme = THEMES[theme] ? theme : DEFAULT_THEME;
+    const nextTheme = THEMES[theme] ? theme : getSystemDefault();
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
     }
