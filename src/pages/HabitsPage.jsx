@@ -61,11 +61,16 @@ export default function HabitsPage() {
   const total = habits.length;
   const percent = total ? Math.round((completed / total) * 100) : 0;
   const todayLabel = new Intl.DateTimeFormat(getLocaleTag(locale), { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date());
+  const refillLabel = streak.nextGrantDate
+    ? new Intl.DateTimeFormat(getLocaleTag(locale), { weekday: 'short', month: 'short', day: 'numeric' }).format(parseISO(streak.nextGrantDate))
+    : '';
   const freezeNoticeText = freezeNotice
     ? isYesterday(parseISO(freezeNotice.date))
-      ? t('habits.freezeNoticeYesterday', { streak: freezeNotice.streakDays })
+      ? t('habits.freezeNoticeYesterday', { streak: freezeNotice.streakDays, remaining: freezeNotice.remaining, total: freezeNotice.total })
       : t('habits.freezeNoticeDate', {
           streak: freezeNotice.streakDays,
+          remaining: freezeNotice.remaining,
+          total: freezeNotice.total,
           date: new Intl.DateTimeFormat(getLocaleTag(locale), { month: 'short', day: 'numeric' }).format(parseISO(freezeNotice.date)),
         })
     : '';
@@ -135,6 +140,12 @@ export default function HabitsPage() {
         <div className="mt-3">
           <ProgressBar value={percent} max={100} />
         </div>
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs text-sky-100">
+          <span>❄️</span>
+          <span>{t('habits.freezeInventoryValue', { available: streak.availableFreezes, total: streak.storageCap })}</span>
+          <span className="text-sky-100/70">•</span>
+          <span>{freezeInventorySummary(streak, refillLabel, t)}</span>
+        </div>
         {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
       </Card>
 
@@ -186,8 +197,10 @@ export default function HabitsPage() {
         <HabitStreakCard
           current={streak.current}
           longest={streak.longest}
-          weeklyRemaining={streak.weeklyRemaining}
-          weeklyLimit={streak.weeklyLimit}
+          availableFreezes={streak.availableFreezes}
+          usedThisWeek={streak.usedThisWeek}
+          storageCap={streak.storageCap}
+          nextGrantDate={streak.nextGrantDate}
         />
       </div>
 
@@ -219,4 +232,11 @@ export default function HabitsPage() {
       />
     </div>
   );
+}
+
+function freezeInventorySummary(streak, refillLabel, t) {
+  if (streak.availableFreezes === streak.storageCap) {
+    return t('habits.freezeAtCapacity');
+  }
+  return t('habits.freezeNextRefill', { total: streak.storageCap, date: refillLabel });
 }

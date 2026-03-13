@@ -184,9 +184,15 @@ export default function StatsPage() {
     : 0;
   const freezeNoticeText = freezeNotice
     ? isYesterday(parseISO(freezeNotice.date))
-      ? t('habits.freezeNoticeYesterday', { streak: freezeNotice.streakDays })
+      ? t('habits.freezeNoticeYesterday', {
+          streak: freezeNotice.streakDays,
+          remaining: freezeNotice.remaining,
+          total: freezeNotice.total,
+        })
       : t('habits.freezeNoticeDate', {
           streak: freezeNotice.streakDays,
+          remaining: freezeNotice.remaining,
+          total: freezeNotice.total,
           date: new Intl.DateTimeFormat(getLocaleTag(locale), { month: 'short', day: 'numeric' }).format(parseISO(freezeNotice.date)),
         })
     : '';

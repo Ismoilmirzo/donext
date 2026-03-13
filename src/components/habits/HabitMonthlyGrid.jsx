@@ -60,6 +60,7 @@ export default function HabitMonthlyGrid({ habits = [], logs = [], streak = null
         {t('habits.monthlySummary', { month: monthLabel, rate: monthlyRate, done: doneDays, total: totalDays })}
       </p>
       <p className="mt-1 text-xs text-slate-500">{t('habits.freezeSummary', { count: frozenDays })}</p>
+      <p className="mt-1 text-xs text-slate-500">{t('habits.freezeLegend')}</p>
       <p className="mt-1 text-sm text-emerald-300">{t('habits.streakDays', { count: streak?.current || 0 })}</p>
     </Card>
   );

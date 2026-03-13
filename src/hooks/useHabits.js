@@ -42,6 +42,7 @@ export function useHabits() {
           freezeDates: nextFreezes.map((freeze) => freeze.date),
           activeHabitCount: habits.length,
           today: new Date(),
+          accountCreatedAt: user.created_at,
         });
 
         if (plannedDates.length) {
@@ -73,12 +74,15 @@ export function useHabits() {
             freezeDates: nextFreezes.map((freeze) => freeze.date),
             activeHabitCount: habits.length,
             today: new Date(),
+            accountCreatedAt: user.created_at,
           });
           const latestApplied = plannedDates.sort().pop();
           setFreezeNotice({
             date: latestApplied,
             streakDays: streakAfterFreeze.current,
             count: plannedDates.length,
+            remaining: streakAfterFreeze.availableFreezes,
+            total: streakAfterFreeze.storageCap,
           });
         } else {
           setFreezeNotice(null);
@@ -304,8 +308,9 @@ export function useHabits() {
         freezeDates: streakFreezes.map((freeze) => freeze.date),
         activeHabitCount: habits.length,
         today: new Date(),
+        accountCreatedAt: user?.created_at,
       }),
-    [allLogs, habits.length, streakFreezes]
+    [allLogs, habits.length, streakFreezes, user?.created_at]
   );
 
   return {
