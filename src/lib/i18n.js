@@ -202,15 +202,15 @@ const translations = {
       themes: {
         day: {
           name: 'Day',
-          description: 'Telegram-style light theme with clean blue accents.',
+          description: 'Light theme with clean blue accents.',
         },
         night: {
           name: 'Night',
-          description: 'Telegram-style dark theme with cool blue highlights.',
+          description: 'Dark theme with cool blue highlights.',
         },
         tinted: {
           name: 'Tinted',
-          description: 'Telegram-style tinted blue theme for a softer dark look.',
+          description: 'Tinted blue theme for a softer dark look.',
         },
       },
       deleteModalTitle: 'Delete account',
@@ -843,15 +843,15 @@ const translations = {
       themes: {
         day: {
           name: 'Day',
-          description: 'Telegram uslubidagi yorug mavzu va toza kok urgular.',
+          description: 'Yorug mavzu va toza kok urgular.',
         },
         night: {
           name: 'Night',
-          description: 'Telegram uslubidagi tungi mavzu va salqin kok urgular.',
+          description: 'Tungi mavzu va salqin kok urgular.',
         },
         tinted: {
           name: 'Tinted',
-          description: 'Telegram uslubidagi kok tusli qorongu mavzu.',
+          description: 'Kok tusli qorongu mavzu.',
         },
       },
       deleteModalTitle: "Akkauntni o'chirish",
