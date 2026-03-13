@@ -84,9 +84,11 @@ export default function CompleteTaskModal({ open, onClose, startedAt, onSave, sa
             setShowClampHint(Boolean(wasClamped));
           }}
         />
-        <p className="text-xs text-slate-500">
-          {t('focus.timerSays', { hours: Math.floor(maxMinutes / 60), minutes: maxMinutes % 60 })}
-        </p>
+        <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+          <p className="text-xs uppercase tracking-wide text-slate-500">{t('focus.totalTimeSpentLabel')}</p>
+          <p className="mt-1 text-sm text-slate-200">{t('focus.timerSays', { hours: Math.floor(maxMinutes / 60), minutes: maxMinutes % 60 })}</p>
+          <p className="mt-1 text-xs text-slate-400">{t('focus.totalTimeHint')}</p>
+        </div>
         {showClampHint && (
           <p className="text-xs text-amber-400">{t('focus.timeExceedsMax')} ({formatMinutesHuman(maxMinutes)})</p>
         )}

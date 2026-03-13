@@ -12,7 +12,9 @@ export default function AllTimeStatsCard({ stats }) {
         <p>{t('stats.active', { count: stats.activeCount })}</p>
         <p>{t('stats.completedThisMonth', { count: stats.completedThisMonth })}</p>
         <p>{t('stats.tasksCompleted', { count: stats.tasksCompleted })}</p>
-        <p>{t('stats.avgTimePerTask', { value: formatMinutesHuman(Math.round(stats.avgTimePerTask || 0)) })}</p>
+        <p>{t('stats.avgFocusPerTask', { value: formatMinutesHuman(Math.round(stats.avgFocusTimePerTask || 0)) })}</p>
+        <p>{t('stats.avgTotalPerTask', { value: formatMinutesHuman(Math.round(stats.avgTotalTimePerTask || 0)) })}</p>
+        <p>{t('stats.efficiencyRateStat', { value: Math.round(stats.efficiencyRate || 0) })}</p>
       </div>
     </Card>
   );

@@ -76,6 +76,94 @@ After implementing, test these scenarios:
 
 ---
 
+## FEATURE: Focus Time vs Total Time Spent
+
+**Priority: HIGH** — Needed to distinguish true focused work from total elapsed effort and unlock efficiency infographics.
+
+### Product Decision
+
+- `focus time` = minutes the user enters manually in the completion modal
+- `total time spent` = actual elapsed wall-clock minutes between `started_at` and completion
+- `overhead` = `total time spent - focus time`
+- `efficiency` = `focus time / total time spent`
+
+### Requirements
+
+1. Keep all existing focus totals based on the user-entered value.
+2. Add a second stored total-time metric without changing the meaning of current focus-time columns.
+3. Support older rows that only have focus-time data by falling back gracefully.
+4. Show both values in project summaries and Stats infographics.
+
+### Data Model
+
+**New columns**
+- `tasks.total_time_spent_minutes INT`
+- `focus_sessions.total_duration_minutes INT`
+
+**Existing columns keep their meaning**
+- `tasks.time_spent_minutes` = focused minutes
+- `focus_sessions.duration_minutes` = focused minutes
+
+### Completion Flow
+
+#### FT1. Completion modal
+**File:** `src/components/focus/CompleteTaskModal.jsx`
+- Keep one editable input for focused time
+- Show total elapsed time as read-only context
+- Explain that focused time can be lower than total time spent
+
+#### FT2. Save both metrics
+**File:** `src/hooks/useTasks.js`
+- Compute `totalElapsedMinutes` from `started_at`
+- Clamp focused minutes to `[1, totalElapsedMinutes]`
+- Save:
+  - `tasks.time_spent_minutes = focusMinutes`
+  - `tasks.total_time_spent_minutes = totalElapsedMinutes`
+  - `focus_sessions.duration_minutes = focusMinutes`
+  - `focus_sessions.total_duration_minutes = totalElapsedMinutes`
+
+#### FT3. Backward compatibility
+- When `total_time_spent_minutes` / `total_duration_minutes` is null on old rows, treat total time as equal to focus time
+- That keeps existing charts and totals valid without a destructive backfill
+
+### Infographics
+
+#### FT4. Stats page
+**Files:** `src/hooks/useStats.js`, `src/pages/StatsPage.jsx`, `src/components/stats/*`
+- Hero card:
+  - focused time
+  - total time spent
+  - efficiency %
+  - overhead minutes
+- Daily chart:
+  - stacked bars for focused vs overhead time
+- Project chart/list:
+  - focused time
+  - total time
+  - efficiency % per project
+- All-time/project summary:
+  - average focus/task
+  - average total/task
+  - overall efficiency
+
+#### FT5. Project surfaces
+**Files:** `src/hooks/useProjects.js`, `src/pages/ProjectDetailPage.jsx`, `src/components/projects/ProjectCard.jsx`
+- Show:
+  - total focus time
+  - total time spent
+  - efficiency %
+- Keep focus time as the primary value, with total/efficiency as supporting context
+
+### Verification
+
+- [ ] Complete a task with 40 min elapsed and 25 min focused -> totals store 25 focus / 40 total
+- [ ] Stats hero shows both focused and total minutes
+- [ ] Daily chart shows overhead as `total - focus`
+- [ ] Project detail total focus remains the sum of user-entered minutes
+- [ ] Older tasks without new total-time columns still render without errors
+
+---
+
 # DONEXT v1 → v3 Migration TODO (Reference — Completed)
 
 > **Goal:** Transform current app (AI-powered weekly life planner with pillars)

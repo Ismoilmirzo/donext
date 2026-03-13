@@ -33,6 +33,12 @@ export default function ProjectCard({ project, onReopen, onArchive }) {
           <p>
             {t('projects.totalFocus')}: {formatMinutesHuman(project.focusMinutes || 0)}
           </p>
+          <p>
+            {t('projects.totalTimeSpentShort')}: {formatMinutesHuman(project.totalMinutes || 0)}
+          </p>
+          <p>
+            {t('projects.efficiencyRate', { value: project.efficiencyRate || 0 })}
+          </p>
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={() => onReopen?.(project)}>
               {t('common.restore')}
@@ -49,6 +55,10 @@ export default function ProjectCard({ project, onReopen, onArchive }) {
             <span>{percent}%</span>
           </div>
           <ProgressBar value={percent} max={100} />
+          <div className="grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
+            <p>{t('projects.totalFocusShort', { value: formatMinutesHuman(project.focusMinutes || 0) })}</p>
+            <p>{t('projects.efficiencyRate', { value: project.efficiencyRate || 0 })}</p>
+          </div>
           <p className="text-xs text-slate-500">{t('projects.lastWorked', { value: formatRelativeTime(project.lastWorkedAt) })}</p>
         </div>
       )}

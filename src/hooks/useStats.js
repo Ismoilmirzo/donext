@@ -18,26 +18,54 @@ export function useStats() {
         .lte('date', endDate);
       if (error) return { data: null, error };
 
-      const totalMinutes = (sessions || []).reduce((sum, session) => sum + (session.duration_minutes || 0), 0);
+      const focusMinutes = (sessions || []).reduce((sum, session) => sum + (session.duration_minutes || 0), 0);
+      const totalMinutes = (sessions || []).reduce(
+        (sum, session) => sum + (session.total_duration_minutes ?? session.duration_minutes ?? 0),
+        0
+      );
+      const overheadMinutes = Math.max(0, totalMinutes - focusMinutes);
+      const efficiencyRate = totalMinutes > 0 ? (focusMinutes / totalMinutes) * 100 : 0;
       const byDate = {};
       const byProject = {};
       (sessions || []).forEach((session) => {
-        byDate[session.date] = (byDate[session.date] || 0) + (session.duration_minutes || 0);
+        if (!byDate[session.date]) {
+          byDate[session.date] = {
+            focusMinutes: 0,
+            totalMinutes: 0,
+            overheadMinutes: 0,
+          };
+        }
+        const sessionFocusMinutes = session.duration_minutes || 0;
+        const sessionTotalMinutes = session.total_duration_minutes ?? session.duration_minutes ?? 0;
+        byDate[session.date].focusMinutes += sessionFocusMinutes;
+        byDate[session.date].totalMinutes += sessionTotalMinutes;
+        byDate[session.date].overheadMinutes += Math.max(0, sessionTotalMinutes - sessionFocusMinutes);
+
         const key = session.project_id || 'none';
         if (!byProject[key]) {
           byProject[key] = {
             project_id: session.project_id,
             title: session.project?.title || translate(getStoredLocale(), 'system.unassigned'),
             color: session.project?.color || '#64748b',
-            minutes: 0,
+            focusMinutes: 0,
+            totalMinutes: 0,
+            overheadMinutes: 0,
+            efficiencyRate: 0,
           };
         }
-        byProject[key].minutes += session.duration_minutes || 0;
+        byProject[key].focusMinutes += sessionFocusMinutes;
+        byProject[key].totalMinutes += sessionTotalMinutes;
+        byProject[key].overheadMinutes += Math.max(0, sessionTotalMinutes - sessionFocusMinutes);
+        byProject[key].efficiencyRate =
+          byProject[key].totalMinutes > 0 ? Math.round((byProject[key].focusMinutes / byProject[key].totalMinutes) * 100) : 0;
       });
 
       return {
         data: {
+          focusMinutes,
           totalMinutes,
+          overheadMinutes,
+          efficiencyRate,
           byDate,
           byProject: Object.values(byProject),
           sessionCount: (sessions || []).length,
@@ -97,12 +125,17 @@ export function useStats() {
 
     const { data: tasks, error: tasksError } = await supabase
       .from('tasks')
-      .select('status,time_spent_minutes,completed_at')
+      .select('status,time_spent_minutes,total_time_spent_minutes,completed_at')
       .eq('user_id', user.id);
     if (tasksError) return { data: null, error: tasksError };
 
     const completedTasks = (tasks || []).filter((task) => task.status === 'completed');
-    const totalMinutes = completedTasks.reduce((sum, task) => sum + (task.time_spent_minutes || 0), 0);
+    const totalFocusMinutes = completedTasks.reduce((sum, task) => sum + (task.time_spent_minutes || 0), 0);
+    const totalSpentMinutes = completedTasks.reduce(
+      (sum, task) => sum + (task.total_time_spent_minutes ?? task.time_spent_minutes ?? 0),
+      0
+    );
+    const efficiencyRate = totalSpentMinutes > 0 ? (totalFocusMinutes / totalSpentMinutes) * 100 : 0;
 
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -115,7 +148,9 @@ export function useStats() {
         activeCount: (projects || []).filter((project) => project.status === 'active').length,
         completedThisMonth,
         tasksCompleted: completedTasks.length,
-        avgTimePerTask: completedTasks.length ? totalMinutes / completedTasks.length : 0,
+        avgFocusTimePerTask: completedTasks.length ? totalFocusMinutes / completedTasks.length : 0,
+        avgTotalTimePerTask: completedTasks.length ? totalSpentMinutes / completedTasks.length : 0,
+        efficiencyRate,
       },
       error: null,
     };

@@ -49,14 +49,23 @@ export default function StatsPage() {
   const [period, setPeriod] = useState('week');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [focusData, setFocusData] = useState({ totalMinutes: 0, byDate: {}, byProject: [] });
-  const [prevFocusData, setPrevFocusData] = useState({ totalMinutes: 0 });
+  const [focusData, setFocusData] = useState({
+    focusMinutes: 0,
+    totalMinutes: 0,
+    overheadMinutes: 0,
+    efficiencyRate: 0,
+    byDate: {},
+    byProject: [],
+  });
+  const [prevFocusData, setPrevFocusData] = useState({ focusMinutes: 0 });
   const [habitData, setHabitData] = useState({ overallRate: 0, perHabit: [] });
   const [projectData, setProjectData] = useState({
     activeCount: 0,
     completedThisMonth: 0,
     tasksCompleted: 0,
-    avgTimePerTask: 0,
+    avgFocusTimePerTask: 0,
+    avgTotalTimePerTask: 0,
+    efficiencyRate: 0,
   });
   const [monthlyTrendRows, setMonthlyTrendRows] = useState([]);
 
@@ -91,10 +100,28 @@ export default function StatsPage() {
       if (!mounted) return;
       const firstError = focusRes.error || prevFocusRes.error || habitRes.error || projectRes.error || trendRes.error;
       setError(firstError?.message || '');
-      setFocusData(focusRes.data || { totalMinutes: 0, byDate: {}, byProject: [] });
-      setPrevFocusData(prevFocusRes.data || { totalMinutes: 0 });
+      setFocusData(
+        focusRes.data || {
+          focusMinutes: 0,
+          totalMinutes: 0,
+          overheadMinutes: 0,
+          efficiencyRate: 0,
+          byDate: {},
+          byProject: [],
+        }
+      );
+      setPrevFocusData(prevFocusRes.data || { focusMinutes: 0 });
       setHabitData(habitRes.data || { overallRate: 0, perHabit: [] });
-      setProjectData(projectRes.data || { activeCount: 0, completedThisMonth: 0, tasksCompleted: 0, avgTimePerTask: 0 });
+      setProjectData(
+        projectRes.data || {
+          activeCount: 0,
+          completedThisMonth: 0,
+          tasksCompleted: 0,
+          avgFocusTimePerTask: 0,
+          avgTotalTimePerTask: 0,
+          efficiencyRate: 0,
+        }
+      );
 
       const weeklyMap = {};
       (trendRes.data || []).forEach((row) => {
@@ -133,7 +160,9 @@ export default function StatsPage() {
           period === 'month'
             ? new Intl.DateTimeFormat(getLocaleTag(locale), { day: 'numeric' }).format(cursor)
             : new Intl.DateTimeFormat(getLocaleTag(locale), { weekday: 'short' }).format(cursor),
-        minutes: focusData.byDate?.[iso] || 0,
+        focusMinutes: focusData.byDate?.[iso]?.focusMinutes || 0,
+        totalMinutes: focusData.byDate?.[iso]?.totalMinutes || 0,
+        overheadMinutes: focusData.byDate?.[iso]?.overheadMinutes || 0,
       });
       cursor = addDays(cursor, 1);
     }
@@ -143,7 +172,7 @@ export default function StatsPage() {
   const bestHabit = habitData.perHabit?.[0] || null;
   const worstHabit = habitData.perHabit?.[habitData.perHabit.length - 1] || null;
   const streak = calculateStreak(logs, habits.length, new Date());
-  const deltaMinutes = (focusData.totalMinutes || 0) - (prevFocusData.totalMinutes || 0);
+  const deltaMinutes = (focusData.focusMinutes || 0) - (prevFocusData.focusMinutes || 0);
 
   const currentChunk = monthlyTrendRows.slice(-4);
   const previousChunk = monthlyTrendRows.slice(-8, -4);
@@ -179,7 +208,10 @@ export default function StatsPage() {
       {error && <Card className="border-red-500/30 bg-red-500/10 text-sm text-red-200">{error}</Card>}
 
       <FocusTimeChart
+        focusMinutes={focusData.focusMinutes || 0}
         totalMinutes={focusData.totalMinutes || 0}
+        overheadMinutes={focusData.overheadMinutes || 0}
+        efficiencyRate={focusData.efficiencyRate || 0}
         deltaMinutes={deltaMinutes}
         label={period === 'week' ? t('stats.labelThisWeek') : t('stats.labelThisMonth')}
       />

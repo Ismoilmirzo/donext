@@ -122,19 +122,20 @@ export function useTasks(projectId = null) {
   );
 
   const completeTask = useCallback(
-    async (id, timeSpentMinutes) => {
+    async (id, focusMinutes) => {
       const currentTask = tasks.find((task) => task.id === id);
       if (!currentTask || !user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.taskNotFound')) };
 
       const completedAt = new Date().toISOString();
-      const elapsedMinutes = getElapsedMinutes(currentTask.started_at, timeSpentMinutes);
-      const validMinutes = Math.max(1, Math.min(Number(timeSpentMinutes) || 0, elapsedMinutes));
+      const totalElapsedMinutes = getElapsedMinutes(currentTask.started_at, focusMinutes);
+      const validFocusMinutes = Math.max(1, Math.min(Number(focusMinutes) || 0, totalElapsedMinutes));
 
       const { data, error } = await supabase
         .from('tasks')
         .update({
           status: 'completed',
-          time_spent_minutes: validMinutes,
+          time_spent_minutes: validFocusMinutes,
+          total_time_spent_minutes: totalElapsedMinutes,
           completed_at: completedAt,
           updated_at: completedAt,
         })
@@ -149,7 +150,8 @@ export function useTasks(projectId = null) {
         task_id: id,
         project_id: currentTask.project_id,
         date: toISODate(new Date()),
-        duration_minutes: validMinutes,
+        duration_minutes: validFocusMinutes,
+        total_duration_minutes: totalElapsedMinutes,
       });
       if (sessionResult.error) return { data, error: sessionResult.error };
 

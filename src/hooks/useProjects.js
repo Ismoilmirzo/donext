@@ -10,6 +10,12 @@ function summarizeProject(project, tasks = []) {
   const completedTasks = tasks.filter((task) => task.status === 'completed').length;
   const pendingTasks = tasks.filter((task) => task.status !== 'completed').length;
   const focusMinutes = tasks.reduce((sum, task) => sum + (task.time_spent_minutes || 0), 0);
+  const totalMinutes = tasks.reduce(
+    (sum, task) => sum + (task.total_time_spent_minutes ?? task.time_spent_minutes ?? 0),
+    0
+  );
+  const overheadMinutes = Math.max(0, totalMinutes - focusMinutes);
+  const efficiencyRate = totalMinutes > 0 ? Math.round((focusMinutes / totalMinutes) * 100) : 0;
   const lastWorkedAt = tasks
     .filter((task) => task.completed_at)
     .map((task) => task.completed_at)
@@ -23,6 +29,9 @@ function summarizeProject(project, tasks = []) {
     completedTasks,
     pendingTasks,
     focusMinutes,
+    totalMinutes,
+    overheadMinutes,
+    efficiencyRate,
     lastWorkedAt,
     hasAutoReviewPending,
   };

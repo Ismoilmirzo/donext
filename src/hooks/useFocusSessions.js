@@ -35,7 +35,7 @@ export function useFocusSessions() {
   );
 
   const createSession = useCallback(
-    async (taskId, projectId, date, durationMinutes) => {
+    async (taskId, projectId, date, durationMinutes, totalDurationMinutes = durationMinutes) => {
       if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const payload = {
         user_id: user.id,
@@ -43,6 +43,7 @@ export function useFocusSessions() {
         project_id: projectId || null,
         date: date || toISODate(new Date()),
         duration_minutes: Math.max(0, Number(durationMinutes) || 0),
+        total_duration_minutes: Math.max(0, Number(totalDurationMinutes) || 0),
       };
       const { data, error } = await supabase.from('focus_sessions').insert(payload).select('*').single();
       if (!error && data) setSessions((prev) => [data, ...prev]);

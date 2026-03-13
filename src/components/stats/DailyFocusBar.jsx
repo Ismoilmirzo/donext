@@ -1,12 +1,15 @@
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useLocale } from '../../contexts/LocaleContext';
 import { formatMinutesHuman } from '../../lib/dates';
 import Card from '../ui/Card';
 
 export default function DailyFocusBar({ rows = [] }) {
   const { t } = useLocale();
-  const avgMinutes = rows.length
-    ? Math.round(rows.reduce((sum, row) => sum + (row.minutes || 0), 0) / rows.length)
+  const avgFocusMinutes = rows.length
+    ? Math.round(rows.reduce((sum, row) => sum + (row.focusMinutes || 0), 0) / rows.length)
+    : 0;
+  const avgTotalMinutes = rows.length
+    ? Math.round(rows.reduce((sum, row) => sum + (row.totalMinutes || 0), 0) / rows.length)
     : 0;
 
   return (
@@ -20,13 +23,20 @@ export default function DailyFocusBar({ rows = [] }) {
             <YAxis stroke="#94a3b8" tickLine={false} axisLine={false} />
             <Tooltip
               contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-              formatter={(value) => [formatMinutesHuman(value), t('stats.focusLegend')]}
+              formatter={(value, name) => [formatMinutesHuman(value), name === 'focusMinutes' ? t('stats.focusLegend') : t('stats.overheadLegend')]}
             />
-            <Bar dataKey="minutes" fill="#10b981" radius={[6, 6, 0, 0]} />
+            <Legend
+              formatter={(value) => (value === 'focusMinutes' ? t('stats.focusLegend') : t('stats.overheadLegend'))}
+            />
+            <Bar dataKey="focusMinutes" stackId="time" fill="#10b981" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="overheadMinutes" stackId="time" fill="#334155" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-2 text-sm text-slate-400">{t('stats.avgPerDay', { value: formatMinutesHuman(avgMinutes) })}</p>
+      <div className="mt-2 grid gap-1 text-sm text-slate-400 sm:grid-cols-2">
+        <p>{t('stats.avgPerDay', { value: formatMinutesHuman(avgFocusMinutes) })}</p>
+        <p>{t('stats.avgTotalPerDay', { value: formatMinutesHuman(avgTotalMinutes) })}</p>
+      </div>
     </Card>
   );
 }

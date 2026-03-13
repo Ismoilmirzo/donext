@@ -48,6 +48,12 @@ export default function ProjectDetailPage() {
   const percent = total ? Math.round((completed / total) * 100) : 0;
   const allDone = total > 0 && completed === total;
   const totalFocusMinutes = tasks.reduce((sum, task) => sum + (task.time_spent_minutes || 0), 0);
+  const totalSpentMinutes = tasks.reduce(
+    (sum, task) => sum + (task.total_time_spent_minutes ?? task.time_spent_minutes ?? 0),
+    0
+  );
+  const overheadMinutes = Math.max(0, totalSpentMinutes - totalFocusMinutes);
+  const efficiencyRate = totalSpentMinutes > 0 ? Math.round((totalFocusMinutes / totalSpentMinutes) * 100) : 0;
 
   async function handleSaveTask(payload) {
     setSaving(true);
@@ -149,6 +155,11 @@ export default function ProjectDetailPage() {
           </div>
           <ProgressBar value={percent} max={100} />
           <p className="text-xs text-slate-500">{t('projects.totalFocusTime', { value: formatMinutesHuman(totalFocusMinutes) })}</p>
+          <div className="grid gap-2 text-xs text-slate-400 sm:grid-cols-3">
+            <p>{t('projects.totalTimeSpent', { value: formatMinutesHuman(totalSpentMinutes) })}</p>
+            <p>{t('projects.overheadTime', { value: formatMinutesHuman(overheadMinutes) })}</p>
+            <p>{t('projects.efficiencyRate', { value: efficiencyRate })}</p>
+          </div>
         </div>
         {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
       </Card>
