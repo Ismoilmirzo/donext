@@ -48,7 +48,7 @@ export default function ProjectCard({ project, onReopen, onArchive }) {
             {t('projects.completedOn')}: {project.completed_at ? new Date(project.completed_at).toLocaleDateString(getLocaleTag(locale)) : t('projects.noDate')}
           </p>
           <p>
-            {t('projects.totalFocus')}: {formatMinutesHuman(project.focusMinutes || 0)}
+            {t('projects.investedTime', { value: formatMinutesHuman(project.focusMinutes || 0) })}
           </p>
           <p>
             {t('projects.totalTimeSpentShort')}: {formatMinutesHuman(project.totalMinutes || 0)}
@@ -73,7 +73,7 @@ export default function ProjectCard({ project, onReopen, onArchive }) {
           </div>
           <ProgressBar value={percent} max={100} />
           <div className="grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
-            <p>{t('projects.totalFocusShort', { value: formatMinutesHuman(project.focusMinutes || 0) })}</p>
+            <p>{t('projects.investedTime', { value: formatMinutesHuman(project.focusMinutes || 0) })}</p>
             <p>{t('projects.efficiencyRate', { value: project.efficiencyRate || 0 })}</p>
           </div>
           <p className="text-xs text-slate-500">{t('projects.lastWorked', { value: formatRelativeTime(project.lastWorkedAt) })}</p>

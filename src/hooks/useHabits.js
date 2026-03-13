@@ -4,6 +4,7 @@ import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
+import { APP_EVENTS, emitAppEvent } from '../lib/appEvents';
 import { calculateStreakMetrics, getWeekStartIso, planAutomaticStreakFreezes } from '../lib/streaks';
 
 export function useHabits() {
@@ -138,6 +139,7 @@ export function useHabits() {
         if (streakState.error) return { data: null, error: streakState.error };
       }
 
+      if (!error) emitAppEvent(APP_EVENTS.dailySummaryRefresh);
       return { data, error };
     },
     [refreshStreakState, user]
@@ -212,7 +214,10 @@ export function useHabits() {
         .select('*')
         .single();
 
-      if (!error && data) setHabits((prev) => [...prev, data].sort((a, b) => a.sort_order - b.sort_order));
+      if (!error && data) {
+        setHabits((prev) => [...prev, data].sort((a, b) => a.sort_order - b.sort_order));
+        emitAppEvent(APP_EVENTS.dailySummaryRefresh);
+      }
       return { data, error };
     },
     [habits, user]
@@ -235,7 +240,10 @@ export function useHabits() {
   const archiveHabit = useCallback(
     async (id) => {
       const { data, error } = await updateHabit(id, { is_active: false });
-      if (!error) setHabits((prev) => prev.filter((habit) => habit.id !== id));
+      if (!error) {
+        setHabits((prev) => prev.filter((habit) => habit.id !== id));
+        emitAppEvent(APP_EVENTS.dailySummaryRefresh);
+      }
       return { data, error };
     },
     [updateHabit]
@@ -243,7 +251,10 @@ export function useHabits() {
 
   const deleteHabit = useCallback(async (id) => {
     const { error } = await supabase.from('habits').delete().eq('id', id);
-    if (!error) setHabits((prev) => prev.filter((habit) => habit.id !== id));
+    if (!error) {
+      setHabits((prev) => prev.filter((habit) => habit.id !== id));
+      emitAppEvent(APP_EVENTS.dailySummaryRefresh);
+    }
     return { error };
   }, []);
 

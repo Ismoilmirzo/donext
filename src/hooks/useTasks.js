@@ -3,6 +3,7 @@ import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
+import { APP_EVENTS, emitAppEvent } from '../lib/appEvents';
 
 function getElapsedMinutes(startedAt, fallbackMinutes = 1) {
   const fallback = Math.max(1, Number(fallbackMinutes) || 1);
@@ -160,6 +161,7 @@ export function useTasks(projectId = null) {
           .map((task) => (task.id === id ? data : task))
           .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
       );
+      emitAppEvent(APP_EVENTS.dailySummaryRefresh);
       await refreshProjectAllDoneState(currentTask.project_id);
       return { data, error: null };
     },

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import AddTaskModal from '../components/projects/AddTaskModal';
 import CreateProjectModal from '../components/projects/CreateProjectModal';
+import ProjectFocusHistory from '../components/projects/ProjectFocusHistory';
 import ProjectPriorityBadge from '../components/projects/ProjectPriorityBadge';
 import ReorderableTasks from '../components/projects/ReorderableTasks';
 import ProjectStatusBadge from '../components/projects/ProjectStatusBadge';
@@ -10,15 +11,18 @@ import Card from '../components/ui/Card';
 import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ProgressBar from '../components/ui/ProgressBar';
+import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
 import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
+import { supabase } from '../lib/supabase';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { locale, t } = useLocale();
   const { projects, fetchProjects, updateProject, archiveProject, deleteProject, completeProject, reopenProject } = useProjects();
   const { tasks, loading, addTask, updateTask, reorderTasks } = useTasks(id);
@@ -31,6 +35,8 @@ export default function ProjectDetailPage() {
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [focusHistory, setFocusHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const project = useMemo(() => projects.find((item) => item.id === id), [id, projects]);
 
@@ -45,6 +51,44 @@ export default function ProjectDetailPage() {
     const timer = setTimeout(() => setToast(''), 4000);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadHistory() {
+      if (!user || !id) {
+        if (active) {
+          setFocusHistory([]);
+          setHistoryLoading(false);
+        }
+        return;
+      }
+
+      setHistoryLoading(true);
+      const { data, error: historyError } = await supabase
+        .from('focus_sessions')
+        .select('id,date,created_at,duration_minutes,total_duration_minutes,task:tasks(title)')
+        .eq('user_id', user.id)
+        .eq('project_id', id)
+        .order('created_at', { ascending: false })
+        .limit(12);
+
+      if (!active) return;
+
+      if (historyError) {
+        setError((prev) => prev || historyError.message);
+        setFocusHistory([]);
+      } else {
+        setFocusHistory(data || []);
+      }
+      setHistoryLoading(false);
+    }
+
+    void loadHistory();
+    return () => {
+      active = false;
+    };
+  }, [id, user]);
 
   if (loading || !project) return <LoadingSpinner label={t('projects.loadingProject')} />;
 
@@ -239,6 +283,8 @@ export default function ProjectDetailPage() {
       </Card>
 
       {toast && <Card className="border-emerald-500/40 bg-emerald-500/10 text-sm text-emerald-200">{toast}</Card>}
+
+      <ProjectFocusHistory sessions={focusHistory} loading={historyLoading} />
 
       <ReorderableTasks
         tasks={tasks}

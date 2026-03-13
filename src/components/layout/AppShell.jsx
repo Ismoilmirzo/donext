@@ -2,14 +2,18 @@ import { BarChart3, CheckSquare, FolderKanban, Settings, Zap } from 'lucide-reac
 import { useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDailySummary } from '../../hooks/useDailySummary';
 import { useLocale } from '../../contexts/LocaleContext';
 import { useProjects } from '../../hooks/useProjects';
 import BottomNav from './BottomNav';
+import DailySummaryBanner from './DailySummaryBanner';
+import HabitQuickWidget from './HabitQuickWidget';
 
 export default function AppShell() {
   const { profile } = useAuth();
   const { t } = useLocale();
   const { checkForStaleProjects } = useProjects();
+  const { summary } = useDailySummary();
   const location = useLocation();
   const navLinks = [
     { to: '/habits', label: t('nav.habits'), Icon: CheckSquare },
@@ -67,6 +71,7 @@ export default function AppShell() {
           </header>
 
           <main className="mx-auto w-full max-w-5xl px-4 pb-24 pt-6 sm:px-6 md:pb-8">
+            {location.pathname !== '/welcome' && <DailySummaryBanner summary={summary} />}
             {!profile?.onboarding_done && location.pathname !== '/welcome' && (
               <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -82,6 +87,7 @@ export default function AppShell() {
         </div>
       </div>
 
+      <HabitQuickWidget summary={summary} hidden={location.pathname === '/habits' || location.pathname === '/welcome'} />
       <BottomNav />
     </div>
   );

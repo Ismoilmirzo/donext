@@ -2,6 +2,57 @@
 
 ---
 
+## Daily Loop Visibility, Project Work Logs, and Seeded Onboarding
+
+**Priority: HIGH** - These changes strengthen the app's daily habit loop, make project effort feel tangible, and reduce blank-state friction for new users.
+
+### Goals
+
+- [x] Keep today's habit progress visible outside the Habits page.
+- [x] Surface project effort and recency more clearly on project surfaces.
+- [x] Turn project detail into a simple work log with recent focus history.
+- [x] Add a lightweight evening summary that mirrors the day's progress without extra input.
+- [x] Let brand-new users start with a template instead of empty lists.
+
+### Executed Plan
+
+#### D1. Habit visibility across the app
+- [x] Add a floating habit progress widget on authenticated pages outside Habits/Welcome.
+- [x] Add a shared daily summary hook so habit/task/focus changes refresh the widget and summary banner.
+- [x] Add PWA home-screen shortcuts for Habits, Focus, and Projects.
+
+#### D2. Project progress surfacing
+- [x] Make project cards emphasize invested focus time and last-worked recency.
+- [x] Keep the existing efficiency/total-time context so project effort still feels measurable.
+
+#### D3. Project focus history
+- [x] Add a reusable project focus-history card component.
+- [x] Query recent focus sessions on the project detail page.
+- [x] Show date, task, focus time, and total elapsed time in a compact work log.
+
+#### D4. Evening daily summary
+- [x] Add a non-blocking summary banner after 8 PM when progress exists for the day.
+- [x] Show compact daily totals first, then expandable missed habits and worked-project details.
+- [x] Refresh summary data when habits are checked or tasks are completed.
+
+#### D5. Onboarding template seed data
+- [x] Add a welcome-screen action that seeds starter habits, a sample project, and sample tasks.
+- [x] Keep the seed optional and only available for a truly empty account.
+- [x] Refresh onboarding counts immediately after seeding so the next step stays accurate.
+
+### Verification
+
+- [x] Habit widget appears outside Habits/Welcome and links to `/habits`.
+- [x] Evening summary appears only when it should and expands with missed-habit/project details.
+- [x] Project detail shows recent focus history.
+- [x] Welcome page can seed starter habits, project, and tasks for empty users.
+- [x] Project cards still render correctly with clearer invested-time copy.
+- [x] `npm run lint` passes.
+- [x] `npm run build` passes.
+- [x] Final changes are pushed and deployed to `donext.uz`.
+
+---
+
 ## Focus Intelligence, Task Context, and PWA Installability
 
 **Priority: HIGH** - These changes tighten the app's core daily loop: smarter random picking, clearer task context, and easier repeat opening from the home screen.

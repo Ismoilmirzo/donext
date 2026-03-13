@@ -1,5 +1,5 @@
 import { BarChart3, CheckCircle2, CheckSquare, FolderKanban, Sparkles, Zap } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -33,47 +33,55 @@ export default function WelcomePage() {
   const [counts, setCounts] = useState({ habits: 0, projects: 0, tasks: 0, focusSessions: 0 });
   const [loading, setLoading] = useState(true);
   const [finishing, setFinishing] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seeded, setSeeded] = useState(false);
   const [error, setError] = useState('');
+
+  const loadCounts = useCallback(async () => {
+    if (!user) {
+      setCounts({ habits: 0, projects: 0, tasks: 0, focusSessions: 0 });
+      setLoading(false);
+      return { error: null };
+    }
+
+    setLoading(true);
+    const [habitsRes, projectsRes, tasksRes, focusRes] = await Promise.all([
+      supabase.from('habits').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_active', true),
+      supabase.from('projects').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active'),
+      supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('focus_sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+    ]);
+
+    const firstError = habitsRes.error || projectsRes.error || tasksRes.error || focusRes.error;
+    if (firstError) {
+      setError(firstError.message);
+    } else {
+      setCounts({
+        habits: habitsRes.count || 0,
+        projects: projectsRes.count || 0,
+        tasks: tasksRes.count || 0,
+        focusSessions: focusRes.count || 0,
+      });
+    }
+
+    setLoading(false);
+    return { error: firstError || null };
+  }, [user]);
 
   useEffect(() => {
     let active = true;
 
-    async function loadCounts() {
-      if (!user) {
-        if (active) setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      const [habitsRes, projectsRes, tasksRes, focusRes] = await Promise.all([
-        supabase.from('habits').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_active', true),
-        supabase.from('projects').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active'),
-        supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('focus_sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-      ]);
-
-      if (!active) return;
-
-      const firstError = habitsRes.error || projectsRes.error || tasksRes.error || focusRes.error;
-      if (firstError) {
-        setError(firstError.message);
-      } else {
-        setCounts({
-          habits: habitsRes.count || 0,
-          projects: projectsRes.count || 0,
-          tasks: tasksRes.count || 0,
-          focusSessions: focusRes.count || 0,
-        });
-      }
-
-      setLoading(false);
+    async function load() {
+      const result = await loadCounts();
+      if (!active || !result.error) return;
+      setError(result.error.message);
     }
 
-    void loadCounts();
+    void load();
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [loadCounts]);
 
   const setupSteps = useMemo(
     () => [
@@ -120,6 +128,7 @@ export default function WelcomePage() {
     { Icon: Zap, title: t('welcome.flowFocusTitle'), body: t('welcome.flowFocusBody') },
     { Icon: BarChart3, title: t('welcome.flowStatsTitle'), body: t('welcome.flowStatsBody') },
   ];
+  const canSeedTemplate = counts.habits === 0 && counts.projects === 0 && counts.tasks === 0 && counts.focusSessions === 0;
 
   if (!user) return <Navigate to="/auth" replace />;
   if (profile?.onboarding_done) return <Navigate to="/habits" replace />;
@@ -135,6 +144,84 @@ export default function WelcomePage() {
       return;
     }
     navigate(targetPath);
+  }
+
+  async function handleSeedTemplate() {
+    if (!user || !canSeedTemplate) return;
+
+    setSeeding(true);
+    setSeeded(false);
+    setError('');
+
+    const starterHabits = [
+      { title: t('welcome.templateHabitExercise'), icon: 'E', color: '#10B981', sort_order: 1 },
+      { title: t('welcome.templateHabitRead'), icon: 'R', color: '#38BDF8', sort_order: 2 },
+      { title: t('welcome.templateHabitWater'), icon: 'W', color: '#22C55E', sort_order: 3 },
+      { title: t('welcome.templateHabitSocial'), icon: 'S', color: '#F59E0B', sort_order: 4 },
+    ].map((habit) => ({
+      user_id: user.id,
+      ...habit,
+    }));
+
+    const { error: habitsError } = await supabase.from('habits').insert(starterHabits);
+    if (habitsError) {
+      setError(habitsError.message);
+      setSeeding(false);
+      return;
+    }
+
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .insert({
+        user_id: user.id,
+        title: t('welcome.templateProjectTitle'),
+        description: t('welcome.templateProjectBody'),
+        color: '#10B981',
+        priority_tag: 'normal',
+        preferred_time: 'any',
+        status: 'active',
+      })
+      .select('id')
+      .single();
+
+    if (projectError || !project) {
+      setError(projectError?.message || t('welcome.templateFailed'));
+      setSeeding(false);
+      return;
+    }
+
+    const { error: tasksError } = await supabase.from('tasks').insert([
+      {
+        user_id: user.id,
+        project_id: project.id,
+        title: t('welcome.templateTaskOneTitle'),
+        description: t('welcome.templateTaskOneBody'),
+        sort_order: 1,
+        status: 'pending',
+      },
+      {
+        user_id: user.id,
+        project_id: project.id,
+        title: t('welcome.templateTaskTwoTitle'),
+        description: t('welcome.templateTaskTwoBody'),
+        sort_order: 2,
+        status: 'pending',
+      },
+    ]);
+
+    if (tasksError) {
+      setError(tasksError.message);
+      setSeeding(false);
+      return;
+    }
+
+    const { error: countsError } = await loadCounts();
+    if (countsError) {
+      setError(countsError.message);
+    } else {
+      setSeeded(true);
+    }
+    setSeeding(false);
   }
 
   return (
@@ -165,6 +252,25 @@ export default function WelcomePage() {
           </Card>
         ))}
       </div>
+
+      <Card className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-100">{t('welcome.templateTitle')}</h2>
+          <p className="mt-1 text-sm text-slate-400">{t('welcome.templateBody')}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={handleSeedTemplate} disabled={seeding || !canSeedTemplate}>
+            {seeding ? t('welcome.templateLoading') : t('welcome.templateCta')}
+          </Button>
+          <p className="text-sm text-slate-500">
+            {canSeedTemplate
+              ? seeded
+                ? t('welcome.templateDone')
+                : t('welcome.templateHint')
+              : t('welcome.templateUnavailable')}
+          </p>
+        </div>
+      </Card>
 
       <Card className="space-y-4">
         <div>

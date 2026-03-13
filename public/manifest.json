@@ -8,6 +8,26 @@
   "display": "standalone",
   "background_color": "#0F172A",
   "theme_color": "#0F172A",
+  "shortcuts": [
+    {
+      "name": "Today's Habits",
+      "short_name": "Habits",
+      "description": "Open today's habits and keep the streak going.",
+      "url": "/habits"
+    },
+    {
+      "name": "Start Focus",
+      "short_name": "Focus",
+      "description": "Jump straight into the focus picker.",
+      "url": "/focus"
+    },
+    {
+      "name": "Projects",
+      "short_name": "Projects",
+      "description": "Open active projects and plan the next step.",
+      "url": "/projects"
+    }
+  ],
   "icons": [
     {
       "src": "/icon-192.png",
