@@ -15,6 +15,8 @@ import { useLocale } from '../contexts/LocaleContext';
 import { useFocusSessions } from '../hooks/useFocusSessions';
 import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
+import { useWeeklyGoal } from '../hooks/useWeeklyGoal';
+import { emitAppEvent, APP_EVENTS } from '../lib/appEvents';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
 import { getEffectiveProjectPriority, getProjectDeadlineMeta, normalizeProjectPreferredTime } from '../lib/projectPriority';
@@ -38,6 +40,7 @@ export default function FocusPage() {
   const { locale, t } = useLocale();
   const { activeProjects, fetchProjects, loading: projectsLoading } = useProjects();
   const { sessions, getTodaySessions } = useFocusSessions();
+  const weeklyGoal = useWeeklyGoal();
   const [eligible, setEligible] = useState([]);
   const [selected, setSelected] = useState(null);
   const [activePair, setActivePair] = useState(null);
@@ -158,6 +161,7 @@ export default function FocusPage() {
     setActivePair({
       project: normalizeProject(pair.project),
       task: { ...pair.task, status: 'in_progress', started_at: new Date().toISOString() },
+      randomWithoutReroll: rerollsLeft > 0,
     });
     setSelected(null);
     setManualOpen(false);
@@ -173,6 +177,24 @@ export default function FocusPage() {
       setError(result.error.message);
       return;
     }
+
+    if (activePair.randomWithoutReroll && user) {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('random_without_reroll_count')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (!profileError) {
+        await supabase
+          .from('profiles')
+          .update({
+            random_without_reroll_count: (profileData?.random_without_reroll_count || 0) + 1,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+      }
+    }
+    emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'focus_completed' });
 
     setCompleteModalOpen(false);
     setActivePair(null);
@@ -263,6 +285,18 @@ export default function FocusPage() {
             />
           ) : (
             <Card className="space-y-3">
+              {weeklyGoal.goal && (
+                <div className="rounded-xl border border-slate-700 bg-slate-900/50 px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{t('weeklyGoals.cardTitle')}</p>
+                  <p className="mt-2 text-sm text-slate-200">
+                    {weeklyGoal.formatGoalMinutes(weeklyGoal.progressMinutes)} / {weeklyGoal.formatGoalMinutes(weeklyGoal.goal.target_minutes)}
+                  </p>
+                  <div className="mt-2 h-2 rounded-full bg-slate-700">
+                    <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, weeklyGoal.percentageRaw)}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400">{weeklyGoal.percentageRaw}%</p>
+                </div>
+              )}
               <StartTaskButton onClick={beginSelectionCycle} />
               <button
                 onClick={() => setManualOpen((prev) => !prev)}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays } from 'date-fns';
 import { getStoredLocale, translate } from '../lib/i18n';
 import { getEffectiveProjectPriority, getProjectDeadlineMeta, normalizeProjectPreferredTime } from '../lib/projectPriority';
+import { APP_EVENTS, emitAppEvent } from '../lib/appEvents';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
@@ -156,10 +157,14 @@ export function useProjects() {
     return { data, error };
   }, []);
 
-  const completeProject = useCallback(
-    (id) => updateProject(id, { status: 'completed', completed_at: new Date().toISOString() }),
-    [updateProject]
-  );
+  const completeProject = useCallback(async (id) => {
+    const result = await updateProject(id, { status: 'completed', completed_at: new Date().toISOString() });
+    if (!result.error) {
+      emitAppEvent(APP_EVENTS.dailySummaryRefresh);
+      emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'task_completed' });
+    }
+    return result;
+  }, [updateProject]);
 
   const archiveProject = useCallback(
     (id) => updateProject(id, { status: 'archived' }),

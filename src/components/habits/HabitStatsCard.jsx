@@ -1,9 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocale } from '../../contexts/LocaleContext';
 import Card from '../ui/Card';
+import HabitTrendChart from './HabitTrendChart';
 
 export default function HabitStatsCard({ habits = [], logs = [] }) {
   const { t } = useLocale();
+  const [mode, setMode] = useState('bars');
+
   const rows = useMemo(() => {
     const today = new Date();
     const month = today.getMonth();
@@ -28,25 +31,52 @@ export default function HabitStatsCard({ habits = [], logs = [] }) {
 
   return (
     <Card>
-      <h3 className="text-base font-semibold text-slate-100">{t('habits.perHabitCompletion')}</h3>
-      <div className="mt-3 space-y-3">
-        {rows.map((habit) => (
-          <div key={habit.id}>
-            <div className="mb-1 flex items-center justify-between text-sm">
-              <span className="text-slate-200">
-                {habit.icon || '✓'} {habit.title}
-              </span>
-              <span className="text-slate-400">{habit.rate}%</span>
-            </div>
-            <div className="h-2 rounded-full" style={{ backgroundColor: `${habit.color || '#10B981'}22` }}>
-              <div
-                className="h-2 rounded-full"
-                style={{ width: `${habit.rate}%`, backgroundColor: habit.color || '#10B981' }}
-              />
-            </div>
-          </div>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-slate-100">{t('habits.perHabitCompletion')}</h3>
+          <p className="mt-1 text-sm text-slate-500">{t('habits.perHabitTabs')}</p>
+        </div>
+
+        <div className="rounded-xl bg-slate-900/60 p-1 text-sm">
+          <button
+            type="button"
+            onClick={() => setMode('bars')}
+            className={`rounded-lg px-3 py-1.5 ${mode === 'bars' ? 'bg-slate-700 text-slate-100' : 'text-slate-400'}`}
+          >
+            {t('habits.completionBars')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('trends')}
+            className={`rounded-lg px-3 py-1.5 ${mode === 'trends' ? 'bg-slate-700 text-slate-100' : 'text-slate-400'}`}
+          >
+            {t('habits.trendsTab')}
+          </button>
+        </div>
       </div>
+
+      {mode === 'bars' ? (
+        <div className="mt-3 space-y-3">
+          {rows.map((habit) => (
+            <div key={habit.id}>
+              <div className="mb-1 flex items-center justify-between text-sm">
+                <span className="text-slate-200">
+                  {habit.icon || '✓'} {habit.title}
+                </span>
+                <span className="text-slate-400">{habit.rate}%</span>
+              </div>
+              <div className="h-2 rounded-full" style={{ backgroundColor: `${habit.color || '#10B981'}22` }}>
+                <div
+                  className="h-2 rounded-full"
+                  style={{ width: `${habit.rate}%`, backgroundColor: habit.color || '#10B981' }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <HabitTrendChart t={t} />
+      )}
     </Card>
   );
 }

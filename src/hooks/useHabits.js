@@ -192,6 +192,10 @@ export function useHabits() {
           return [...withoutTarget, data];
         });
       }
+      if (!error && data) {
+        emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'habit_logged' });
+        emitAppEvent(APP_EVENTS.dailySummaryRefresh);
+      }
       return { data, error };
     },
     [user]
@@ -217,6 +221,7 @@ export function useHabits() {
       if (!error && data) {
         setHabits((prev) => [...prev, data].sort((a, b) => a.sort_order - b.sort_order));
         emitAppEvent(APP_EVENTS.dailySummaryRefresh);
+        emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'habit_logged' });
       }
       return { data, error };
     },

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { APP_EVENTS, emitAppEvent } from '../lib/appEvents';
 import { toISODate } from '../lib/dates';
 
 export function useFocusSessions() {
@@ -46,7 +47,11 @@ export function useFocusSessions() {
         total_duration_minutes: Math.max(0, Number(totalDurationMinutes) || 0),
       };
       const { data, error } = await supabase.from('focus_sessions').insert(payload).select('*').single();
-      if (!error && data) setSessions((prev) => [data, ...prev]);
+      if (!error && data) {
+        setSessions((prev) => [data, ...prev]);
+        emitAppEvent(APP_EVENTS.dailySummaryRefresh);
+        emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'focus_completed' });
+      }
       return { data, error };
     },
     [user]

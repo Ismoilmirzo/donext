@@ -4,6 +4,7 @@ import AppShell from './components/layout/AppShell';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoadingSpinner from './components/ui/LoadingSpinner';
+import { BadgeProvider } from './contexts/BadgeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useLocale } from './contexts/LocaleContext';
 
@@ -74,9 +75,11 @@ export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AuthProvider>
-        <ErrorBoundary>
-          <AppRoutes />
-        </ErrorBoundary>
+        <BadgeProvider>
+          <ErrorBoundary>
+            <AppRoutes />
+          </ErrorBoundary>
+        </BadgeProvider>
       </AuthProvider>
     </BrowserRouter>
   );

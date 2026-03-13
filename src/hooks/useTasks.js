@@ -162,6 +162,7 @@ export function useTasks(projectId = null) {
           .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
       );
       emitAppEvent(APP_EVENTS.dailySummaryRefresh);
+      emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'task_completed' });
       await refreshProjectAllDoneState(currentTask.project_id);
       return { data, error: null };
     },

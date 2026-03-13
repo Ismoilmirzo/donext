@@ -1,7 +1,9 @@
 import { BarChart3, CheckSquare, FolderKanban, Settings, Zap } from 'lucide-react';
 import { useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import BadgeUnlockPopup from '../badges/BadgeUnlockPopup';
 import { useAuth } from '../../contexts/AuthContext';
+import { useBadges } from '../../contexts/BadgeContext';
 import { useDailySummary } from '../../hooks/useDailySummary';
 import { useLocale } from '../../contexts/LocaleContext';
 import { useProjects } from '../../hooks/useProjects';
@@ -11,6 +13,7 @@ import HabitQuickWidget from './HabitQuickWidget';
 
 export default function AppShell() {
   const { profile } = useAuth();
+  const { queue, markSeen } = useBadges();
   const { t } = useLocale();
   const { checkForStaleProjects } = useProjects();
   const { summary } = useDailySummary();
@@ -89,6 +92,7 @@ export default function AppShell() {
 
       <HabitQuickWidget summary={summary} hidden={location.pathname === '/habits' || location.pathname === '/welcome'} />
       <BottomNav />
+      <BadgeUnlockPopup badge={queue[0]} onClose={() => (queue[0]?.id ? void markSeen(queue[0].id) : undefined)} />
     </div>
   );
 }

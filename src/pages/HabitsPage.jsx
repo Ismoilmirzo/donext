@@ -7,6 +7,7 @@ import HabitMonthlyGrid from '../components/habits/HabitMonthlyGrid';
 import HabitStatsCard from '../components/habits/HabitStatsCard';
 import HabitStreakCard from '../components/habits/HabitStreakCard';
 import HabitWeeklyChart from '../components/habits/HabitWeeklyChart';
+import WeeklyGoalPromptCard from '../components/habits/WeeklyGoalPromptCard';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import ConfirmActionModal from '../components/ui/ConfirmActionModal';
@@ -15,6 +16,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ProgressBar from '../components/ui/ProgressBar';
 import { useLocale } from '../contexts/LocaleContext';
 import { useHabits } from '../hooks/useHabits';
+import { useWeeklyGoal } from '../hooks/useWeeklyGoal';
 import { getLocaleTag } from '../lib/i18n';
 import { toISODate } from '../lib/dates';
 
@@ -34,6 +36,7 @@ export default function HabitsPage() {
     streak,
     freezeNotice,
   } = useHabits();
+  const weeklyGoal = useWeeklyGoal();
 
   const [menuHabitId, setMenuHabitId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -153,6 +156,17 @@ export default function HabitsPage() {
         <Card className="border-sky-500/30 bg-sky-500/10 text-sm text-sky-100">
           {freezeNoticeText}
         </Card>
+      )}
+
+      {weeklyGoal.promptVisible && (
+        <WeeklyGoalPromptCard
+          suggestedHours={weeklyGoal.suggestedMinutes / 60}
+          lastWeekLabel={weeklyGoal.formatGoalMinutes(weeklyGoal.lastWeekMinutes)}
+          onSave={(minutes) => void weeklyGoal.setWeeklyGoal(minutes)}
+          onSkip={weeklyGoal.skipWeek}
+          saving={weeklyGoal.loading}
+          t={t}
+        />
       )}
 
       {!habits.length ? (

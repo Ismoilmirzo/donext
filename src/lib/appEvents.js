@@ -1,5 +1,6 @@
 export const APP_EVENTS = {
   dailySummaryRefresh: 'donext:daily-summary-refresh',
+  badgeCheckRequested: 'donext:badge-check-requested',
 };
 
 export function emitAppEvent(name, detail = {}) {

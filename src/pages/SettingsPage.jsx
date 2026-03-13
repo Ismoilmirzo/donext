@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import ConfirmActionModal from '../components/ui/ConfirmActionModal';
@@ -30,6 +31,8 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [restoreProject, setRestoreProject] = useState(null);
   const [restoring, setRestoring] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportCooldown, setExportCooldown] = useState(false);
 
   if (profileLoading) return <LoadingSpinner label={t('settings.loading')} />;
 
@@ -103,6 +106,34 @@ export default function SettingsPage() {
       return;
     }
     setRestoreProject(null);
+  }
+
+  async function handleExportData() {
+    if (exportCooldown) return;
+    setExporting(true);
+    setError('');
+
+    try {
+      const { data, error: exportError } = await supabase.functions.invoke('export-data', {
+        body: {},
+      });
+      if (exportError) throw exportError;
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `donext-export-${format(new Date(), 'yyyy-MM-dd')}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatusMessage(t('settings.exportReady'));
+      setExportCooldown(true);
+      window.setTimeout(() => setExportCooldown(false), 60000);
+    } catch (exportIssue) {
+      setError(exportIssue.message || t('settings.exportFailed'));
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -193,6 +224,19 @@ export default function SettingsPage() {
         <Link to="/projects" className="text-sm text-emerald-400 hover:text-emerald-300">
           {t('projects.openArchive')}
         </Link>
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-base font-semibold text-slate-100">{t('settings.dataPrivacy')}</h2>
+        <p className="text-sm text-slate-400">{t('settings.exportDescription')}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => void handleExportData()} disabled={exporting || exportCooldown}>
+            {exporting ? t('settings.exporting') : exportCooldown ? t('settings.exportCooldown') : t('settings.downloadData')}
+          </Button>
+          <Link to="/privacy/" className="inline-flex items-center rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-emerald-300 hover:text-emerald-200">
+            {t('common.privacyPolicy')}
+          </Link>
+        </div>
       </Card>
 
       <Card className="space-y-3">
