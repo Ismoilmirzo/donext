@@ -57,7 +57,7 @@
 - [x] Focus and Stats empty states provide clear next actions.
 - [x] `npm run lint` passes.
 - [x] `npm run build` passes.
-- [ ] Final changes are pushed and deployed to `donext.uz`.
+- [x] Final changes are pushed and deployed to `donext.uz`.
 
 ---
 
