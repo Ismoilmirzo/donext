@@ -1,14 +1,14 @@
 function classesForVariant(variant) {
   switch (variant) {
     case 'secondary':
-      return 'bg-slate-700 hover:bg-slate-600 text-slate-200';
+      return 'dn-button-secondary';
     case 'danger':
-      return 'bg-red-500 hover:bg-red-600 text-white';
+      return 'dn-button-danger';
     case 'ghost':
-      return 'bg-transparent hover:bg-slate-700 text-slate-200 border border-slate-600';
+      return 'dn-button-ghost';
     case 'primary':
     default:
-      return 'bg-emerald-500 hover:bg-emerald-600 text-white';
+      return 'dn-button-primary';
   }
 }
 
@@ -24,7 +24,7 @@ export default function Button({
   return (
     <button
       disabled={disabled}
-      className={`rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${sizeClass} ${classesForVariant(
+      className={`dn-button ${sizeClass} ${classesForVariant(
         variant
       )} ${className}`}
       {...props}

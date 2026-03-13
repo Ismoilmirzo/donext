@@ -35,16 +35,16 @@ export default function LandingPage() {
   if (user) return <Navigate to={profile?.onboarding_done ? '/habits' : '/welcome'} replace />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 px-4 py-8 text-slate-50">
+    <div className="dn-public-shell bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 px-4 py-8 text-slate-50">
       <div className="mx-auto max-w-5xl">
         <header className="flex flex-wrap items-center justify-between gap-3 py-4">
-          <span className="inline-flex items-center gap-2 text-xl font-bold text-emerald-400">
+          <span className="dn-brand inline-flex items-center gap-2 text-xl font-bold">
             <FolderKanban className="h-5 w-5" />
             {t('common.appName')}
           </span>
           <div className="flex flex-wrap items-center gap-3">
             <LocaleSwitcher />
-            <Link to="/auth" className="text-sm text-slate-300 hover:text-slate-100">
+            <Link to="/auth" className="dn-link-muted text-sm">
               {t('landing.logIn')}
             </Link>
           </div>
@@ -56,13 +56,13 @@ export default function LandingPage() {
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               to="/auth"
-              className="rounded-lg bg-emerald-500 px-6 py-3 font-medium text-white transition-colors hover:bg-emerald-600"
+              className="dn-button dn-button-primary rounded-lg px-6 py-3 font-medium text-white"
             >
               {t('landing.getStarted')}
             </Link>
             <Link
               to="/auth"
-              className="rounded-lg border border-slate-600 px-6 py-3 text-slate-200 transition-colors hover:bg-slate-800"
+              className="dn-button dn-button-secondary rounded-lg px-6 py-3"
             >
               {t('landing.alreadyHaveAccount')}
             </Link>
@@ -117,7 +117,7 @@ export default function LandingPage() {
         </section>
 
         <footer className="mt-10 flex justify-center">
-          <Link to="/privacy/" className="text-sm text-slate-400 hover:text-slate-200">
+          <Link to="/privacy/" className="dn-link-muted text-sm">
             {t('common.privacyPolicy')}
           </Link>
         </footer>

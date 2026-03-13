@@ -28,10 +28,10 @@ export default function AppShell() {
   }, [checkForStaleProjects]);
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-50">
+    <div className="dn-page-shell min-h-screen">
       <div className="mx-auto flex w-full max-w-7xl">
-        <aside className="sticky top-0 hidden h-screen w-64 flex-col border-r border-slate-800 bg-slate-900 px-4 py-6 md:flex">
-          <Link to="/habits" className="mb-6 text-xl font-semibold text-emerald-400">
+        <aside className="dn-shell-panel sticky top-0 hidden h-screen w-64 flex-col border-r px-4 py-6 md:flex">
+          <Link to="/habits" className="dn-brand mb-6 text-xl font-semibold">
             DoNext
           </Link>
           <nav className="space-y-1">
@@ -41,7 +41,7 @@ export default function AppShell() {
                 to={link.to}
                 className={({ isActive }) =>
                   `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                    isActive ? 'bg-slate-800 text-emerald-400' : 'text-slate-300 hover:bg-slate-800 hover:text-slate-100'
+                    isActive ? 'dn-nav-item-active' : 'dn-nav-item'
                   }`
                 }
               >
@@ -56,15 +56,15 @@ export default function AppShell() {
         </aside>
 
         <div className="min-h-screen w-full">
-          <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-900/90 px-4 py-3 backdrop-blur md:px-6">
+          <header className="dn-shell-nav sticky top-0 z-30 border-b px-4 py-3 backdrop-blur md:px-6">
             <div className="mx-auto flex max-w-5xl items-center justify-between">
-              <Link to="/habits" className="text-lg font-semibold text-emerald-400 md:hidden">
+              <Link to="/habits" className="dn-brand text-lg font-semibold md:hidden">
                 {t('common.appName')}
               </Link>
               <p className="hidden text-sm text-slate-400 md:block">
                 {profile?.display_name ? t('app.hiName', { name: profile.display_name }) : t('app.welcomeBack')}
               </p>
-              <NavLink to="/settings" className="text-sm text-slate-400 hover:text-slate-100 md:hidden">
+              <NavLink to="/settings" className="dn-link-muted text-sm md:hidden">
                 {t('nav.settings')}
               </NavLink>
             </div>
@@ -73,10 +73,10 @@ export default function AppShell() {
           <main className="mx-auto w-full max-w-5xl px-4 pb-24 pt-6 sm:px-6 md:pb-8">
             {location.pathname !== '/welcome' && <DailySummaryBanner summary={summary} />}
             {!profile?.onboarding_done && location.pathname !== '/welcome' && (
-              <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+              <div className="dn-onboarding-banner mb-4 rounded-xl border px-4 py-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p>{t('app.setupBanner')}</p>
-                  <Link to="/welcome" className="font-medium text-emerald-300 hover:text-emerald-200">
+                  <Link to="/welcome" className="font-medium">
                     {t('app.openSetupGuide')}
                   </Link>
                 </div>

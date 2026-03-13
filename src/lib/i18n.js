@@ -196,6 +196,23 @@ const translations = {
       saved: 'Saved',
       language: 'Language',
       languageDescription: 'Choose the app language for this browser.',
+      theme: 'Theme',
+      themeDescription: 'Choose the visual style for this browser. It applies across the whole app.',
+      themeSelected: 'Current theme',
+      themes: {
+        midnight: {
+          name: 'Midnight',
+          description: 'Deep navy surfaces with emerald highlights.',
+        },
+        grove: {
+          name: 'Grove',
+          description: 'Dark green surfaces with fresh mint accents.',
+        },
+        ember: {
+          name: 'Ember',
+          description: 'Warm plum surfaces with coral accents.',
+        },
+      },
       deleteModalTitle: 'Delete account',
       deletePrompt: 'This will permanently delete your account and all related data. Type DELETE to confirm.',
       deletePlaceholder: 'Type DELETE',
@@ -820,6 +837,23 @@ const translations = {
       saved: 'Saqlandi',
       language: 'Til',
       languageDescription: 'Bu brauzer uchun ilova tilini tanlang.',
+      theme: 'Mavzu',
+      themeDescription: 'Bu brauzer uchun korinish uslubini tanlang. U butun ilovaga qollanadi.',
+      themeSelected: 'Joriy mavzu',
+      themes: {
+        midnight: {
+          name: 'Midnight',
+          description: 'Chuqur koyi sathlar va zumrad urgulari.',
+        },
+        grove: {
+          name: 'Grove',
+          description: 'Qoramtir yashil sathlar va yalpiz urgulari.',
+        },
+        ember: {
+          name: 'Ember',
+          description: 'Iliq olcha sathlar va marjon urgulari.',
+        },
+      },
       deleteModalTitle: "Akkauntni o'chirish",
       deletePrompt: "Bu amal akkauntingiz va unga bog'liq barcha ma'lumotlarni butunlay o'chiradi. Tasdiqlash uchun DELETE deb yozing.",
       deletePlaceholder: 'DELETE deb yozing',

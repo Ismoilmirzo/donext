@@ -37,16 +37,16 @@ export default function PrivacyPage() {
   const highlights = t('privacy.highlights');
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 px-4 py-8 text-slate-50">
+    <div className="dn-public-shell bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 px-4 py-8 text-slate-50">
       <div className="mx-auto max-w-4xl space-y-6">
         <header className="flex items-center justify-between gap-4 py-4">
-          <Link to="/" className="inline-flex items-center gap-2 text-xl font-bold text-emerald-400">
+          <Link to="/" className="dn-brand inline-flex items-center gap-2 text-xl font-bold">
             <FolderKanban className="h-5 w-5" />
             {t('common.appName')}
           </Link>
           <div className="flex flex-wrap items-center gap-3">
             <LocaleSwitcher />
-            <Link to={backPath} className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-slate-100">
+            <Link to={backPath} className="dn-link-muted inline-flex items-center gap-2 text-sm">
               <ArrowLeft className="h-4 w-4" />
               {backLabel}
             </Link>

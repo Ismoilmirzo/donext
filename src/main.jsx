@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { LocaleProvider } from './contexts/LocaleContext.jsx'
+import { ThemeProvider } from './contexts/ThemeContext.jsx'
 import './styles/globals.css'
 import App from './App.jsx'
 
@@ -16,8 +17,10 @@ if (import.meta.env.PROD && typeof window !== 'undefined' && 'serviceWorker' in 
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <LocaleProvider>
-      <App />
-    </LocaleProvider>
+    <ThemeProvider>
+      <LocaleProvider>
+        <App />
+      </LocaleProvider>
+    </ThemeProvider>
   </StrictMode>,
 )

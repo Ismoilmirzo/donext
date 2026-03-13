@@ -8,6 +8,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Modal from '../components/ui/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useProfile } from '../hooks/useProfile';
 import { useProjects } from '../hooks/useProjects';
 import { isConfiguredAdmin } from '../lib/admin';
@@ -16,6 +17,7 @@ import { supabase } from '../lib/supabase';
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const { locale, locales, setLocale, t } = useLocale();
+  const { theme, setTheme, themes } = useTheme();
   const { profile, loading: profileLoading, updateProfile } = useProfile();
   const { archivedProjects, reopenProject } = useProjects();
   const canAccessAdmin = isConfiguredAdmin(user);
@@ -125,6 +127,44 @@ export default function SettingsPage() {
             <Button key={value} variant={locale === value ? 'primary' : 'secondary'} size="sm" onClick={() => setLocale(value)}>
               {label}
             </Button>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-base font-semibold text-slate-100">{t('settings.theme')}</h2>
+        <p className="text-sm text-slate-400">{t('settings.themeDescription')}</p>
+        <div className="grid gap-3 md:grid-cols-3">
+          {Object.entries(themes).map(([value, config]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTheme(value)}
+              data-active={theme === value}
+              className="dn-theme-option rounded-xl p-4 text-left"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-100">{t(`settings.themes.${value}.name`)}</p>
+                  <p className="mt-1 text-xs text-slate-400">{t(`settings.themes.${value}.description`)}</p>
+                </div>
+                {theme === value && (
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-emerald-300">
+                    {t('settings.themeSelected')}
+                  </span>
+                )}
+              </div>
+              <div className="mt-4 flex gap-2">
+                {config.preview.map((color) => (
+                  <span
+                    key={color}
+                    className="dn-theme-swatch h-8 flex-1 rounded-lg"
+                    style={{ background: color }}
+                    aria-hidden="true"
+                  />
+                ))}
+              </div>
+            </button>
           ))}
         </div>
       </Card>

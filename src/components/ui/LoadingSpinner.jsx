@@ -3,7 +3,7 @@ import { useLocale } from '../../contexts/LocaleContext';
 export default function LoadingSpinner({ fullScreen = false, label }) {
   const { t } = useLocale();
   const wrapperClass = fullScreen
-    ? 'min-h-screen flex items-center justify-center bg-slate-900'
+    ? 'dn-page-shell flex min-h-screen items-center justify-center'
     : 'flex items-center justify-center py-8';
 
   return (

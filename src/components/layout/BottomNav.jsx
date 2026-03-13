@@ -12,7 +12,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-700 bg-slate-900/95 backdrop-blur md:hidden">
+    <nav className="dn-shell-nav fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur md:hidden">
       <div className="mx-auto grid max-w-md grid-cols-4 px-2 py-2">
         {links.map((link) => (
           <NavLink
@@ -20,7 +20,7 @@ export default function BottomNav() {
             to={link.to}
             className={({ isActive }) =>
               `rounded-lg px-2 py-2 text-center text-xs font-medium transition-colors ${
-                isActive ? 'bg-slate-800 text-emerald-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                isActive ? 'dn-nav-item-active' : 'dn-nav-item'
               }`
             }
           >

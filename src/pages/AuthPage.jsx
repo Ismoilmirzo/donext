@@ -195,11 +195,11 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4">
+    <div className="dn-page-shell flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <div className="mb-6">
           <div className="flex items-start justify-between gap-3">
-            <Link to="/" className="text-xl font-semibold text-emerald-400">
+            <Link to="/" className="dn-brand text-xl font-semibold">
               {t('common.appName')}
             </Link>
             <LocaleSwitcher />
