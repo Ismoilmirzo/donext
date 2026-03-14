@@ -4,6 +4,8 @@ import AppShell from './components/layout/AppShell';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoadingSpinner from './components/ui/LoadingSpinner';
+import RouteLoadingFallback from './components/ui/RouteLoadingFallback';
+import ToastViewport from './components/ui/ToastViewport';
 import { BadgeProvider } from './contexts/BadgeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useLocale } from './contexts/LocaleContext';
@@ -28,17 +30,21 @@ function PublicOnlyRoute({ children }) {
   return children;
 }
 
-function AppRoutes() {
-  const { t } = useLocale();
+function withRouteFallback(element, variant) {
+  return <Suspense fallback={<RouteLoadingFallback variant={variant} />}>{element}</Suspense>;
+}
 
+function AppRoutes() {
   return (
-    <Suspense fallback={<LoadingSpinner fullScreen label={t('common.loading')} />}>
+    <>
       <Routes>
         <Route
           path="/"
           element={
             <PublicOnlyRoute>
-              <LandingPage />
+              <Suspense fallback={<LoadingSpinner fullScreen />}>
+                <LandingPage />
+              </Suspense>
             </PublicOnlyRoute>
           }
         />
@@ -46,28 +52,38 @@ function AppRoutes() {
           path="/auth/*"
           element={
             <PublicOnlyRoute>
-              <AuthPage />
+              <Suspense fallback={<LoadingSpinner fullScreen />}>
+                <AuthPage />
+              </Suspense>
             </PublicOnlyRoute>
           }
         />
-        <Route path="/privacy/*" element={<PrivacyPage />} />
+        <Route
+          path="/privacy/*"
+          element={
+            <Suspense fallback={<LoadingSpinner fullScreen />}>
+              <PrivacyPage />
+            </Suspense>
+          }
+        />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
-            <Route path="/welcome" element={<WelcomePage />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
-            <Route path="/habits" element={<HabitsPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/projects/:id" element={<ProjectDetailPage />} />
-            <Route path="/focus" element={<FocusPage />} />
-            <Route path="/stats" element={<StatsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/welcome" element={withRouteFallback(<WelcomePage />, 'habits')} />
+            <Route path="/admin/users" element={withRouteFallback(<AdminUsersPage />, 'projects')} />
+            <Route path="/habits" element={withRouteFallback(<HabitsPage />, 'habits')} />
+            <Route path="/projects" element={withRouteFallback(<ProjectsPage />, 'projects')} />
+            <Route path="/projects/:id" element={withRouteFallback(<ProjectDetailPage />, 'projects')} />
+            <Route path="/focus" element={withRouteFallback(<FocusPage />, 'focus')} />
+            <Route path="/stats" element={withRouteFallback(<StatsPage />, 'stats')} />
+            <Route path="/settings" element={withRouteFallback(<SettingsPage />, 'settings')} />
           </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </Suspense>
+      <ToastViewport />
+    </>
   );
 }
 

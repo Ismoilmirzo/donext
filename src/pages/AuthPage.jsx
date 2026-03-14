@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -23,6 +24,8 @@ export default function AuthPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [googleEnabled, setGoogleEnabled] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -50,7 +53,6 @@ export default function AuthPage() {
     }
 
     void loadAuthSettings();
-
     return () => {
       active = false;
     };
@@ -67,6 +69,17 @@ export default function AuthPage() {
     setError('');
     setMessage('');
   }
+
+  const passwordStrength = useMemo(() => {
+    if (!password) return null;
+    if (password.length >= 12 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password)) {
+      return { label: 'Strong', width: '100%', className: 'bg-emerald-500' };
+    }
+    if (password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password)) {
+      return { label: 'Medium', width: '68%', className: 'bg-amber-400' };
+    }
+    return { label: 'Weak', width: '36%', className: 'bg-red-400' };
+  }, [password]);
 
   if (user) return <Navigate to={profile?.onboarding_done ? '/habits' : '/welcome'} replace />;
 
@@ -197,7 +210,7 @@ export default function AuthPage() {
 
   return (
     <div className="dn-page-shell flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md md:max-w-lg">
         <div className="mb-6">
           <div className="flex items-start justify-between gap-3">
             <Link to="/" className="dn-brand text-xl font-semibold">
@@ -209,7 +222,7 @@ export default function AuthPage() {
             </div>
           </div>
           <div className="mt-5 text-center">
-            <h1 className="text-2xl font-bold text-slate-100">
+            <h1 className="text-2xl font-bold text-slate-100 md:text-3xl">
               {mode === 'signup' ? t('auth.createAccount') : t('auth.welcomeBack')}
             </h1>
             <p className="mt-2 text-sm text-slate-400">
@@ -245,24 +258,60 @@ export default function AuthPage() {
           {mode === 'signup' && pendingVerification ? (
             <>
               <p className="text-sm text-slate-400">{t('auth.verificationHint', { email: email.trim().toLowerCase() || '-' })}</p>
-              <Input
-                placeholder={t('auth.verificationCode')}
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
-                required
-              />
+              <Input placeholder={t('auth.verificationCode')} value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)} required />
             </>
           ) : (
-            <Input type="password" placeholder={t('auth.password')} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                placeholder={t('auth.password')}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pr-12"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="dn-icon-button absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           )}
           {mode === 'signup' && !pendingVerification && (
-            <Input
-              type="password"
-              placeholder={t('auth.confirmPassword')}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
+            <>
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder={t('auth.confirmPassword')}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="pr-12"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  className="dn-icon-button absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5"
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {passwordStrength && (
+                <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>Password strength</span>
+                    <span>{passwordStrength.label}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-800">
+                    <div className={`h-2 rounded-full ${passwordStrength.className}`} style={{ width: passwordStrength.width }} />
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -308,14 +357,10 @@ export default function AuthPage() {
           </button>
         )}
 
-        {mode === 'signup' && (
-          <p className="mt-4 text-center text-xs leading-5 text-slate-500">
-            {t('auth.afterSignupHint')}
-          </p>
-        )}
+        {mode === 'signup' && <p className="mt-4 text-center text-xs leading-5 text-slate-500">{t('auth.afterSignupHint')}</p>}
 
-        <div className="mt-6 text-center">
-          <Link to="/privacy/" className="text-xs text-slate-500 hover:text-slate-300">
+        <div className="mt-6 text-center text-xs text-slate-500">
+          <Link to="/privacy/" className="hover:text-slate-300">
             {t('common.privacyPolicy')}
           </Link>
         </div>

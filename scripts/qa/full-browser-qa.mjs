@@ -84,6 +84,16 @@ async function ensureVisible(locator, label, timeout = 15000) {
   console.log(`[QA] PASS: ${label}`);
 }
 
+async function dismissBadgePopup(page) {
+  const popup = page.locator('button.fixed.inset-0');
+  if (await popup.isVisible().catch(() => false)) {
+    await popup.click({ position: { x: 24, y: 24 } }).catch(async () => {
+      await page.mouse.click(24, 24);
+    });
+    await page.waitForTimeout(300);
+  }
+}
+
 async function authFlow(page) {
   logStep('Landing page checks');
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
@@ -121,12 +131,13 @@ async function habitsFlow(page) {
   await ensureVisible(page.getByText('Read 30m'), 'Habit 1 visible');
   await ensureVisible(page.getByText('Workout'), 'Habit 2 visible');
 
-  await page.getByRole('button', { name: /Read 30m/i }).click();
+  await page.locator('button[aria-pressed]').filter({ hasText: 'Read 30m' }).first().click();
   await ensureVisible(page.getByText(/\d+\/\d+ habits complete/i), 'Progress updates after toggle');
+  await dismissBadgePopup(page);
 
-  const menuButtons = page.locator('button', { hasText: '...' });
-  if ((await menuButtons.count()) > 0) {
-    await menuButtons.first().click();
+  const menuButton = page.getByRole('button', { name: /Open actions for Read 30m/i }).first();
+  if (await menuButton.isVisible().catch(() => false)) {
+    await menuButton.click();
     if (await page.getByRole('button', { name: /Edit/i }).isVisible()) {
       await page.getByRole('button', { name: /Edit/i }).click();
       await ensureVisible(page.getByRole('heading', { name: /Edit Habit/i }), 'Edit habit modal opens');
@@ -166,9 +177,8 @@ async function projectsFlow(page) {
   await ensureVisible(page.getByText('Task One'), 'Task One visible');
   await ensureVisible(page.getByText('Task Two'), 'Task Two visible');
 
-  const downButtons = page.locator('button').filter({ has: page.locator('svg') });
-  if ((await downButtons.count()) > 0) {
-    await page.getByTitle('Go to Focus tab to start working on this').first().click();
+  if (await page.getByRole('button', { name: /Task One/i }).first().isVisible()) {
+    await page.getByRole('button', { name: /Task One/i }).first().click();
     await ensureVisible(page.getByRole('heading', { name: /Edit Task/i }), 'Task edit modal opens');
     await modal(page).getByPlaceholder('Implement auth flow').fill('Task One Edited');
     await modal(page).getByRole('button', { name: /Save Changes/i }).click();
@@ -204,7 +214,7 @@ async function focusFlow(page) {
   await minuteInput.fill('5');
   await modal(page).getByRole('button', { name: /Save & Continue/i }).click();
 
-  await ensureVisible(page.getByText(/Task complete|All tasks/i), 'Post-completion message shown');
+  await ensureVisible(page.getByRole('button', { name: /Done For Now|Go to Project|Start Another Task/i }), 'Post-completion actions shown');
   await shot(page, 'focus-after-complete');
 }
 
@@ -212,9 +222,9 @@ async function statsFlow(page) {
   logStep('Stats checks');
   await page.goto(`${BASE_URL}/stats`, { waitUntil: 'domcontentloaded' });
   await ensureVisible(page.getByRole('heading', { name: /^Stats$/i }), 'Stats page opens');
-  await ensureVisible(page.getByText(/Focus Time/i), 'Focus section visible');
-  await ensureVisible(page.getByText(/Habit Overview/i), 'Habit section visible');
-  await ensureVisible(page.getByText(/Projects Overview/i), 'Projects section visible');
+  await ensureVisible(page.getByText(/Focus time/i), 'Summary metric visible');
+  await ensureVisible(page.getByRole('button', { name: /Overview/i }), 'Stats tabs visible');
+  await ensureVisible(page.getByRole('button', { name: /Open achievements/i }), 'Achievements preview visible');
   await shot(page, 'stats');
 }
 
@@ -233,7 +243,7 @@ async function settingsFlow(page) {
   const profileInput = page.locator('input').first();
   await profileInput.fill('QA Runner Updated');
   await profileInput.blur();
-   await ensureVisible(page.getByText('Saved'), 'Profile save message appears');
+  await ensureVisible(page.getByText('Saved'), 'Profile save message appears');
 
   const restoreBtn = page.getByRole('button', { name: /^Restore$/i }).first();
   if (await restoreBtn.isVisible()) {
@@ -244,6 +254,7 @@ async function settingsFlow(page) {
     console.log('[QA] PASS: Project restore flow works');
   }
 
+  await page.getByRole('button', { name: /Show/i }).click();
   await page.getByRole('button', { name: /Log out/i }).click();
   await page.waitForURL('**/auth', { timeout: 10000 });
   await ensureVisible(page.getByRole('heading', { name: /Create account|Welcome back/i }), 'Logout redirects to auth');
@@ -272,6 +283,7 @@ async function deleteAccountFlow(page) {
   await page.goto(`${BASE_URL}/settings`, { waitUntil: 'domcontentloaded' });
   await ensureVisible(page.getByRole('heading', { name: /^Settings$/i }), 'Settings open before delete');
 
+  await page.getByRole('button', { name: /Show/i }).click();
   await page.getByRole('button', { name: /Delete account/i }).click();
   await ensureVisible(page.getByRole('heading', { name: /Delete account/i }), 'Delete account modal opens');
   await modal(page).getByPlaceholder('Type DELETE').fill('DELETE');

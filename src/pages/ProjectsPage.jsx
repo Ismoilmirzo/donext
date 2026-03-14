@@ -6,12 +6,14 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import EmptyState from '../components/ui/EmptyState';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { ProjectsPageSkeleton } from '../components/ui/PageSkeletons';
 import { useLocale } from '../contexts/LocaleContext';
+import { useToast } from '../contexts/ToastContext';
 import { useProjects } from '../hooks/useProjects';
 
 export default function ProjectsPage() {
   const { t } = useLocale();
+  const toast = useToast();
   const {
     activeProjects,
     completedProjects,
@@ -28,7 +30,6 @@ export default function ProjectsPage() {
   const [saving, setSaving] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
-  const [error, setError] = useState('');
   const [pendingAction, setPendingAction] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -38,23 +39,22 @@ export default function ProjectsPage() {
 
   async function handleCreate(payload) {
     setSaving(true);
-    setError('');
     const { error: createError } = await createProject(payload);
     setSaving(false);
     if (createError) {
-      setError(createError.message);
+      toast.error('Could not create project', createError.message);
       return;
     }
     setModalOpen(false);
     await fetchProjects();
+    toast.success('Project created', payload.title);
   }
 
-  if (loading) return <LoadingSpinner label={t('projects.loading')} />;
+  if (loading) return <ProjectsPageSkeleton />;
 
   async function handleProjectAction() {
     if (!pendingAction?.project) return;
     setActionLoading(true);
-    setError('');
 
     let result;
     if (pendingAction.type === 'archive') {
@@ -65,10 +65,14 @@ export default function ProjectsPage() {
 
     setActionLoading(false);
     if (result?.error) {
-      setError(result.error.message);
+      toast.error('Project action failed', result.error.message);
       return;
     }
 
+    toast.success(
+      pendingAction.type === 'archive' ? 'Project archived' : 'Project restored',
+      pendingAction.project.title
+    );
     setPendingAction(null);
   }
 
@@ -89,7 +93,6 @@ export default function ProjectsPage() {
             {t('projects.newProject')}
           </Button>
         </div>
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
       </Card>
 
       {!activeProjects.length && !completedProjects.length && !archivedProjects.length && (
@@ -116,7 +119,14 @@ export default function ProjectsPage() {
               project={project}
               onArchive={() => setPendingAction({ type: 'archive', project })}
               onReopen={() => setPendingAction({ type: 'restore', project })}
-              onComplete={() => completeProject(project.id)}
+              onComplete={async () => {
+                const { error } = await completeProject(project.id);
+                if (error) {
+                  toast.error('Could not complete project', error.message);
+                  return;
+                }
+                toast.success('Project completed', project.title);
+              }}
             />
           ))
         )}

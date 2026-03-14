@@ -4,15 +4,16 @@ import AddTaskModal from '../components/projects/AddTaskModal';
 import CreateProjectModal from '../components/projects/CreateProjectModal';
 import ProjectFocusHistory from '../components/projects/ProjectFocusHistory';
 import ProjectPriorityBadge from '../components/projects/ProjectPriorityBadge';
-import ReorderableTasks from '../components/projects/ReorderableTasks';
 import ProjectStatusBadge from '../components/projects/ProjectStatusBadge';
+import ReorderableTasks from '../components/projects/ReorderableTasks';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import ConfirmActionModal from '../components/ui/ConfirmActionModal';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { ProjectDetailSkeleton } from '../components/ui/PageSkeletons';
 import ProgressBar from '../components/ui/ProgressBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { useToast } from '../contexts/ToastContext';
 import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
 import { formatMinutesHuman } from '../lib/dates';
@@ -24,14 +25,13 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { locale, t } = useLocale();
+  const toast = useToast();
   const { projects, fetchProjects, updateProject, archiveProject, deleteProject, completeProject, reopenProject } = useProjects();
-  const { tasks, loading, addTask, updateTask, reorderTasks } = useTasks(id);
+  const { tasks, loading, addTask, updateTask, reorderTasks, startTask } = useTasks(id);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [saving, setSaving] = useState(false);
   const [projectSaving, setProjectSaving] = useState(false);
-  const [toast, setToast] = useState('');
-  const [error, setError] = useState('');
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -45,12 +45,6 @@ export default function ProjectDetailPage() {
       void fetchProjects();
     }
   }, [fetchProjects, projects.length]);
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const timer = setTimeout(() => setToast(''), 4000);
-    return () => clearTimeout(timer);
-  }, [toast]);
 
   useEffect(() => {
     let active = true;
@@ -76,7 +70,7 @@ export default function ProjectDetailPage() {
       if (!active) return;
 
       if (historyError) {
-        setError((prev) => prev || historyError.message);
+        toast.error('Could not load focus history', historyError.message);
         setFocusHistory([]);
       } else {
         setFocusHistory(data || []);
@@ -88,9 +82,9 @@ export default function ProjectDetailPage() {
     return () => {
       active = false;
     };
-  }, [id, user]);
+  }, [id, toast, user]);
 
-  if (loading || !project) return <LoadingSpinner label={t('projects.loadingProject')} />;
+  if (loading || !project) return <ProjectDetailSkeleton />;
 
   const completed = tasks.filter((task) => task.status === 'completed').length;
   const total = tasks.length;
@@ -106,7 +100,6 @@ export default function ProjectDetailPage() {
 
   async function handleSaveTask(payload) {
     setSaving(true);
-    setError('');
     let result;
     if (editingTask) {
       result = await updateTask(editingTask.id, {
@@ -117,13 +110,14 @@ export default function ProjectDetailPage() {
       result = await addTask(id, payload.title, payload.description, payload.position);
     }
     if (result?.error) {
-      setError(result.error.message);
+      toast.error('Could not save task', result.error.message);
       setSaving(false);
       return;
     }
     setSaving(false);
     setEditingTask(null);
     setModalOpen(false);
+    toast.success(editingTask ? 'Task updated' : 'Task added', payload.title);
   }
 
   async function handleSaveProject(payload) {
@@ -131,17 +125,17 @@ export default function ProjectDetailPage() {
     const { error: updateError } = await updateProject(id, payload);
     setProjectSaving(false);
     if (updateError) {
-      setError(updateError.message);
+      toast.error('Could not update project', updateError.message);
       return;
     }
     setProjectModalOpen(false);
     await fetchProjects();
+    toast.success('Project updated', payload.title || project.title);
   }
 
   async function handleConfirmAction() {
     if (!pendingAction) return;
     setActionLoading(true);
-    setError('');
 
     let result = null;
     if (pendingAction === 'archive') {
@@ -157,24 +151,38 @@ export default function ProjectDetailPage() {
     setActionLoading(false);
 
     if (result?.error) {
-      setError(result.error.message);
+      toast.error('Project action failed', result.error.message);
       return;
     }
 
     setPendingAction(null);
 
     if (pendingAction === 'delete') {
+      toast.success('Project deleted', project.title);
       navigate('/projects', { replace: true });
       return;
     }
 
     if (pendingAction === 'complete') {
-      setToast(t('projects.projectCompleteToast', { value: formatMinutesHuman(totalFocusMinutes) }));
+      toast.success('Project complete', formatMinutesHuman(totalFocusMinutes));
     } else if (pendingAction === 'archive') {
+      toast.success('Project archived', project.title);
       navigate('/projects');
+    } else if (pendingAction === 'restore') {
+      toast.success('Project restored', project.title);
     }
 
     await fetchProjects();
+  }
+
+  async function handleStartTask(task) {
+    const { error } = await startTask(task.id);
+    if (error) {
+      toast.error('Could not start task', error.message);
+      return;
+    }
+    toast.success('Focus started', task.title);
+    navigate('/focus');
   }
 
   const confirmMap = {
@@ -215,15 +223,15 @@ export default function ProjectDetailPage() {
         </div>
 
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-semibold text-slate-50">{project.title}</h1>
-            {project.description && <p className="mt-1 text-sm text-slate-400">{project.description}</p>}
+            {project.description ? <p className="mt-1 text-sm text-slate-400">{project.description}</p> : null}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <ProjectPriorityBadge priority={project.priority_tag} effectivePriority={project.effectivePriority} deadlineMeta={project} />
               <span className="text-xs text-slate-500">
                 {t('projects.preferredTimeSummary', { value: t(`projects.preferredTime.${project.preferred_time || 'any'}`) })}
               </span>
-              {project.hasDeadline && (
+              {project.hasDeadline ? (
                 <span className="text-xs text-slate-500">
                   {project.isOverdue
                     ? t('projects.deadlineOverdue', {
@@ -233,34 +241,26 @@ export default function ProjectDetailPage() {
                       ? t('projects.deadlineToday', {
                           date: new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale)),
                         })
-                    : project.isDueSoon
-                      ? t('projects.deadlineSoon', {
-                          count: project.daysUntilDeadline,
-                          date: new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale)),
-                        })
-                      : t('projects.deadlineOn', {
-                          date: new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale)),
-                        })}
+                      : project.isDueSoon
+                        ? t('projects.deadlineSoon', {
+                            count: project.daysUntilDeadline,
+                            date: new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale)),
+                          })
+                        : t('projects.deadlineOn', {
+                            date: new Date(project.deadline_date).toLocaleDateString(getLocaleTag(locale)),
+                          })}
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" onClick={() => setProjectModalOpen(true)}>
               {t('projects.editProject')}
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPendingAction(project.status === 'active' ? 'archive' : 'restore')}
-            >
+            <Button variant="secondary" size="sm" onClick={() => setPendingAction(project.status === 'active' ? 'archive' : 'restore')}>
               {project.status === 'active' ? t('common.archive') : t('common.restore')}
             </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => setPendingAction('delete')}
-            >
+            <Button variant="danger" size="sm" onClick={() => setPendingAction('delete')}>
               {t('common.delete')}
             </Button>
           </div>
@@ -279,10 +279,7 @@ export default function ProjectDetailPage() {
             <p>{t('projects.efficiencyRate', { value: efficiencyRate })}</p>
           </div>
         </div>
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
       </Card>
-
-      {toast && <Card className="border-emerald-500/40 bg-emerald-500/10 text-sm text-emerald-200">{toast}</Card>}
 
       <ProjectFocusHistory sessions={focusHistory} loading={historyLoading} />
 
@@ -293,10 +290,15 @@ export default function ProjectDetailPage() {
           setModalOpen(true);
         }}
         onMove={(task, direction) => {
-          void reorderTasks(task.id, direction).then(({ error: reorderError }) => {
-            if (reorderError) setError(reorderError.message);
+          void reorderTasks(task.id, direction).then(({ error }) => {
+            if (error) {
+              toast.error('Could not reorder task', error.message);
+              return;
+            }
+            toast.info(direction === 'up' ? 'Task moved up' : 'Task moved down', task.title);
           });
         }}
+        onStartTask={handleStartTask}
       />
 
       <div className="flex flex-wrap justify-between gap-2">
@@ -308,7 +310,7 @@ export default function ProjectDetailPage() {
         >
           {t('projects.addTask')}
         </Button>
-        {allDone && <Button onClick={() => setPendingAction('complete')}>{t('projects.markProjectComplete')}</Button>}
+        {allDone ? <Button onClick={() => setPendingAction('complete')}>{t('projects.markProjectComplete')}</Button> : null}
       </div>
 
       <AddTaskModal

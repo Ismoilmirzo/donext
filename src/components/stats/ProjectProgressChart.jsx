@@ -1,6 +1,7 @@
 import { useLocale } from '../../contexts/LocaleContext';
 import { formatMinutesHuman } from '../../lib/dates';
 import Card from '../ui/Card';
+import EmptyState from '../ui/EmptyState';
 import ProgressBar from '../ui/ProgressBar';
 
 export default function ProjectProgressChart({ projects = [] }) {
@@ -16,7 +17,7 @@ export default function ProjectProgressChart({ projects = [] }) {
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-slate-100">
-                  <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: project.color || '#64748b' }}></span>
+                  <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: project.color || '#64748b' }} />
                   {project.title}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
@@ -34,9 +35,9 @@ export default function ProjectProgressChart({ projects = [] }) {
             </div>
           </div>
         ))}
-        {!sortedProjects.length && (
-          <p className="text-sm text-slate-400">{t('stats.noProjectFocus')}</p>
-        )}
+        {!sortedProjects.length ? (
+          <EmptyState title="Project breakdown appears after you work on a task" message="Once a focus session is logged, you will see which projects are taking your time." />
+        ) : null}
       </div>
     </Card>
   );

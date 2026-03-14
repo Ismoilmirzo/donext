@@ -205,6 +205,18 @@ export function useHabits() {
     async (title, icon = '✓', color = '#10B981') => {
       if (!user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.notAuthenticated')) };
       const maxSort = habits.reduce((max, habit) => Math.max(max, habit.sort_order || 0), 0);
+      const tempId = `temp-${Date.now()}`;
+      const optimisticHabit = {
+        id: tempId,
+        user_id: user.id,
+        title: title.trim(),
+        icon: icon || '✓',
+        color: color || '#10B981',
+        sort_order: maxSort + 1,
+        is_active: true,
+      };
+
+      setHabits((prev) => [...prev, optimisticHabit].sort((a, b) => a.sort_order - b.sort_order));
 
       const { data, error } = await supabase
         .from('habits')
@@ -218,8 +230,14 @@ export function useHabits() {
         .select('*')
         .single();
 
-      if (!error && data) {
-        setHabits((prev) => [...prev, data].sort((a, b) => a.sort_order - b.sort_order));
+      if (error) {
+        setHabits((prev) => prev.filter((habit) => habit.id !== tempId));
+      } else if (data) {
+        setHabits((prev) =>
+          prev
+            .map((habit) => (habit.id === tempId ? data : habit))
+            .sort((a, b) => a.sort_order - b.sort_order)
+        );
         emitAppEvent(APP_EVENTS.dailySummaryRefresh);
         emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'habit_logged' });
       }

@@ -1,5 +1,5 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ListChecks } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ListChecks, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ActiveTaskScreen from '../components/focus/ActiveTaskScreen';
 import CompleteTaskModal from '../components/focus/CompleteTaskModal';
@@ -9,19 +9,22 @@ import StartTaskButton from '../components/focus/StartTaskButton';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { FocusPageSkeleton } from '../components/ui/PageSkeletons';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { useToast } from '../contexts/ToastContext';
 import { useFocusSessions } from '../hooks/useFocusSessions';
 import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
 import { useWeeklyGoal } from '../hooks/useWeeklyGoal';
-import { emitAppEvent, APP_EVENTS } from '../lib/appEvents';
+import { APP_EVENTS, emitAppEvent } from '../lib/appEvents';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
 import { getEffectiveProjectPriority, getProjectDeadlineMeta, normalizeProjectPreferredTime } from '../lib/projectPriority';
 import { selectRandomProject } from '../lib/random';
 import { supabase } from '../lib/supabase';
+
+const FOCUS_INTRO_STORAGE_KEY = 'donext:focus-intro-hidden';
 
 function normalizeProject(project) {
   if (!project) return project;
@@ -38,6 +41,7 @@ export default function FocusPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { locale, t } = useLocale();
+  const toast = useToast();
   const { activeProjects, fetchProjects, loading: projectsLoading } = useProjects();
   const { sessions, getTodaySessions } = useFocusSessions();
   const weeklyGoal = useWeeklyGoal();
@@ -47,11 +51,10 @@ export default function FocusPage() {
   const [rerollsLeft, setRerollsLeft] = useState(1);
   const [manualOpen, setManualOpen] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
-  const [feedback, setFeedback] = useState('');
   const [postCompleteState, setPostCompleteState] = useState(null);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [recentDone, setRecentDone] = useState([]);
+  const [showHowItWorks, setShowHowItWorks] = useState(true);
 
   const taskOps = useTasks(activePair?.project?.id || null);
 
@@ -121,6 +124,21 @@ export default function FocusPage() {
     void fetchRecentDone();
   }, [fetchEligible, fetchInProgress, fetchRecentDone]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.localStorage.getItem(FOCUS_INTRO_STORAGE_KEY) === '1') {
+      setShowHowItWorks(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!sessions.length) return;
+    setShowHowItWorks(false);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(FOCUS_INTRO_STORAGE_KEY, '1');
+    }
+  }, [sessions.length]);
+
   const todaysSessions = getTodaySessions();
   const todayMinutes = useMemo(
     () => todaysSessions.reduce((sum, session) => sum + (session.duration_minutes || 0), 0),
@@ -139,6 +157,7 @@ export default function FocusPage() {
   }
 
   function beginSelectionCycle() {
+    setPostCompleteState(null);
     setRerollsLeft(1);
     pickRandom();
   }
@@ -151,11 +170,9 @@ export default function FocusPage() {
 
   async function startSelected(pair = selected) {
     if (!pair) return;
-    setFeedback('');
-    setError('');
     const { error: startError } = await taskOps.startTask(pair.task.id);
     if (startError) {
-      setError(startError.message);
+      toast.error('Could not start task', startError.message);
       return;
     }
     setActivePair({
@@ -167,14 +184,16 @@ export default function FocusPage() {
     setManualOpen(false);
     setRerollsLeft(1);
     await fetchEligible();
+    toast.success('Focus started', pair.task.title);
   }
 
   async function handleSaveCompletion(minutes) {
     if (!activePair?.task) return;
-    setError('');
+    const completedTaskTitle = activePair.task.title;
+    const completedProjectTitle = activePair.project.title;
     const result = await taskOps.completeTask(activePair.task.id, minutes);
     if (result.error) {
-      setError(result.error.message);
+      toast.error('Could not save focus session', result.error.message);
       return;
     }
 
@@ -209,15 +228,22 @@ export default function FocusPage() {
       .in('status', ['pending', 'in_progress']);
 
     if ((remaining || []).length === 0) {
-      setFeedback(t('focus.allDoneFeedback', { project: activePair.project.title }));
       setPostCompleteState('all_done');
+      toast.success('Project queue cleared', completedProjectTitle);
     } else {
-      setFeedback(t('focus.taskCompleteFeedback'));
       setPostCompleteState('more_remaining');
+      toast.success('Task complete', completedTaskTitle);
     }
   }
 
-  if (projectsLoading || loading) return <LoadingSpinner label={t('focus.loading')} />;
+  function hideHowItWorks() {
+    setShowHowItWorks(false);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(FOCUS_INTRO_STORAGE_KEY, '1');
+    }
+  }
+
+  if (projectsLoading || loading) return <FocusPageSkeleton />;
 
   return (
     <div className="space-y-4">
@@ -228,53 +254,44 @@ export default function FocusPage() {
         </p>
       </Card>
 
-      {feedback && <Card className="border-emerald-500/30 bg-emerald-500/10 text-sm text-emerald-200">{feedback}</Card>}
-      {error && <Card className="border-red-500/30 bg-red-500/10 text-sm text-red-200">{error}</Card>}
-
-      {postCompleteState && (
+      {postCompleteState ? (
         <Card>
           <div className="flex flex-wrap gap-2">
-            {postCompleteState === 'more_remaining' && (
-              <Button
-                onClick={() => {
-                  setFeedback('');
-                  setPostCompleteState(null);
-                  beginSelectionCycle();
-                }}
-              >
-                {t('focus.startAnotherTask')}
-              </Button>
+            {postCompleteState === 'more_remaining' ? (
+              <Button onClick={beginSelectionCycle}>{t('focus.startAnotherTask')}</Button>
+            ) : (
+              <Button onClick={() => navigate('/projects')}>{t('focus.goToProject')}</Button>
             )}
-            {postCompleteState === 'all_done' && <Button onClick={() => navigate('/projects')}>{t('focus.goToProject')}</Button>}
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setFeedback('');
-                setPostCompleteState(null);
-              }}
-            >
+            <Button variant="secondary" onClick={() => setPostCompleteState(null)}>
               {t('focus.doneForNow')}
             </Button>
           </div>
         </Card>
-      )}
+      ) : null}
 
-      {!activePair && !selected && (
+      {!activePair && !selected ? (
         <>
-          <Card className="space-y-3">
-            <div>
-              <h2 className="text-base font-semibold text-slate-100">{t('focus.howItWorksTitle')}</h2>
-              <p className="mt-1 text-sm text-slate-400">{t('focus.howItWorksBody')}</p>
-            </div>
-            <ul className="space-y-2 text-sm text-slate-300">
-              {[t('focus.howItWorksPoint1'), t('focus.howItWorksPoint2'), t('focus.howItWorksPoint3')].map((item) => (
-                <li key={item} className="flex gap-2">
-                  <span className="text-emerald-400">*</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
+          {showHowItWorks ? (
+            <Card className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-100">{t('focus.howItWorksTitle')}</h2>
+                  <p className="mt-1 text-sm text-slate-400">{t('focus.howItWorksBody')}</p>
+                </div>
+                <button type="button" onClick={hideHowItWorks} className="dn-icon-button rounded-full p-1.5" aria-label="Hide focus intro">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <ul className="space-y-2 text-sm text-slate-300">
+                {[t('focus.howItWorksPoint1'), t('focus.howItWorksPoint2'), t('focus.howItWorksPoint3')].map((item) => (
+                  <li key={item} className="flex gap-2">
+                    <span className="text-emerald-400">*</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
           {!eligible.length ? (
             <EmptyState
               icon={<ListChecks className="h-5 w-5 text-emerald-400" />}
@@ -285,7 +302,7 @@ export default function FocusPage() {
             />
           ) : (
             <Card className="space-y-3">
-              {weeklyGoal.goal && (
+              {weeklyGoal.goal ? (
                 <div className="rounded-xl border border-slate-700 bg-slate-900/50 px-4 py-3">
                   <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{t('weeklyGoals.cardTitle')}</p>
                   <p className="mt-2 text-sm text-slate-200">
@@ -296,46 +313,46 @@ export default function FocusPage() {
                   </div>
                   <p className="mt-2 text-xs text-slate-400">{weeklyGoal.percentageRaw}%</p>
                 </div>
-              )}
+              ) : null}
               <StartTaskButton onClick={beginSelectionCycle} />
               <button
+                type="button"
                 onClick={() => setManualOpen((prev) => !prev)}
                 className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200"
               >
                 {t('focus.pickManual')}
                 <ChevronDown className={`h-4 w-4 transition-transform ${manualOpen ? 'rotate-180' : ''}`} />
               </button>
-              {manualOpen && (
+              {manualOpen ? (
                 <div className="space-y-2 rounded-lg border border-slate-700 bg-slate-900/40 p-2">
                   {eligible.map((pair) => (
                     <button
                       key={pair.project.id}
+                      type="button"
                       onClick={() => startSelected(pair)}
                       className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-left text-sm hover:bg-slate-700"
                     >
                       <p className="text-slate-200">{pair.project.title}</p>
                       <p className="text-xs text-slate-400">
-                        {pair.project.effectivePriority === 'urgent' ? t('projects.priority.urgent') : t(`projects.priority.${pair.project.priority_tag || 'normal'}`)}
+                        {pair.project.effectivePriority === 'urgent'
+                          ? t('projects.priority.urgent')
+                          : t(`projects.priority.${pair.project.priority_tag || 'normal'}`)}
                         {' | '}
                         {pair.task.title}
                       </p>
                     </button>
                   ))}
                 </div>
-              )}
+              ) : null}
             </Card>
           )}
         </>
-      )}
+      ) : null}
 
-      {!activePair && selected && (
+      {!activePair && selected ? (
         <div className="space-y-3">
           <RandomProjectCard project={selected.project} task={selected.task} onStart={() => startSelected(selected)} />
-          <RerollButton
-            remaining={rerollsLeft}
-            hidden={eligible.length <= 1}
-            onClick={handleReroll}
-          />
+          <RerollButton remaining={rerollsLeft} hidden={eligible.length <= 1} onClick={handleReroll} />
           <Button
             variant="secondary"
             onClick={() => {
@@ -346,9 +363,9 @@ export default function FocusPage() {
             {t('focus.switchToManual')}
           </Button>
         </div>
-      )}
+      ) : null}
 
-      {activePair && (
+      {activePair ? (
         <ActiveTaskScreen
           project={activePair.project}
           task={activePair.task}
@@ -356,7 +373,7 @@ export default function FocusPage() {
             setCompleteModalOpen(true);
           }}
         />
-      )}
+      ) : null}
 
       <Card>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('focus.recentCompleted')}</h2>
@@ -365,11 +382,12 @@ export default function FocusPage() {
             <div key={task.id} className="rounded-md border border-slate-700 bg-slate-800 p-2 text-sm">
               <p className="text-slate-200">{task.title}</p>
               <p className="text-xs text-slate-500">
-                {task.project?.title || t('taskRow.projectFallback')} | {task.completed_at ? new Date(task.completed_at).toLocaleDateString(getLocaleTag(locale)) : ''}
+                {task.project?.title || t('taskRow.projectFallback')} |{' '}
+                {task.completed_at ? new Date(task.completed_at).toLocaleDateString(getLocaleTag(locale)) : ''}
               </p>
             </div>
           ))}
-          {!recentDone.length && <p className="text-sm text-slate-500">{t('focus.noCompleted')}</p>}
+          {!recentDone.length ? <p className="text-sm text-slate-500">{t('focus.noCompleted')}</p> : null}
         </div>
       </Card>
 

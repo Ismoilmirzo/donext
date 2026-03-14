@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Timer } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -12,7 +13,7 @@ function formatElapsed(seconds) {
 }
 
 const DEFAULT_TITLE = 'DoNext';
-const TIMER_PREFIX = '\u23F1';
+const TIMER_PREFIX = 'Timer';
 
 export default function ActiveTaskScreen({ project, task, onDone }) {
   const { t } = useLocale();
@@ -50,12 +51,18 @@ export default function ActiveTaskScreen({ project, task, onDone }) {
   }, [startedAt]);
 
   return (
-    <Card className="space-y-4 text-center">
+    <Card className="dn-active-focus-card space-y-5 text-center">
+      <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">
+        <Timer className="h-3.5 w-3.5" />
+        Active session
+      </div>
       <p className="text-sm text-slate-400">{project?.title}</p>
-      <h2 className="text-2xl font-semibold text-slate-50">{task?.title}</h2>
-      {task?.description && <p className="mx-auto max-w-xl text-sm leading-6 text-slate-400">{task.description}</p>}
-      <p className="font-mono text-4xl font-bold text-emerald-300">{formatElapsed(elapsed)}</p>
-      <p className="text-sm text-slate-400">{quote}</p>
+      <h2 className="text-2xl font-semibold text-slate-50 sm:text-3xl">{task?.title}</h2>
+      {task?.description ? <p className="mx-auto max-w-xl text-sm leading-6 text-slate-400">{task.description}</p> : null}
+      <div className="rounded-[1.75rem] border border-emerald-500/25 bg-slate-900/70 px-4 py-5">
+        <p className="font-mono text-5xl font-bold text-emerald-300 sm:text-6xl">{formatElapsed(elapsed)}</p>
+        <p className="mt-3 text-sm text-slate-400">{quote}</p>
+      </div>
       <Button
         onClick={() => {
           if (typeof document !== 'undefined') {

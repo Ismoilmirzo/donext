@@ -24,10 +24,11 @@ import WeeklyReportCard from '../components/stats/WeeklyReportCard';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { StatsPageSkeleton } from '../components/ui/PageSkeletons';
 import { useAuth } from '../contexts/AuthContext';
 import { useBadges } from '../contexts/BadgeContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { useToast } from '../contexts/ToastContext';
 import { useHabits } from '../hooks/useHabits';
 import { useStats } from '../hooks/useStats';
 import { useWeeklyGoal } from '../hooks/useWeeklyGoal';
@@ -58,6 +59,7 @@ function getPeriodDates(mode) {
 export default function StatsPage() {
   const { user } = useAuth();
   const { locale, t } = useLocale();
+  const toast = useToast();
   const { getFocusStats, getHabitStats, getProjectStats } = useStats();
   const { freezeNotice, streak, fetchHabitLogs } = useHabits();
   const { badges, unlockedCount } = useBadges();
@@ -65,10 +67,10 @@ export default function StatsPage() {
   const reportRef = useRef(null);
 
   const [period, setPeriod] = useState('week');
+  const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [shareLoading, setShareLoading] = useState(false);
-  const [shareError, setShareError] = useState('');
   const [weeklyReport, setWeeklyReport] = useState(null);
   const [focusData, setFocusData] = useState({
     focusMinutes: 0,
@@ -188,7 +190,7 @@ export default function StatsPage() {
         }
       } catch (reportError) {
         if (active) {
-          setShareError(reportError.message);
+          toast.error('Could not prepare weekly report', reportError.message);
         }
       }
     }
@@ -197,7 +199,7 @@ export default function StatsPage() {
     return () => {
       active = false;
     };
-  }, [currentStreak, user]);
+  }, [currentStreak, toast, user]);
 
   const dailyRows = useMemo(() => {
     const range = getPeriodDates(period);
@@ -223,7 +225,6 @@ export default function StatsPage() {
     if (!weeklyReport?.hasShareableData || !reportRef.current) return;
 
     setShareLoading(true);
-    setShareError('');
     try {
       await new Promise((resolve) => window.requestAnimationFrame(resolve));
       const canvas = await html2canvas(reportRef.current, {
@@ -255,9 +256,10 @@ export default function StatsPage() {
         link.click();
         URL.revokeObjectURL(url);
       }
+      toast.success('Weekly report ready');
     } catch (shareIssue) {
       if (shareIssue?.name !== 'AbortError') {
-        setShareError(shareIssue.message || t('stats.shareFailed'));
+        toast.error('Share failed', shareIssue.message || t('stats.shareFailed'));
       }
     } finally {
       setShareLoading(false);
@@ -272,9 +274,7 @@ export default function StatsPage() {
   const previousChunk = monthlyTrendRows.slice(-8, -4);
   const thisMonthTotal = currentChunk.reduce((sum, row) => sum + row.minutes, 0);
   const previousMonthTotal = previousChunk.reduce((sum, row) => sum + row.minutes, 0);
-  const trendPercent = previousMonthTotal
-    ? ((thisMonthTotal - previousMonthTotal) / previousMonthTotal) * 100
-    : 0;
+  const trendPercent = previousMonthTotal ? ((thisMonthTotal - previousMonthTotal) / previousMonthTotal) * 100 : 0;
   const freezeNoticeText = freezeNotice
     ? isYesterday(parseISO(freezeNotice.date))
       ? t('habits.freezeNoticeYesterday', {
@@ -295,96 +295,197 @@ export default function StatsPage() {
     (habitData.perHabit?.length || 0) > 0 ||
     (projectData.tasksCompleted || 0) > 0;
 
-  if (loading) return <LoadingSpinner label={t('stats.loading')} />;
+  const summaryMetrics = [
+    { label: 'Focus time', value: `${focusData.focusMinutes || 0}m` },
+    { label: 'Tasks done', value: `${projectData.tasksCompleted || 0}` },
+    { label: 'Habit rate', value: `${habitData.overallRate || 0}%` },
+    { label: 'Streak', value: `${currentStreak || 0}d` },
+  ];
+
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'focus', label: 'Focus' },
+    { id: 'habits', label: 'Habits' },
+    { id: 'achievements', label: 'Achievements' },
+  ];
+
+  if (loading) return <StatsPageSkeleton />;
 
   return (
     <div className="space-y-4">
       <Card>
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-50">{t('stats.title')}</h1>
-          <div className="rounded-lg bg-slate-800 p-1 text-sm">
-            <button
-              onClick={() => setPeriod('week')}
-              className={`rounded-md px-3 py-1.5 ${period === 'week' ? 'bg-slate-700 text-slate-100' : 'text-slate-400'}`}
-            >
-              {t('stats.thisWeek')}
-            </button>
-            <button
-              onClick={() => setPeriod('month')}
-              className={`rounded-md px-3 py-1.5 ${period === 'month' ? 'bg-slate-700 text-slate-100' : 'text-slate-400'}`}
-            >
-              {t('stats.thisMonth')}
-            </button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-50">{t('stats.title')}</h1>
+            <p className="mt-1 text-sm text-slate-400">Keep this page for review, not hunting through a long feed.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {period === 'week' && weeklyReport?.hasShareableData ? (
+              <Button variant="secondary" onClick={() => void handleShareWeek()} disabled={shareLoading}>
+                {shareLoading ? t('stats.shareGenerating') : t('stats.shareAction')}
+              </Button>
+            ) : null}
+            <div className="rounded-lg bg-slate-800 p-1 text-sm">
+              <button
+                type="button"
+                onClick={() => setPeriod('week')}
+                className={`rounded-md px-3 py-1.5 ${period === 'week' ? 'bg-slate-700 text-slate-100' : 'text-slate-400'}`}
+              >
+                {t('stats.thisWeek')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriod('month')}
+                className={`rounded-md px-3 py-1.5 ${period === 'month' ? 'bg-slate-700 text-slate-100' : 'text-slate-400'}`}
+              >
+                {t('stats.thisMonth')}
+              </button>
+            </div>
           </div>
         </div>
       </Card>
-      {error && <Card className="border-red-500/30 bg-red-500/10 text-sm text-red-200">{error}</Card>}
-      {freezeNotice && <Card className="border-sky-500/30 bg-sky-500/10 text-sm text-sky-100">{freezeNoticeText}</Card>}
-      {!hasMeaningfulStats && <EmptyState title={t('stats.emptyTitle')} message={t('stats.emptyMessage')} />}
 
-      {period === 'week' && weeklyGoal.goal && (
-        <WeeklyGoalCard
-          goal={weeklyGoal.goal}
-          progressMinutes={weeklyGoal.progressMinutes}
-          percentage={weeklyGoal.percentage}
-          percentageRaw={weeklyGoal.percentageRaw}
-          remainingMinutes={weeklyGoal.remainingMinutes}
-          daysLeft={weeklyGoal.daysLeft}
-          minutesPerDay={weeklyGoal.minutesPerDay}
-          formatMinutes={weeklyGoal.formatGoalMinutes}
-          t={t}
-        />
-      )}
+      {error ? <Card className="border-red-500/30 bg-red-500/10 text-sm text-red-200">{error}</Card> : null}
+      {freezeNotice ? <Card className="dn-banner-info text-sm">{freezeNoticeText}</Card> : null}
 
-      <FocusTimeChart
-        focusMinutes={focusData.focusMinutes || 0}
-        totalMinutes={focusData.totalMinutes || 0}
-        overheadMinutes={focusData.overheadMinutes || 0}
-        efficiencyRate={focusData.efficiencyRate || 0}
-        deltaMinutes={deltaMinutes}
-        label={period === 'week' ? t('stats.labelThisWeek') : t('stats.labelThisMonth')}
-      />
-      <DailyFocusBar rows={dailyRows} />
-      <ProjectProgressChart projects={focusData.byProject || []} />
-      <WeeklyOverviewCard
-        overallRate={habitData.overallRate || 0}
-        bestHabit={bestHabit}
-        worstHabit={worstHabit}
-        streak={currentStreak}
-      />
-
-      {period === 'week' && weeklyReport?.hasShareableData && (
-        <Card>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base font-semibold text-slate-100">{t('stats.shareTitle')}</h3>
-              <p className="mt-1 text-sm text-slate-400">{t('stats.shareBody')}</p>
+      {!hasMeaningfulStats ? (
+        <EmptyState title={t('stats.emptyTitle')} message={t('stats.emptyMessage')} />
+      ) : (
+        <>
+          <Card>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {summaryMetrics.map((metric) => (
+                <div key={metric.label} className="rounded-2xl border border-slate-700 bg-slate-900/40 px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{metric.label}</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-100">{metric.value}</p>
+                </div>
+              ))}
             </div>
-            <Button variant="secondary" onClick={() => void handleShareWeek()} disabled={shareLoading}>
-              {shareLoading ? t('stats.shareGenerating') : t('stats.shareAction')}
-            </Button>
-          </div>
-          {shareError && <p className="mt-3 text-sm text-red-400">{shareError}</p>}
-        </Card>
+          </Card>
+
+          <Card>
+            <div className="flex flex-wrap gap-2">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`rounded-full px-4 py-2 text-sm font-medium ${
+                    activeTab === tab.id ? 'bg-slate-700 text-slate-100' : 'bg-slate-900/50 text-slate-400'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          {activeTab === 'overview' ? (
+            <div className="space-y-4">
+              {period === 'week' && weeklyGoal.goal ? (
+                <WeeklyGoalCard
+                  goal={weeklyGoal.goal}
+                  progressMinutes={weeklyGoal.progressMinutes}
+                  percentage={weeklyGoal.percentage}
+                  percentageRaw={weeklyGoal.percentageRaw}
+                  remainingMinutes={weeklyGoal.remainingMinutes}
+                  daysLeft={weeklyGoal.daysLeft}
+                  minutesPerDay={weeklyGoal.minutesPerDay}
+                  formatMinutes={weeklyGoal.formatGoalMinutes}
+                  t={t}
+                />
+              ) : null}
+              <FocusTimeChart
+                focusMinutes={focusData.focusMinutes || 0}
+                totalMinutes={focusData.totalMinutes || 0}
+                overheadMinutes={focusData.overheadMinutes || 0}
+                efficiencyRate={focusData.efficiencyRate || 0}
+                deltaMinutes={deltaMinutes}
+                label={period === 'week' ? t('stats.labelThisWeek') : t('stats.labelThisMonth')}
+              />
+              <WeeklyOverviewCard
+                overallRate={habitData.overallRate || 0}
+                bestHabit={bestHabit}
+                worstHabit={worstHabit}
+                streak={currentStreak}
+              />
+              <MonthlyOverviewCard rows={monthlyTrendRows} trendPercent={trendPercent} />
+              <AllTimeStatsCard stats={projectData} />
+              <Card>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-100">{t('stats.achievementsTitle')}</h3>
+                    <p className="mt-1 text-sm text-slate-400">
+                      {unlockedCount}/{badges.length} unlocked
+                    </p>
+                  </div>
+                  <Button variant="secondary" onClick={() => setActiveTab('achievements')}>
+                    Open achievements
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          ) : null}
+
+          {activeTab === 'focus' ? (
+            <div className="space-y-4">
+              <FocusTimeChart
+                focusMinutes={focusData.focusMinutes || 0}
+                totalMinutes={focusData.totalMinutes || 0}
+                overheadMinutes={focusData.overheadMinutes || 0}
+                efficiencyRate={focusData.efficiencyRate || 0}
+                deltaMinutes={deltaMinutes}
+                label={period === 'week' ? t('stats.labelThisWeek') : t('stats.labelThisMonth')}
+              />
+              <DailyFocusBar rows={dailyRows} />
+              <ProjectProgressChart projects={focusData.byProject || []} />
+              <MonthlyOverviewCard rows={monthlyTrendRows} trendPercent={trendPercent} />
+            </div>
+          ) : null}
+
+          {activeTab === 'habits' ? (
+            <div className="space-y-4">
+              {period === 'week' && weeklyGoal.goal ? (
+                <WeeklyGoalCard
+                  goal={weeklyGoal.goal}
+                  progressMinutes={weeklyGoal.progressMinutes}
+                  percentage={weeklyGoal.percentage}
+                  percentageRaw={weeklyGoal.percentageRaw}
+                  remainingMinutes={weeklyGoal.remainingMinutes}
+                  daysLeft={weeklyGoal.daysLeft}
+                  minutesPerDay={weeklyGoal.minutesPerDay}
+                  formatMinutes={weeklyGoal.formatGoalMinutes}
+                  t={t}
+                />
+              ) : null}
+              <WeeklyOverviewCard
+                overallRate={habitData.overallRate || 0}
+                bestHabit={bestHabit}
+                worstHabit={worstHabit}
+                streak={currentStreak}
+              />
+              {period === 'month' && weeklyGoal.historyRows.length > 0 ? (
+                <WeeklyGoalHistoryTable
+                  rows={weeklyGoal.historyRows}
+                  formatMinutes={weeklyGoal.formatGoalMinutes}
+                  localeTag={getLocaleTag(locale)}
+                  t={t}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          {activeTab === 'achievements' ? (
+            <BadgeGrid badges={badges} unlockedCount={unlockedCount} title={t('stats.achievementsTitle')} defaultExpanded={false} />
+          ) : null}
+        </>
       )}
 
-      <MonthlyOverviewCard rows={monthlyTrendRows} trendPercent={trendPercent} />
-      {period === 'month' && weeklyGoal.historyRows.length > 0 && (
-        <WeeklyGoalHistoryTable
-          rows={weeklyGoal.historyRows}
-          formatMinutes={weeklyGoal.formatGoalMinutes}
-          localeTag={getLocaleTag(locale)}
-          t={t}
-        />
-      )}
-      <AllTimeStatsCard stats={projectData} />
-      <BadgeGrid badges={badges} unlockedCount={unlockedCount} title={t('stats.achievementsTitle')} />
-
-      {weeklyReport?.hasShareableData && (
+      {weeklyReport?.hasShareableData ? (
         <div className="pointer-events-none fixed -left-[9999px] top-0 opacity-0">
           <WeeklyReportCard ref={reportRef} stats={weeklyReport} />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

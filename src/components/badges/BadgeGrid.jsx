@@ -4,9 +4,9 @@ import { BADGE_CATEGORIES } from '../../data/badges';
 import Card from '../ui/Card';
 import BadgeCard from './BadgeCard';
 
-export default function BadgeGrid({ badges = [], unlockedCount = 0, title = 'Achievements' }) {
+export default function BadgeGrid({ badges = [], unlockedCount = 0, title = 'Achievements', defaultExpanded = false }) {
   const [openSections, setOpenSections] = useState(() =>
-    BADGE_CATEGORIES.reduce((acc, category) => ({ ...acc, [category.id]: true }), {})
+    BADGE_CATEGORIES.reduce((acc, category) => ({ ...acc, [category.id]: defaultExpanded }), {})
   );
 
   return (

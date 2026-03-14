@@ -5,11 +5,12 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import Input from '../components/ui/Input';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Modal from '../components/ui/Modal';
+import { SettingsPageSkeleton } from '../components/ui/PageSkeletons';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../contexts/ToastContext';
 import { useProfile } from '../hooks/useProfile';
 import { useProjects } from '../hooks/useProjects';
 import { isConfiguredAdmin } from '../lib/admin';
@@ -17,10 +18,11 @@ import { supabase } from '../lib/supabase';
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
-  const { locale, locales, setLocale, t } = useLocale();
+  const { locales, setLocale, t } = useLocale();
   const { theme, setTheme, themes } = useTheme();
   const { profile, loading: profileLoading, updateProfile } = useProfile();
   const { archivedProjects, reopenProject } = useProjects();
+  const toast = useToast();
   const canAccessAdmin = isConfiguredAdmin(user);
 
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
@@ -33,29 +35,34 @@ export default function SettingsPage() {
   const [restoring, setRestoring] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportCooldown, setExportCooldown] = useState(false);
+  const [dangerOpen, setDangerOpen] = useState(false);
 
-  if (profileLoading) return <LoadingSpinner label={t('settings.loading')} />;
+  if (profileLoading) return <SettingsPageSkeleton />;
 
   async function saveProfile() {
     setError('');
     const { error: updateError } = await updateProfile({ display_name: displayName.trim() || 'User' });
     if (updateError) {
       setError(updateError.message);
+      toast.error(updateError.message);
       return;
     }
     setStatusMessage(t('settings.saved'));
+    toast.success(t('settings.saved'));
     setTimeout(() => setStatusMessage(''), 2000);
   }
 
   async function handleDeleteAccount() {
     if (deleteText !== 'DELETE') {
       setError(t('settings.typeDelete'));
+      toast.error(t('settings.typeDelete'));
       return;
     }
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     if (!supabaseUrl || !supabaseAnonKey) {
       setError(t('settings.missingSupabase'));
+      toast.error(t('settings.missingSupabase'));
       return;
     }
 
@@ -65,6 +72,7 @@ export default function SettingsPage() {
     if (!accessToken) {
       setDeleting(false);
       setError(t('settings.missingSession'));
+      toast.error(t('settings.missingSession'));
       return;
     }
 
@@ -85,10 +93,11 @@ export default function SettingsPage() {
         const payload = await response.json();
         message = payload?.error || payload?.message || message;
       } catch {
-        // Ignore parse failures and keep generic message.
+        // Keep generic error.
       }
       setDeleting(false);
       setError(message);
+      toast.error(message);
       return;
     }
 
@@ -103,9 +112,11 @@ export default function SettingsPage() {
     setRestoring(false);
     if (reopenError) {
       setError(reopenError.message);
+      toast.error(reopenError.message);
       return;
     }
     setRestoreProject(null);
+    toast.success(t('common.restore'));
   }
 
   async function handleExportData() {
@@ -168,7 +179,6 @@ export default function SettingsPage() {
       }
 
       const data = await response.json();
-
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -177,10 +187,13 @@ export default function SettingsPage() {
       link.click();
       URL.revokeObjectURL(url);
       setStatusMessage(t('settings.exportReady'));
+      toast.success(t('settings.exportReady'));
       setExportCooldown(true);
       window.setTimeout(() => setExportCooldown(false), 60000);
     } catch (exportIssue) {
-      setError(exportIssue.message || t('settings.exportFailed'));
+      const message = exportIssue.message || t('settings.exportFailed');
+      setError(message);
+      toast.error(message);
     } finally {
       setExporting(false);
     }
@@ -195,27 +208,26 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Personal</p>
         <h2 className="text-base font-semibold text-slate-100">{t('settings.profile')}</h2>
         <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} onBlur={saveProfile} />
         <Input value={user?.email || ''} disabled />
       </Card>
 
       <Card className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Appearance</p>
         <h2 className="text-base font-semibold text-slate-100">{t('settings.language')}</h2>
         <p className="text-sm text-slate-400">{t('settings.languageDescription')}</p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {Object.entries(locales).map(([value, label]) => (
-            <Button key={value} variant={locale === value ? 'primary' : 'secondary'} size="sm" onClick={() => setLocale(value)}>
+            <Button key={value} variant="secondary" size="sm" onClick={() => setLocale(value)}>
               {label}
             </Button>
           ))}
         </div>
-      </Card>
-
-      <Card className="space-y-3">
-        <h2 className="text-base font-semibold text-slate-100">{t('settings.theme')}</h2>
+        <h2 className="pt-2 text-base font-semibold text-slate-100">{t('settings.theme')}</h2>
         <p className="text-sm text-slate-400">{t('settings.themeDescription')}</p>
-        <div className="grid gap-3 grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
           {Object.entries(themes).map(([value, config]) => (
             <button
               key={value}
@@ -237,12 +249,7 @@ export default function SettingsPage() {
               </div>
               <div className="mt-4 flex gap-2">
                 {config.preview.map((color) => (
-                  <span
-                    key={color}
-                    className="dn-theme-swatch h-8 flex-1 rounded-lg"
-                    style={{ background: color }}
-                    aria-hidden="true"
-                  />
+                  <span key={color} className="dn-theme-swatch h-8 flex-1 rounded-lg" style={{ background: color }} aria-hidden="true" />
                 ))}
               </div>
             </button>
@@ -251,14 +258,12 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Data</p>
         <h2 className="text-base font-semibold text-slate-100">{t('settings.habits')}</h2>
         <Link to="/habits" className="text-sm text-emerald-400 hover:text-emerald-300">
           {t('settings.manageHabits')}
         </Link>
-      </Card>
-
-      <Card className="space-y-3">
-        <h2 className="text-base font-semibold text-slate-100">{t('settings.projects')}</h2>
+        <h2 className="pt-2 text-base font-semibold text-slate-100">{t('settings.projects')}</h2>
         <p className="text-sm text-slate-400">{t('settings.archivedDescription')}</p>
         <div className="space-y-2">
           {!archivedProjects.length && <p className="text-sm text-slate-500">{t('settings.noArchivedProjects')}</p>}
@@ -274,10 +279,7 @@ export default function SettingsPage() {
         <Link to="/projects" className="text-sm text-emerald-400 hover:text-emerald-300">
           {t('projects.openArchive')}
         </Link>
-      </Card>
-
-      <Card className="space-y-3">
-        <h2 className="text-base font-semibold text-slate-100">{t('settings.dataPrivacy')}</h2>
+        <h2 className="pt-2 text-base font-semibold text-slate-100">{t('settings.dataPrivacy')}</h2>
         <p className="text-sm text-slate-400">{t('settings.exportDescription')}</p>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => void handleExportData()} disabled={exporting || exportCooldown}>
@@ -286,18 +288,6 @@ export default function SettingsPage() {
           <Link to="/privacy/" className="inline-flex items-center rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-emerald-300 hover:text-emerald-200">
             {t('common.privacyPolicy')}
           </Link>
-        </div>
-      </Card>
-
-      <Card className="space-y-3">
-        <h2 className="text-base font-semibold text-slate-100">{t('settings.account')}</h2>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="danger" onClick={signOut}>
-            {t('settings.logOut')}
-          </Button>
-          <Button variant="danger" onClick={() => setDeleteOpen(true)}>
-            {t('settings.deleteAccount')}
-          </Button>
         </div>
       </Card>
 
@@ -311,19 +301,37 @@ export default function SettingsPage() {
         </Card>
       )}
 
+      <div className="pt-2">
+        <div className="mb-4 h-px w-full bg-red-500/15" />
+        <Card className={`space-y-3 ${dangerOpen ? 'border-red-500/40' : 'border-slate-700'}`}>
+          <button type="button" onClick={() => setDangerOpen((prev) => !prev)} className="flex w-full items-center justify-between text-left">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-red-300">Danger Zone</p>
+              <h2 className="mt-2 text-base font-semibold text-slate-100">{t('settings.account')}</h2>
+            </div>
+            <span className="text-sm text-slate-500">{dangerOpen ? 'Hide' : 'Show'}</span>
+          </button>
+          {dangerOpen && (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-400">Account actions are intentionally separated from regular settings.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={signOut}>
+                  {t('settings.logOut')}
+                </Button>
+                <Button variant="danger" onClick={() => setDeleteOpen(true)}>
+                  {t('settings.deleteAccount')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+
       <Card className="space-y-3">
         <h2 className="text-base font-semibold text-slate-100">{t('settings.about')}</h2>
         <p className="text-sm text-slate-300">{t('settings.version')}</p>
-        <Link to="/privacy/" className="text-sm text-emerald-400 hover:text-emerald-300">
-          {t('common.privacyPolicy')}
-        </Link>
         <p className="text-sm text-slate-400">{t('settings.privacyPolicyDescription')}</p>
-        <a
-          className="text-sm text-emerald-400 hover:text-emerald-300"
-          href="https://t.me/ismoilmirzouz"
-          target="_blank"
-          rel="noreferrer"
-        >
+        <a className="text-sm text-emerald-400 hover:text-emerald-300" href="https://t.me/ismoilmirzouz" target="_blank" rel="noreferrer">
           {t('settings.sendFeedback')}
         </a>
       </Card>
@@ -343,9 +351,7 @@ export default function SettingsPage() {
           </div>
         }
       >
-        <p className="text-sm text-slate-300">
-          {t('settings.deletePrompt')}
-        </p>
+        <p className="text-sm text-slate-300">{t('settings.deletePrompt')}</p>
         <div className="mt-3">
           <Input value={deleteText} onChange={(e) => setDeleteText(e.target.value)} placeholder={t('settings.deletePlaceholder')} />
         </div>

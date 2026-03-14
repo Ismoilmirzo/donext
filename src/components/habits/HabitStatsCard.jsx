@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import { parseISO } from 'date-fns';
 import { useLocale } from '../../contexts/LocaleContext';
 import Card from '../ui/Card';
+import EmptyState from '../ui/EmptyState';
 import HabitTrendChart from './HabitTrendChart';
 
 export default function HabitStatsCard({ habits = [], logs = [] }) {
   const { t } = useLocale();
   const [mode, setMode] = useState('bars');
+  const hasHabitData = habits.length > 0 && logs.some((log) => log.completed);
 
   const rows = useMemo(() => {
     const today = new Date();
@@ -56,13 +58,17 @@ export default function HabitStatsCard({ habits = [], logs = [] }) {
         </div>
       </div>
 
-      {mode === 'bars' ? (
+      {!hasHabitData ? (
+        <div className="mt-4">
+          <EmptyState title="Per-habit stats need a little history" message="Complete a habit on a few days and the completion bars plus trends will populate here." />
+        </div>
+      ) : mode === 'bars' ? (
         <div className="mt-3 space-y-3">
           {rows.map((habit) => (
             <div key={habit.id}>
               <div className="mb-1 flex items-center justify-between text-sm">
                 <span className="text-slate-200">
-                  {habit.icon || '✓'} {habit.title}
+                  {habit.icon || 'v'} {habit.title}
                 </span>
                 <span className="text-slate-400">{habit.rate}%</span>
               </div>

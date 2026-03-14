@@ -12,16 +12,18 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import EmptyState from '../components/ui/EmptyState';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { HabitsPageSkeleton } from '../components/ui/PageSkeletons';
 import ProgressBar from '../components/ui/ProgressBar';
 import { useLocale } from '../contexts/LocaleContext';
+import { useToast } from '../contexts/ToastContext';
 import { useHabits } from '../hooks/useHabits';
 import { useWeeklyGoal } from '../hooks/useWeeklyGoal';
-import { getLocaleTag } from '../lib/i18n';
 import { toISODate } from '../lib/dates';
+import { getLocaleTag } from '../lib/i18n';
 
 export default function HabitsPage() {
   const { locale, t } = useLocale();
+  const toast = useToast();
   const {
     habits,
     logs,
@@ -42,7 +44,6 @@ export default function HabitsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
   const [pendingHabitAction, setPendingHabitAction] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const todayIso = toISODate(new Date());
@@ -63,30 +64,48 @@ export default function HabitsPage() {
   const completed = habits.filter((habit) => checkedMap[habit.id]).length;
   const total = habits.length;
   const percent = total ? Math.round((completed / total) * 100) : 0;
-  const todayLabel = new Intl.DateTimeFormat(getLocaleTag(locale), { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date());
+  const todayLabel = new Intl.DateTimeFormat(getLocaleTag(locale), {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date());
   const refillLabel = streak.nextGrantDate
-    ? new Intl.DateTimeFormat(getLocaleTag(locale), { weekday: 'short', month: 'short', day: 'numeric' }).format(parseISO(streak.nextGrantDate))
+    ? new Intl.DateTimeFormat(getLocaleTag(locale), {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      }).format(parseISO(streak.nextGrantDate))
     : '';
   const freezeNoticeText = freezeNotice
     ? isYesterday(parseISO(freezeNotice.date))
-      ? t('habits.freezeNoticeYesterday', { streak: freezeNotice.streakDays, remaining: freezeNotice.remaining, total: freezeNotice.total })
+      ? t('habits.freezeNoticeYesterday', {
+          streak: freezeNotice.streakDays,
+          remaining: freezeNotice.remaining,
+          total: freezeNotice.total,
+        })
       : t('habits.freezeNoticeDate', {
           streak: freezeNotice.streakDays,
           remaining: freezeNotice.remaining,
           total: freezeNotice.total,
-          date: new Intl.DateTimeFormat(getLocaleTag(locale), { month: 'short', day: 'numeric' }).format(parseISO(freezeNotice.date)),
+          date: new Intl.DateTimeFormat(getLocaleTag(locale), {
+            month: 'short',
+            day: 'numeric',
+          }).format(parseISO(freezeNotice.date)),
         })
     : '';
 
   async function handleToggle(habit) {
     const currentValue = Boolean(checkedMap[habit.id]);
     const { error: toggleError } = await toggleHabit(habit.id, todayIso, currentValue);
-    if (toggleError) setError(toggleError.message);
+    if (toggleError) {
+      toast.error('Could not update habit', toggleError.message);
+      return;
+    }
+    toast.success(currentValue ? 'Habit unchecked' : 'Habit completed', habit.title);
   }
 
   async function handleSaveHabit(payload) {
     setSaving(true);
-    setError('');
     let result;
     if (editingHabit) {
       result = await updateHabit(editingHabit.id, payload);
@@ -94,13 +113,14 @@ export default function HabitsPage() {
       result = await addHabit(payload.title, payload.icon);
     }
     if (result?.error) {
-      setError(result.error.message);
+      toast.error('Could not save habit', result.error.message);
       setSaving(false);
       return;
     }
     setSaving(false);
     setEditingHabit(null);
     setModalOpen(false);
+    toast.success(editingHabit ? 'Habit updated' : 'Habit added', payload.title);
   }
 
   async function handleHabitAction() {
@@ -112,14 +132,18 @@ export default function HabitsPage() {
         : await deleteHabit(pendingHabitAction.habit.id);
     setActionLoading(false);
     if (result?.error) {
-      setError(result.error.message);
+      toast.error('Action failed', result.error.message);
       return;
     }
+    toast.success(
+      pendingHabitAction.type === 'archive' ? 'Habit archived' : 'Habit deleted',
+      pendingHabitAction.habit.title
+    );
     setPendingHabitAction(null);
     setMenuHabitId(null);
   }
 
-  if (loading) return <LoadingSpinner label={t('habits.loading')} />;
+  if (loading) return <HabitsPageSkeleton />;
 
   return (
     <div className="space-y-4">
@@ -144,21 +168,16 @@ export default function HabitsPage() {
           <ProgressBar value={percent} max={100} />
         </div>
         <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs text-sky-100">
-          <span>❄️</span>
+          <span>*</span>
           <span>{t('habits.freezeInventoryValue', { available: streak.availableFreezes, total: streak.storageCap })}</span>
-          <span className="text-sky-100/70">•</span>
+          <span className="text-sky-100/70">|</span>
           <span>{freezeInventorySummary(streak, refillLabel, t)}</span>
         </div>
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
       </Card>
 
-      {freezeNotice && (
-        <Card className="border-sky-500/30 bg-sky-500/10 text-sm text-sky-100">
-          {freezeNoticeText}
-        </Card>
-      )}
+      {freezeNotice ? <Card className="dn-banner-info text-sm">{freezeNoticeText}</Card> : null}
 
-      {weeklyGoal.promptVisible && (
+      {weeklyGoal.promptVisible ? (
         <WeeklyGoalPromptCard
           suggestedHours={weeklyGoal.suggestedMinutes / 60}
           lastWeekLabel={weeklyGoal.formatGoalMinutes(weeklyGoal.lastWeekMinutes)}
@@ -167,7 +186,7 @@ export default function HabitsPage() {
           saving={weeklyGoal.loading}
           t={t}
         />
-      )}
+      ) : null}
 
       {!habits.length ? (
         <EmptyState
@@ -188,15 +207,19 @@ export default function HabitsPage() {
             setEditingHabit(habit);
             setModalOpen(true);
           }}
-          onArchive={async (habit) => {
+          onArchive={(habit) => {
             setPendingHabitAction({ type: 'archive', habit });
           }}
-          onDelete={async (habit) => {
+          onDelete={(habit) => {
             setPendingHabitAction({ type: 'delete', habit });
           }}
           onReorder={async (habit, direction) => {
             const { error: reorderError } = await reorderHabits(habit.id, direction);
-            if (reorderError) setError(reorderError.message);
+            if (reorderError) {
+              toast.error('Could not reorder habit', reorderError.message);
+              return;
+            }
+            toast.info(direction === 'up' ? 'Habit moved up' : 'Habit moved down', habit.title);
           }}
         />
       )}

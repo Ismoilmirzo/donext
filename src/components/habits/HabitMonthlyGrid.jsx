@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { eachDayOfInterval, endOfMonth, isAfter, startOfMonth } from 'date-fns';
-import { toISODate } from '../../lib/dates';
 import { useLocale } from '../../contexts/LocaleContext';
+import { toISODate } from '../../lib/dates';
 import { getLocaleTag } from '../../lib/i18n';
 import Card from '../ui/Card';
+import EmptyState from '../ui/EmptyState';
 
 function intensityClass(rate) {
   if (rate <= 0) return 'bg-slate-800';
@@ -15,6 +16,7 @@ function intensityClass(rate) {
 
 export default function HabitMonthlyGrid({ habits = [], logs = [], streak = null, freezeDates = [] }) {
   const { locale, t } = useLocale();
+  const hasHabitData = habits.length > 0 && logs.some((log) => log.completed);
   const today = useMemo(() => new Date(), []);
   const monthStart = startOfMonth(today);
   const monthEnd = endOfMonth(today);
@@ -39,29 +41,37 @@ export default function HabitMonthlyGrid({ habits = [], logs = [], streak = null
   return (
     <Card>
       <h3 className="text-base font-semibold text-slate-100">{t('habits.monthlyHeatmap')}</h3>
-      <div className="mt-3 grid grid-cols-7 gap-1">
-        {rows.map((row) => (
-          <div
-            key={row.date}
-            className={`h-8 rounded-md border ${
-              row.isFuture
-                ? 'border-dashed border-slate-700 bg-slate-800'
-                : row.isFrozen
-                  ? 'border-sky-500/40 bg-sky-500/10 text-sky-200'
-                  : `border-slate-700 ${intensityClass(row.rate)}`
-            }`}
-            title={row.isFrozen ? `${row.date}: ${t('habits.freezeDayTitle')}` : `${row.date}: ${row.rate}%`}
-          >
-            {row.isFrozen && !row.isFuture ? <span className="flex h-full items-center justify-center text-sm">❄️</span> : null}
+      {!hasHabitData ? (
+        <div className="mt-4">
+          <EmptyState title="The monthly heatmap appears after your first habit streak starts" message="Come back tomorrow after a few check-ins to see stronger patterns here." />
+        </div>
+      ) : (
+        <>
+          <div className="mt-3 grid grid-cols-7 gap-1">
+            {rows.map((row) => (
+              <div
+                key={row.date}
+                className={`h-8 rounded-md border ${
+                  row.isFuture
+                    ? 'border-dashed border-slate-700 bg-slate-800'
+                    : row.isFrozen
+                      ? 'border-sky-500/40 bg-sky-500/10 text-sky-200'
+                      : `border-slate-700 ${intensityClass(row.rate)}`
+                }`}
+                title={row.isFrozen ? `${row.date}: ${t('habits.freezeDayTitle')}` : `${row.date}: ${row.rate}%`}
+              >
+                {row.isFrozen && !row.isFuture ? <span className="flex h-full items-center justify-center text-sm">*</span> : null}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <p className="mt-3 text-sm text-slate-400">
-        {t('habits.monthlySummary', { month: monthLabel, rate: monthlyRate, done: doneDays, total: totalDays })}
-      </p>
-      <p className="mt-1 text-xs text-slate-500">{t('habits.freezeSummary', { count: frozenDays })}</p>
-      <p className="mt-1 text-xs text-slate-500">{t('habits.freezeLegend')}</p>
-      <p className="mt-1 text-sm text-emerald-300">{t('habits.streakDays', { count: streak?.current || 0 })}</p>
+          <p className="mt-3 text-sm text-slate-400">
+            {t('habits.monthlySummary', { month: monthLabel, rate: monthlyRate, done: doneDays, total: totalDays })}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">{t('habits.freezeSummary', { count: frozenDays })}</p>
+          <p className="mt-1 text-xs text-slate-500">{t('habits.freezeLegend')}</p>
+          <p className="mt-1 text-sm text-emerald-300">{t('habits.streakDays', { count: streak?.current || 0 })}</p>
+        </>
+      )}
     </Card>
   );
 }

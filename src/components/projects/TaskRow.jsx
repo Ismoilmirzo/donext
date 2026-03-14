@@ -1,40 +1,81 @@
-import { CheckCircle2, Circle } from 'lucide-react';
+import { ArrowDown, ArrowUp, CheckCircle2, Circle, Play } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
-import { getLocaleTag } from '../../lib/i18n';
 import { formatMinutesHuman } from '../../lib/dates';
+import { getLocaleTag } from '../../lib/i18n';
 
-export default function TaskRow({ task, isNext = false, onClick }) {
+export default function TaskRow({
+  task,
+  isNext = false,
+  onClick,
+  onMove,
+  canMoveUp = false,
+  canMoveDown = false,
+  onStart,
+}) {
   const { locale, t } = useLocale();
   const isCompleted = task.status === 'completed';
 
   return (
-    <button
-      onClick={onClick}
-      className={`w-full rounded-lg border p-3 text-left transition-colors ${
+    <div
+      className={`rounded-lg border p-3 transition-colors ${
         isCompleted
           ? 'border-slate-700 bg-slate-800/50'
           : isNext
             ? 'border-emerald-500/60 bg-emerald-500/10'
-            : 'border-slate-700 bg-slate-800 hover:bg-slate-700/60'
+            : 'border-slate-700 bg-slate-800'
       }`}
-      title={!isCompleted ? t('taskRow.startHint') : undefined}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-3">
         {isCompleted ? (
           <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400" />
         ) : (
           <Circle className="mt-0.5 h-4 w-4 text-slate-500" />
         )}
-        <div className="min-w-0 flex-1">
+        <button type="button" onClick={onClick} className="min-w-0 flex-1 text-left" title={!isCompleted ? t('taskRow.startHint') : undefined}>
           <p className={`text-sm ${isCompleted ? 'text-slate-500 line-through' : 'text-slate-100'}`}>{task.title}</p>
-          {task.description && <p className="mt-1 text-xs text-slate-400">{task.description}</p>}
-          {isCompleted && (
+          {task.description ? (
+            <p className="mt-1 truncate text-xs text-slate-400">{task.description}</p>
+          ) : null}
+          {isCompleted ? (
             <p className="mt-1 text-xs text-slate-500">
-              {formatMinutesHuman(task.time_spent_minutes || 0)} · {task.completed_at ? new Date(task.completed_at).toLocaleDateString(getLocaleTag(locale)) : ''}
+              {formatMinutesHuman(task.time_spent_minutes || 0)} |{' '}
+              {task.completed_at ? new Date(task.completed_at).toLocaleDateString(getLocaleTag(locale)) : ''}
             </p>
-          )}
-        </div>
+          ) : null}
+        </button>
+        {!isCompleted ? (
+          <div className="ml-auto flex shrink-0 items-center gap-1 self-start">
+            {isNext && onStart ? (
+              <button
+                type="button"
+                onClick={onStart}
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-500/15"
+              >
+                <Play className="h-3.5 w-3.5" />
+                <span>Start</span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => onMove?.(task, 'up')}
+              disabled={!canMoveUp}
+              className="rounded-md border border-slate-700 bg-slate-900/70 p-2 text-slate-300 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-35"
+              aria-label={`Move ${task.title} up`}
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onMove?.(task, 'down')}
+              disabled={!canMoveDown}
+              className="rounded-md border border-slate-700 bg-slate-900/70 p-2 text-slate-300 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-35"
+              aria-label={`Move ${task.title} down`}
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : null}
       </div>
-    </button>
+    </div>
   );
 }
