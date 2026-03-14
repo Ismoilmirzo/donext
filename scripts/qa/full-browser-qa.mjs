@@ -290,6 +290,7 @@ async function focusFlow(page) {
 async function statsFlow(page) {
   logStep('Stats checks');
   await page.goto(`${BASE_URL}/stats`, { waitUntil: 'domcontentloaded' });
+  await dismissBadgePopup(page);
   await ensureVisible(page.getByRole('heading', { name: /^Stats$/i }), 'Stats page opens');
   await ensureVisible(page.getByText(/Focus time/i), 'Summary metric visible');
   await ensureVisible(page.getByRole('button', { name: /Overview/i }), 'Stats tabs visible');
@@ -316,12 +317,17 @@ async function statsFlow(page) {
   const shareButton = page.getByRole('button', { name: /Share my week/i });
   await ensureVisible(shareButton, 'Weekly share action visible');
   await shareButton.click();
+  await ensureVisible(page.getByRole('heading', { name: /Preview weekly card/i }), 'Weekly share preview opens');
+  await ensureVisible(page.locator('img[alt=\"Share My Week\"]'), 'Weekly share preview image renders');
+  await ensureVisible(page.getByRole('button', { name: /Download image/i }), 'Weekly share download action visible');
+  await ensureVisible(page.getByRole('button', { name: /Copy link/i }), 'Weekly share copy-link action visible');
+  await page.getByRole('button', { name: /Download image/i }).evaluate((element) => element.click());
   await page.waitForFunction(() => window.__qaShareState?.clicked === true, { timeout: 20000 });
   const shareState = await page.evaluate(() => window.__qaShareState);
-  if (shareState.download !== 'donext-weekly-report.png' || !String(shareState.href || '').startsWith('blob:')) {
+  if (!['donext-weekly-report.png', 'donext-weekly-report.jpg'].includes(shareState.download) || !String(shareState.href || '').startsWith('blob:')) {
     throw new Error(`Unexpected weekly share fallback payload: ${JSON.stringify(shareState)}`);
   }
-  await ensureVisible(page.getByText(/Weekly report ready/i), 'Weekly share success toast');
+  await ensureVisible(page.getByText(/Report downloaded!/i), 'Weekly share download toast');
   console.log('[QA] PASS: Weekly share image exported');
   await shot(page, 'stats');
 }

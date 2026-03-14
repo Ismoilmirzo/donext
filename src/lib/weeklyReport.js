@@ -1,8 +1,33 @@
-import { format, parseISO } from 'date-fns';
 import { toISODate, getWeekEnd, getWeekStart } from './dates';
 import { supabase } from './supabase';
 
-export async function getWeeklyReportStats(userId, streak = 0) {
+const MONTH_LABELS = {
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  uz: ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avg', 'sen', 'okt', 'noy', 'dek'],
+};
+
+function getMonthLabel(date, localeTag) {
+  const language = String(localeTag || '').toLowerCase().startsWith('uz') ? 'uz' : 'en';
+  return MONTH_LABELS[language][date.getMonth()];
+}
+
+function formatShortDate(date, localeTag, includeYear = false) {
+  const isUzbek = String(localeTag || '').toLowerCase().startsWith('uz');
+  const dayMonth = isUzbek
+    ? `${date.getDate()}-${getMonthLabel(date, localeTag)}`
+    : `${getMonthLabel(date, localeTag)} ${date.getDate()}`;
+  return includeYear ? `${dayMonth}, ${date.getFullYear()}` : dayMonth;
+}
+
+function formatWeekLabel(weekStart, weekEnd, localeTag = 'en-US') {
+  const startDate = new Date(`${weekStart}T00:00:00`);
+  const endDate = new Date(`${weekEnd}T00:00:00`);
+  const startLabel = formatShortDate(startDate, localeTag);
+  const endLabel = formatShortDate(endDate, localeTag, true);
+  return `${startLabel} - ${endLabel}`;
+}
+
+export async function getWeeklyReportStats(userId, streak = 0, localeTag = 'en-US') {
   const weekStart = toISODate(getWeekStart(new Date()));
   const weekEnd = toISODate(getWeekEnd(new Date()));
 
@@ -53,9 +78,10 @@ export async function getWeeklyReportStats(userId, streak = 0) {
   const habitRate = possibleHabitLogs > 0 ? ((logsRes.data || []).length / possibleHabitLogs) * 100 : 0;
 
   return {
-    weekLabel: `${format(parseISO(weekStart), 'MMM d')} - ${format(parseISO(weekEnd), 'MMM d, yyyy')}`,
+    weekLabel: formatWeekLabel(weekStart, weekEnd, localeTag),
     streak,
     focusMinutes,
+    sessionsCount: sessions.length,
     tasksCompleted: (tasksRes.data || []).length,
     projectsWorked: new Set(sessions.map((session) => session.project_id).filter(Boolean)).size,
     habitRate,

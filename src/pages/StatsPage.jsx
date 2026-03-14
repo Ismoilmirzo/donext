@@ -24,6 +24,7 @@ import WeeklyReportCard from '../components/stats/WeeklyReportCard';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
+import Modal from '../components/ui/Modal';
 import { StatsPageSkeleton } from '../components/ui/PageSkeletons';
 import { useAuth } from '../contexts/AuthContext';
 import { useBadges } from '../contexts/BadgeContext';
@@ -36,6 +37,26 @@ import { toISODate } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { getWeeklyReportStats } from '../lib/weeklyReport';
+
+const REPORT_WIDTH = 540;
+const REPORT_HEIGHT = 960;
+const SHARE_LINK = 'https://donext.uz';
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((value) => {
+      if (value) resolve(value);
+      else reject(new Error('Unable to generate report image.'));
+    }, type, quality);
+  });
+}
+
+function triggerDownload(url, filename) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+}
 
 function getPeriodDates(mode) {
   const now = new Date();
@@ -71,6 +92,9 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [shareLoading, setShareLoading] = useState(false);
+  const [sharePreviewOpen, setSharePreviewOpen] = useState(false);
+  const [sharePreviewError, setSharePreviewError] = useState('');
+  const [sharePreviewAsset, setSharePreviewAsset] = useState(null);
   const [weeklyReport, setWeeklyReport] = useState(null);
   const [focusData, setFocusData] = useState({
     focusMinutes: 0,
@@ -91,6 +115,14 @@ export default function StatsPage() {
     efficiencyRate: 0,
   });
   const [monthlyTrendRows, setMonthlyTrendRows] = useState([]);
+
+  useEffect(() => {
+    return () => {
+      if (sharePreviewAsset?.url) {
+        URL.revokeObjectURL(sharePreviewAsset.url);
+      }
+    };
+  }, [sharePreviewAsset]);
 
   useEffect(() => {
     let mounted = true;
@@ -184,7 +216,7 @@ export default function StatsPage() {
       }
 
       try {
-        const report = await getWeeklyReportStats(user.id, currentStreak);
+        const report = await getWeeklyReportStats(user.id, currentStreak, getLocaleTag(locale));
         if (active) {
           setWeeklyReport(report);
         }
@@ -199,7 +231,7 @@ export default function StatsPage() {
     return () => {
       active = false;
     };
-  }, [currentStreak, toast, user]);
+  }, [currentStreak, locale, toast, user]);
 
   const dailyRows = useMemo(() => {
     const range = getPeriodDates(period);
@@ -221,50 +253,134 @@ export default function StatsPage() {
     return rows;
   }, [focusData.byDate, locale, period]);
 
-  async function handleShareWeek() {
-    if (!weeklyReport?.hasShareableData || !reportRef.current) return;
+  async function buildShareAsset() {
+    if (!reportRef.current) {
+      throw new Error(t('stats.shareFailed'));
+    }
 
+    await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    const canvas = await html2canvas(reportRef.current, {
+      scale: 2,
+      backgroundColor: '#0A1222',
+      useCORS: true,
+      width: REPORT_WIDTH,
+      height: REPORT_HEIGHT,
+      windowWidth: REPORT_WIDTH,
+      windowHeight: REPORT_HEIGHT,
+    });
+
+    const pngBlob = await canvasToBlob(canvas, 'image/png');
+    let blob = pngBlob;
+    let type = 'image/png';
+    let filename = 'donext-weekly-report.png';
+
+    if (pngBlob.size > 500 * 1024) {
+      const jpegBlob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
+      if (jpegBlob.size < pngBlob.size) {
+        blob = jpegBlob;
+        type = 'image/jpeg';
+        filename = 'donext-weekly-report.jpg';
+      }
+    }
+
+    const file = new File([blob], filename, { type });
+    const url = URL.createObjectURL(blob);
+    return { blob, file, filename, mimeType: type, size: blob.size, url };
+  }
+
+  async function ensureShareAsset() {
+    if (sharePreviewAsset) return sharePreviewAsset;
+
+    const nextAsset = await buildShareAsset();
+    setSharePreviewAsset((currentAsset) => {
+      if (currentAsset?.url) {
+        URL.revokeObjectURL(currentAsset.url);
+      }
+      return nextAsset;
+    });
+    return nextAsset;
+  }
+
+  async function openSharePreview() {
+    if (!weeklyReport?.hasShareableData) return;
+
+    setSharePreviewOpen(true);
+    setSharePreviewError('');
+    setSharePreviewAsset((currentAsset) => {
+      if (currentAsset?.url) {
+        URL.revokeObjectURL(currentAsset.url);
+      }
+      return null;
+    });
+    setShareLoading(true);
+
+    try {
+      const nextAsset = await buildShareAsset();
+      setSharePreviewAsset((currentAsset) => {
+        if (currentAsset?.url) {
+          URL.revokeObjectURL(currentAsset.url);
+        }
+        return nextAsset;
+      });
+    } catch (shareIssue) {
+      setSharePreviewError(shareIssue.message || t('stats.sharePreviewOpenFailed'));
+      toast.error(t('stats.shareTitle'), shareIssue.message || t('stats.shareFailed'));
+    } finally {
+      setShareLoading(false);
+    }
+  }
+
+  function supportsNativeShare(asset) {
+    if (!asset || !navigator.share) return false;
+    try {
+      if (typeof navigator.canShare === 'function') {
+        return navigator.canShare({ files: [asset.file] });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function handleDownloadShare() {
     setShareLoading(true);
     try {
-      await new Promise((resolve) => window.requestAnimationFrame(resolve));
-      const width = reportRef.current.offsetWidth || 540;
-      const height = reportRef.current.offsetHeight || 675;
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        backgroundColor: null,
-        useCORS: true,
-        width,
-        height,
-      });
-      const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob((value) => {
-          if (value) resolve(value);
-          else reject(new Error('Unable to generate report image.'));
-        }, 'image/png');
-      });
+      const asset = await ensureShareAsset();
+      triggerDownload(asset.url, asset.filename);
+      toast.success(t('stats.shareTitle'), t('stats.shareDownloaded'));
+    } catch (shareIssue) {
+      toast.error(t('stats.shareTitle'), shareIssue.message || t('stats.shareFailed'));
+    } finally {
+      setShareLoading(false);
+    }
+  }
 
-      const file = new File([blob], 'donext-weekly-report.png', { type: 'image/png' });
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'My DoNext Weekly Report',
-          text: 'My week on DoNext - donext.uz',
-        });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'donext-weekly-report.png';
-        link.click();
-        URL.revokeObjectURL(url);
-      }
-      toast.success('Weekly report ready');
+  async function handleNativeShare() {
+    setShareLoading(true);
+    try {
+      const asset = await ensureShareAsset();
+      await navigator.share({
+        files: [asset.file],
+        title: `${t('common.appName')} · ${t('stats.reportTitle')}`,
+        text: SHARE_LINK,
+      });
+      toast.success(t('stats.shareTitle'), t('stats.shareShared'));
+      setSharePreviewOpen(false);
     } catch (shareIssue) {
       if (shareIssue?.name !== 'AbortError') {
-        toast.error('Share failed', shareIssue.message || t('stats.shareFailed'));
+        toast.error(t('stats.shareTitle'), shareIssue.message || t('stats.shareFailed'));
       }
     } finally {
       setShareLoading(false);
+    }
+  }
+
+  async function handleCopyShareLink() {
+    try {
+      await navigator.clipboard.writeText(SHARE_LINK);
+      toast.success(t('stats.shareTitle'), t('stats.shareLinkCopied'));
+    } catch (copyIssue) {
+      toast.error(t('stats.shareTitle'), copyIssue.message || t('stats.shareFailed'));
     }
   }
 
@@ -310,6 +426,10 @@ export default function StatsPage() {
     { id: 'habits', label: 'Habits' },
     { id: 'achievements', label: 'Achievements' },
   ];
+  const canUseNativeShare =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    (!sharePreviewAsset || supportsNativeShare(sharePreviewAsset));
 
   if (loading) return <StatsPageSkeleton />;
 
@@ -321,12 +441,12 @@ export default function StatsPage() {
             <h1 className="text-xl font-semibold text-slate-50">{t('stats.title')}</h1>
             <p className="mt-1 text-sm text-slate-400">Keep this page for review, not hunting through a long feed.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {period === 'week' && weeklyReport?.hasShareableData ? (
-              <Button variant="secondary" onClick={() => void handleShareWeek()} disabled={shareLoading}>
-                {shareLoading ? t('stats.shareGenerating') : t('stats.shareAction')}
-              </Button>
-            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              {period === 'week' && weeklyReport?.hasShareableData ? (
+                <Button variant="secondary" onClick={() => void openSharePreview()} disabled={shareLoading}>
+                  {shareLoading ? t('stats.shareGenerating') : t('stats.shareAction')}
+                </Button>
+              ) : null}
             <div className="rounded-lg bg-slate-800 p-1 text-sm">
               <button
                 type="button"
@@ -483,9 +603,71 @@ export default function StatsPage() {
         </>
       )}
 
+      <Modal
+        open={sharePreviewOpen}
+        onClose={() => {
+          setSharePreviewOpen(false);
+          setSharePreviewError('');
+        }}
+        title={t('stats.sharePreviewTitle')}
+        panelClassName="max-w-[680px]"
+        bodyClassName="space-y-4"
+        footer={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="ghost" onClick={() => setSharePreviewOpen(false)} disabled={shareLoading}>
+              {t('stats.shareCancel')}
+            </Button>
+            <Button variant="secondary" onClick={() => void handleDownloadShare()} disabled={shareLoading || !sharePreviewAsset}>
+              {t('stats.shareDownload')}
+            </Button>
+            {canUseNativeShare ? (
+              <Button onClick={() => void handleNativeShare()} disabled={shareLoading || !sharePreviewAsset}>
+                {t('stats.shareConfirm')}
+              </Button>
+            ) : (
+              <Button onClick={() => void handleCopyShareLink()} disabled={shareLoading}>
+                {t('stats.shareCopyLink')}
+              </Button>
+            )}
+          </div>
+        }
+      >
+        {shareLoading && !sharePreviewAsset ? (
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-8 text-center text-sm text-slate-300">
+            {t('stats.sharePreviewLoading')}
+          </div>
+        ) : null}
+        {sharePreviewError ? (
+          <div className="space-y-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-4 text-sm text-red-200">
+            <p>{sharePreviewError}</p>
+            <Button variant="secondary" onClick={() => void openSharePreview()} disabled={shareLoading}>
+              {t('stats.sharePreviewRetry')}
+            </Button>
+          </div>
+        ) : null}
+        {sharePreviewAsset ? (
+          <div className="space-y-3">
+            <p className="text-sm text-slate-400">{t('stats.shareBody')}</p>
+            <div className="overflow-hidden rounded-[28px] border border-slate-700 bg-slate-950">
+              <img src={sharePreviewAsset.url} alt={t('stats.shareTitle')} className="block h-auto w-full" />
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
       {weeklyReport?.hasShareableData ? (
-        <div className="pointer-events-none fixed -left-[9999px] top-0 opacity-0">
-          <WeeklyReportCard ref={reportRef} stats={weeklyReport} />
+        <div
+          style={{
+            position: 'absolute',
+            left: -9999,
+            top: 0,
+            width: REPORT_WIDTH,
+            height: REPORT_HEIGHT,
+            opacity: 0,
+            pointerEvents: 'none',
+          }}
+        >
+          <WeeklyReportCard ref={reportRef} stats={weeklyReport} t={t} />
         </div>
       ) : null}
     </div>
