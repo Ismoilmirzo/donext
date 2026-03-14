@@ -146,7 +146,7 @@ export default function StatsPage() {
 
       const weeklyMap = {};
       (trendRes.data || []).forEach((row) => {
-        const weekStart = startOfWeek(new Date(row.date), { weekStartsOn: 1 });
+        const weekStart = startOfWeek(parseISO(row.date), { weekStartsOn: 1 });
         const key = toISODate(weekStart);
         if (!weeklyMap[key]) {
           weeklyMap[key] = {
@@ -370,7 +370,12 @@ export default function StatsPage() {
 
       <MonthlyOverviewCard rows={monthlyTrendRows} trendPercent={trendPercent} />
       {period === 'month' && weeklyGoal.historyRows.length > 0 && (
-        <WeeklyGoalHistoryTable rows={weeklyGoal.historyRows} formatMinutes={weeklyGoal.formatGoalMinutes} t={t} />
+        <WeeklyGoalHistoryTable
+          rows={weeklyGoal.historyRows}
+          formatMinutes={weeklyGoal.formatGoalMinutes}
+          localeTag={getLocaleTag(locale)}
+          t={t}
+        />
       )}
       <AllTimeStatsCard stats={projectData} />
       <BadgeGrid badges={badges} unlockedCount={unlockedCount} title={t('stats.achievementsTitle')} />

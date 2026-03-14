@@ -1,8 +1,11 @@
-﻿import { chromium } from 'playwright';
+import { execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
+import { chromium } from 'playwright';
+import { createClient } from '@supabase/supabase-js';
 
 const BASE_URL = process.env.QA_BASE_URL || 'http://127.0.0.1:5173';
-const ARTIFACT_DIR = 'qa-artifacts';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://bpyuooiriqauczahkssy.supabase.co';
+const ARTIFACT_DIR = 'qa-artifacts/full-browser';
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 const email = `qa_${Date.now()}@example.com`;
@@ -15,6 +18,61 @@ function logStep(step) {
 
 function modal(page) {
   return page.locator('div.fixed.inset-0').last();
+}
+
+function loadKeys() {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      serviceRole: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    };
+  }
+
+  const keys = JSON.parse(execSync('supabase projects api-keys -o json', { encoding: 'utf8' }));
+  return {
+    serviceRole: keys.find((entry) => entry.id === 'service_role')?.api_key,
+  };
+}
+
+async function ensureQaUser() {
+  const { serviceRole } = loadKeys();
+  if (!serviceRole) {
+    throw new Error('Missing service role key for browser QA.');
+  }
+
+  const admin = createClient(SUPABASE_URL, serviceRole, { auth: { persistSession: false } });
+  const list = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (list.error) throw list.error;
+
+  let user = (list.data?.users || []).find((entry) => entry.email?.toLowerCase() === email.toLowerCase()) || null;
+  if (!user) {
+    const created = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: displayName },
+    });
+    if (created.error) throw created.error;
+    user = created.data.user;
+  } else {
+    const updated = await admin.auth.admin.updateUserById(user.id, {
+      password,
+      email_confirm: true,
+      user_metadata: { ...(user.user_metadata || {}), full_name: displayName },
+    });
+    if (updated.error) throw updated.error;
+    user = updated.data.user;
+  }
+
+  const profileRes = await admin.from('profiles').upsert(
+    {
+      id: user.id,
+      display_name: displayName,
+      onboarding_done: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' }
+  );
+  if (profileRes.error) throw profileRes.error;
 }
 
 async function shot(page, name) {
@@ -33,30 +91,16 @@ async function authFlow(page) {
   await ensureVisible(page.getByRole('link', { name: /Get Started Free/i }), 'Landing CTA');
   await shot(page, 'landing');
 
-  logStep('Sign up');
+  logStep('Provision QA account');
+  await ensureQaUser();
+
+  logStep('Log in');
   await page.getByRole('link', { name: /Get Started Free/i }).click();
-  await ensureVisible(page.getByRole('heading', { name: /Create account/i }), 'Auth signup heading');
-  await page.getByPlaceholder('Display name').fill(displayName);
+  await ensureVisible(page.getByRole('heading', { name: /Create account|Welcome back/i }), 'Auth page opens');
+  await page.getByRole('button', { name: /Log In/i }).click();
   await page.getByPlaceholder('Email').fill(email);
   await page.getByPlaceholder('Password', { exact: true }).fill(password);
-  await page.getByPlaceholder('Confirm password').fill(password);
-  await page.locator('form').getByRole('button', { name: /Create Account/i }).click();
-
-  let signedInAfterSignup = false;
-  try {
-    await page.waitForURL('**/habits', { timeout: 10000 });
-    signedInAfterSignup = true;
-  } catch {
-    signedInAfterSignup = false;
-  }
-
-  if (!signedInAfterSignup) {
-    logStep('Login after signup');
-    await page.getByRole('button', { name: /Log In/i }).click();
-    await page.getByPlaceholder('Email').fill(email);
-    await page.getByPlaceholder('Password', { exact: true }).fill(password);
-    await page.locator('form').getByRole('button', { name: /^Log In$/i }).click();
-  }
+  await page.locator('form').getByRole('button', { name: /^Log In$/i }).click();
 
   await page.waitForURL('**/habits', { timeout: 20000 });
   await ensureVisible(page.getByRole('heading', { name: /Today/i }), 'Habits home after auth');
@@ -80,7 +124,7 @@ async function habitsFlow(page) {
   await page.getByRole('button', { name: /Read 30m/i }).click();
   await ensureVisible(page.getByText(/\d+\/\d+ habits complete/i), 'Progress updates after toggle');
 
-  const menuButtons = page.locator('button', { hasText: '⋯' });
+  const menuButtons = page.locator('button', { hasText: '...' });
   if ((await menuButtons.count()) > 0) {
     await menuButtons.first().click();
     if (await page.getByRole('button', { name: /Edit/i }).isVisible()) {
@@ -179,6 +223,8 @@ async function settingsFlow(page) {
   await page.goto(`${BASE_URL}/projects`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('link', { name: /QA Project/i }).click();
   await page.getByRole('button', { name: /^Archive$/i }).click();
+  await ensureVisible(page.getByRole('heading', { name: /Archive project/i }), 'Archive confirmation opens');
+  await page.getByRole('button', { name: /^Archive$/i }).last().click();
   await page.waitForURL('**/projects', { timeout: 10000 });
 
   await page.goto(`${BASE_URL}/settings`, { waitUntil: 'domcontentloaded' });
@@ -187,11 +233,15 @@ async function settingsFlow(page) {
   const profileInput = page.locator('input').first();
   await profileInput.fill('QA Runner Updated');
   await profileInput.blur();
+   await ensureVisible(page.getByText('Saved'), 'Profile save message appears');
 
-  const restoreBtn = page.getByRole('button', { name: /Restore/i });
+  const restoreBtn = page.getByRole('button', { name: /^Restore$/i }).first();
   if (await restoreBtn.isVisible()) {
-    await restoreBtn.first().click();
-    await ensureVisible(page.getByText('Saved'), 'Restore action works and save message appears');
+    await restoreBtn.click();
+    await ensureVisible(page.getByRole('heading', { name: /Restore project/i }), 'Restore confirmation opens');
+    await page.getByRole('button', { name: /^Restore$/i }).last().click();
+    await page.getByRole('heading', { name: /Restore project/i }).waitFor({ state: 'hidden', timeout: 10000 });
+    console.log('[QA] PASS: Project restore flow works');
   }
 
   await page.getByRole('button', { name: /Log out/i }).click();

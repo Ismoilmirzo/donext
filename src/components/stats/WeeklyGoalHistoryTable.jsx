@@ -1,6 +1,7 @@
+import { addDays, parseISO } from 'date-fns';
 import Card from '../ui/Card';
 
-export default function WeeklyGoalHistoryTable({ rows = [], formatMinutes, t }) {
+export default function WeeklyGoalHistoryTable({ rows = [], formatMinutes, localeTag = 'en-US', t }) {
   if (!rows.length) return null;
 
   return (
@@ -22,12 +23,11 @@ export default function WeeklyGoalHistoryTable({ rows = [], formatMinutes, t }) 
           </thead>
           <tbody className="divide-y divide-slate-800 text-slate-200">
             {rows.map((row) => {
-              const weekStart = new Date(row.week_start);
-              const weekEnd = new Date(row.week_start);
-              weekEnd.setDate(weekEnd.getDate() + 6);
+              const weekStart = parseISO(row.week_start);
+              const weekEnd = addDays(weekStart, 6);
               return (
                 <tr key={row.id}>
-                  <td className="py-3 pr-4">{`${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}</td>
+                  <td className="py-3 pr-4">{`${weekStart.toLocaleDateString(localeTag, { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString(localeTag, { month: 'short', day: 'numeric' })}`}</td>
                   <td className="py-3 pr-4">{formatMinutes(row.target_minutes)}</td>
                   <td className="py-3 pr-4">{formatMinutes(row.actual_minutes)}</td>
                   <td className={`py-3 ${row.hit ? 'text-emerald-300' : 'text-slate-400'}`}>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { parseISO } from 'date-fns';
 import { useLocale } from '../../contexts/LocaleContext';
 import Card from '../ui/Card';
 import HabitTrendChart from './HabitTrendChart';
@@ -13,7 +14,7 @@ export default function HabitStatsCard({ habits = [], logs = [] }) {
     const year = today.getFullYear();
     const monthDates = new Set();
     logs.forEach((log) => {
-      const date = new Date(log.date);
+      const date = parseISO(log.date);
       if (date.getFullYear() === year && date.getMonth() === month) {
         monthDates.add(log.date);
       }

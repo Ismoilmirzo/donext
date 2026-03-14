@@ -114,10 +114,60 @@ export default function SettingsPage() {
     setError('');
 
     try {
-      const { data, error: exportError } = await supabase.functions.invoke('export-data', {
-        body: {},
-      });
-      if (exportError) throw exportError;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error(t('settings.missingSupabase'));
+      }
+
+      async function getAccessToken() {
+        const sessionRes = await supabase.auth.getSession();
+        return sessionRes.data?.session?.access_token || '';
+      }
+
+      async function fetchExport(accessToken) {
+        return fetch(`${supabaseUrl}/functions/v1/export-data`, {
+          method: 'POST',
+          headers: {
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+            'x-user-jwt': accessToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        });
+      }
+
+      let accessToken = await getAccessToken();
+      if (!accessToken) {
+        const refreshRes = await supabase.auth.refreshSession();
+        accessToken = refreshRes.data.session?.access_token || '';
+      }
+      if (!accessToken) {
+        throw new Error(t('settings.missingSession'));
+      }
+
+      let response = await fetchExport(accessToken);
+      if (response.status === 401) {
+        const refreshRes = await supabase.auth.refreshSession();
+        const refreshedToken = refreshRes.data.session?.access_token || '';
+        if (refreshedToken) {
+          response = await fetchExport(refreshedToken);
+        }
+      }
+
+      if (!response.ok) {
+        let message = t('settings.exportFailed');
+        try {
+          const payload = await response.json();
+          message = payload?.error || payload?.message || message;
+        } catch {
+          // Keep generic export error.
+        }
+        throw new Error(message);
+      }
+
+      const data = await response.json();
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);

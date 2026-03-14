@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { differenceInCalendarDays, endOfWeek, startOfWeek, subWeeks } from 'date-fns';
+import { useCallback, useEffect, useState } from 'react';
+import { differenceInCalendarDays, endOfWeek, parseISO, startOfWeek, subWeeks } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import { addAppEventListener, APP_EVENTS } from '../lib/appEvents';
 import { formatMinutesHuman, getWeekEnd, getWeekStart, toISODate } from '../lib/dates';
@@ -11,7 +11,7 @@ function getDismissKey(userId, weekStart) {
 
 function groupFocusByWeek(sessions = []) {
   return sessions.reduce((map, session) => {
-    const weekKey = toISODate(startOfWeek(new Date(session.date), { weekStartsOn: 1 }));
+    const weekKey = toISODate(startOfWeek(parseISO(session.date), { weekStartsOn: 1 }));
     map[weekKey] = (map[weekKey] || 0) + (session.duration_minutes || 0);
     return map;
   }, {});
@@ -40,8 +40,8 @@ export function useWeeklyGoal() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const weekStart = useMemo(() => toISODate(getWeekStart(new Date())), []);
-  const weekEnd = useMemo(() => toISODate(getWeekEnd(new Date())), []);
+  const weekStart = toISODate(getWeekStart(new Date()));
+  const weekEnd = toISODate(getWeekEnd(new Date()));
 
   const refresh = useCallback(async () => {
     if (!user) {

@@ -18,6 +18,8 @@ dist-ssr
 .claude-flow/
 supabase/.temp/
 qa-artifacts/storage-state.json
+qa-artifacts/full-browser/
+qa-artifacts/features-10-14/
 
 # Editor directories and files
 .vscode/*

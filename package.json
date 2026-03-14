@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build && node scripts/postbuild-pages.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "qa:seed:features": "node scripts/qa/seed-feature-10-14.mjs",
+    "qa:features": "node scripts/qa/feature-10-14-browser.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",

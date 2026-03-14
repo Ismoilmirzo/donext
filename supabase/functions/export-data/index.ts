@@ -8,7 +8,7 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-jwt',
 };
 
 function formatDateStamp(date = new Date()) {
@@ -31,7 +31,8 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get('Authorization') || '';
-  const jwt = authHeader.replace('Bearer ', '').trim();
+  const forwardedJwt = req.headers.get('x-user-jwt') || '';
+  const jwt = forwardedJwt.trim() || authHeader.replace('Bearer ', '').trim();
   if (!jwt) {
     return new Response(JSON.stringify({ error: 'Missing authorization token.' }), {
       status: 401,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { addWeeks, differenceInCalendarDays, endOfWeek, startOfWeek, subWeeks } from 'date-fns';
+import { addWeeks, differenceInCalendarDays, endOfWeek, parseISO, startOfDay, startOfWeek, subWeeks } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
 import { supabase } from '../lib/supabase';
@@ -61,7 +61,7 @@ export function useHabitTrends(weeksCount = 8) {
       });
 
       const nextTrends = habits.map((habit) => {
-        const createdAt = habit.created_at ? new Date(habit.created_at) : rangeStart;
+        const createdAt = habit.created_at ? startOfDay(new Date(habit.created_at)) : rangeStart;
         const weeklyRates = Array.from({ length: weeksCount }, (_, index) => {
           const weekStart = addWeeks(rangeStart, index);
           const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
@@ -70,11 +70,11 @@ export function useHabitTrends(weeksCount = 8) {
           const totalDays = differenceInCalendarDays(effectiveEnd, effectiveStart) + 1;
           if (totalDays <= 0) return null;
 
-          const completedCount = logs.filter((log) => {
-            if (log.habit_id !== habit.id) return false;
-            const logDate = new Date(log.date);
-            return logDate >= effectiveStart && logDate <= effectiveEnd;
-          }).length;
+            const completedCount = logs.filter((log) => {
+              if (log.habit_id !== habit.id) return false;
+              const logDate = parseISO(log.date);
+              return logDate >= effectiveStart && logDate <= effectiveEnd;
+            }).length;
 
           return Math.round((completedCount / totalDays) * 100);
         });

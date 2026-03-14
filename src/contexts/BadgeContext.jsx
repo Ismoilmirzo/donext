@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { addDays, format, startOfWeek } from 'date-fns';
+import { addDays, format, parseISO, startOfWeek } from 'date-fns';
 import { BADGES, getBadgeById, getBadgeProgressMeta, isBadgeUnlocked, TRIGGER_POINTS } from '../data/badges';
 import { useAuth } from './AuthContext';
 import { addAppEventListener, APP_EVENTS } from '../lib/appEvents';
@@ -14,7 +14,7 @@ function getDayCheckKey(userId) {
 
 function calculateBestWeeklyEfficiency(sessions = []) {
   const weekly = sessions.reduce((map, session) => {
-    const weekKey = format(startOfWeek(new Date(session.date), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const weekKey = format(startOfWeek(parseISO(session.date), { weekStartsOn: 1 }), 'yyyy-MM-dd');
     if (!map[weekKey]) {
       map[weekKey] = { focus: 0, total: 0 };
     }

@@ -1,79 +1,192 @@
 import { forwardRef } from 'react';
 import { formatMinutesHuman } from '../../lib/dates';
 
+function breakdownRowStyle(item, totalMinutes) {
+  return {
+    width: `${totalMinutes > 0 ? Math.max(12, Math.round((item.minutes / totalMinutes) * 100)) : 0}%`,
+    backgroundColor: item.color || '#10B981',
+    height: 8,
+    borderRadius: 999,
+  };
+}
+
 function BreakdownRow({ item, totalMinutes }) {
-  const width = totalMinutes > 0 ? Math.max(12, Math.round((item.minutes / totalMinutes) * 100)) : 0;
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="truncate text-slate-200">{item.name}</span>
-        <span className="shrink-0 font-medium text-slate-400">{formatMinutesHuman(item.minutes)}</span>
+    <div style={{ display: 'grid', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 14 }}>
+        <span
+          style={{
+            color: '#E2E8F0',
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {item.name}
+        </span>
+        <span style={{ color: '#94A3B8', fontWeight: 600 }}>{formatMinutesHuman(item.minutes)}</span>
       </div>
-      <div className="h-2 rounded-full bg-white/10">
-        <div className="h-2 rounded-full" style={{ width: `${width}%`, backgroundColor: item.color || '#10B981' }} />
+      <div style={{ height: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
+        <div style={breakdownRowStyle(item, totalMinutes)} />
       </div>
     </div>
   );
 }
 
+const statCardStyle = {
+  border: '1px solid rgba(255,255,255,0.10)',
+  backgroundColor: 'rgba(255,255,255,0.05)',
+  borderRadius: 24,
+  padding: '16px 18px',
+};
+
+const statLabelStyle = {
+  fontSize: 14,
+  color: '#94A3B8',
+};
+
+const statValueStyle = {
+  marginTop: 6,
+  fontSize: 24,
+  fontWeight: 700,
+  color: '#F8FAFC',
+};
+
 const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats }, ref) {
   return (
     <div
       ref={ref}
-      className="relative overflow-hidden rounded-[32px] bg-gradient-to-b from-slate-900 to-[#1a1a3e] px-10 py-10 text-white"
-      style={{ width: 540, height: 675, fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        width: 540,
+        height: 675,
+        padding: 40,
+        borderRadius: 32,
+        color: '#FFFFFF',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+        background: 'linear-gradient(180deg, #0F172A 0%, #1A1A3E 100%)',
+      }}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.2),_transparent_35%)]" />
-      <div className="relative z-10 flex h-full flex-col">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-2xl text-slate-950">⚡</div>
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'radial-gradient(circle at top right, rgba(16,185,129,0.20), transparent 35%)',
+        }}
+      />
+
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 18,
+              backgroundColor: '#10B981',
+              color: '#020617',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 24,
+              fontWeight: 700,
+            }}
+          >
+            ⚡
+          </div>
           <div>
-            <p className="text-lg font-semibold tracking-tight">DoNext · Weekly Report</p>
-            <p className="text-sm text-slate-400">{stats.weekLabel}</p>
+            <p style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: '#F8FAFC' }}>
+              DoNext · Weekly Report
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: '#94A3B8' }}>{stats.weekLabel}</p>
           </div>
         </div>
 
-        <div className="mt-7 grid gap-3">
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-            <span className="text-sm text-slate-400">🔥 Streak</span>
-            <p className="mt-1 text-2xl font-semibold">{stats.streak}-day streak</p>
+        <div style={{ marginTop: 28, display: 'grid', gap: 12 }}>
+          <div style={statCardStyle}>
+            <span style={statLabelStyle}>🔥 Streak</span>
+            <p style={{ ...statValueStyle, fontSize: 30 }}>{stats.streak}-day streak</p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-sm text-slate-400">⏱ Focused</span>
-              <p className="mt-1 text-xl font-semibold">{formatMinutesHuman(stats.focusMinutes)}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={statCardStyle}>
+              <span style={statLabelStyle}>⏱ Focused</span>
+              <p style={statValueStyle}>{formatMinutesHuman(stats.focusMinutes)}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-sm text-slate-400">✅ Tasks</span>
-              <p className="mt-1 text-xl font-semibold">{stats.tasksCompleted}</p>
+            <div style={statCardStyle}>
+              <span style={statLabelStyle}>✅ Tasks</span>
+              <p style={statValueStyle}>{stats.tasksCompleted}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-sm text-slate-400">📋 Projects</span>
-              <p className="mt-1 text-xl font-semibold">{stats.projectsWorked}</p>
+            <div style={statCardStyle}>
+              <span style={statLabelStyle}>📋 Projects</span>
+              <p style={statValueStyle}>{stats.projectsWorked}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-sm text-slate-400">✓ Habits</span>
-              <p className="mt-1 text-xl font-semibold">{Math.round(stats.habitRate)}%</p>
+            <div style={statCardStyle}>
+              <span style={statLabelStyle}>✓ Habits</span>
+              <p style={statValueStyle}>{Math.round(stats.habitRate)}%</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-8 flex-1 rounded-[28px] border border-white/10 bg-slate-950/20 px-5 py-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Focus Breakdown</p>
-          <div className="mt-4 space-y-4">
+        <div
+          style={{
+            marginTop: 32,
+            flex: 1,
+            borderRadius: 28,
+            border: '1px solid rgba(255,255,255,0.10)',
+            backgroundColor: 'rgba(2,6,23,0.22)',
+            padding: 20,
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              color: '#94A3B8',
+            }}
+          >
+            Focus Breakdown
+          </p>
+          <div style={{ marginTop: 16, display: 'grid', gap: 16 }}>
             {stats.projectBreakdown.length ? (
               stats.projectBreakdown.slice(0, 3).map((item) => (
                 <BreakdownRow key={item.name} item={item} totalMinutes={stats.focusMinutes} />
               ))
             ) : (
-              <p className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-slate-400">
+              <p
+                style={{
+                  margin: 0,
+                  padding: '24px 16px',
+                  borderRadius: 24,
+                  border: '1px dashed rgba(255,255,255,0.12)',
+                  color: '#94A3B8',
+                  fontSize: 14,
+                  textAlign: 'center',
+                }}
+              >
                 No focus breakdown this week yet.
               </p>
             )}
           </div>
         </div>
 
-        <p className="mt-6 text-center text-sm tracking-[0.18em] text-slate-500">donext.uz</p>
+        <p
+          style={{
+            margin: '24px 0 0',
+            textAlign: 'center',
+            fontSize: 14,
+            letterSpacing: '0.18em',
+            color: '#64748B',
+          }}
+        >
+          donext.uz
+        </p>
       </div>
     </div>
   );
