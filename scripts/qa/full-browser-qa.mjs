@@ -151,6 +151,14 @@ async function dismissBadgePopup(page) {
   }
 }
 
+async function ensureHabitsHome(page, label = 'Habits home after auth') {
+  await page.waitForURL(/\/(habits|welcome)/, { timeout: 20000 });
+  if (page.url().includes('/welcome')) {
+    await page.goto(`${BASE_URL}/habits`, { waitUntil: 'domcontentloaded' });
+  }
+  await ensureVisible(page.getByRole('heading', { name: /Today/i }), label);
+}
+
 async function authFlow(page) {
   logStep('Landing page checks');
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
@@ -169,9 +177,7 @@ async function authFlow(page) {
   await page.getByPlaceholder('Email').fill(email);
   await page.getByPlaceholder('Password', { exact: true }).fill(password);
   await page.locator('form').getByRole('button', { name: /^Log In$/i }).click();
-
-  await page.waitForURL('**/habits', { timeout: 20000 });
-  await ensureVisible(page.getByRole('heading', { name: /Today/i }), 'Habits home after auth');
+  await ensureHabitsHome(page, 'Habits home after auth');
   await shot(page, 'habits-initial');
 }
 
@@ -271,8 +277,13 @@ async function focusFlow(page) {
   await hourInput.fill('0');
   await minuteInput.fill('5');
   await modal(page).getByRole('button', { name: /Save & Continue/i }).click();
-
-  await ensureVisible(page.getByRole('button', { name: /Done For Now|Go to Project|Start Another Task/i }), 'Post-completion actions shown');
+  await modal(page).waitFor({ state: 'hidden', timeout: 20000 });
+  await Promise.race([
+    page.getByRole('button', { name: /Done For Now/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
+    page.getByRole('button', { name: /Go to Project/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
+    page.getByRole('button', { name: /Start Another Task/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
+  ]);
+  console.log('[QA] PASS: Post-completion actions shown');
   await shot(page, 'focus-after-complete');
 }
 
@@ -360,8 +371,7 @@ async function settingsFlow(page) {
   await page.getByPlaceholder('Email').fill(email);
   await page.getByPlaceholder('Password', { exact: true }).fill(password);
   await page.locator('form').getByRole('button', { name: /^Log In$/i }).click();
-  await page.waitForURL('**/habits', { timeout: 20000 });
-  await ensureVisible(page.getByRole('heading', { name: /Today/i }), 'Login back works');
+  await ensureHabitsHome(page, 'Login back works');
   await shot(page, 'settings-logout-login');
 }
 
