@@ -227,12 +227,14 @@ export default function StatsPage() {
     setShareLoading(true);
     try {
       await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      const width = reportRef.current.offsetWidth || 540;
+      const height = reportRef.current.offsetHeight || 675;
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
         backgroundColor: null,
         useCORS: true,
-        width: 540,
-        height: 675,
+        width,
+        height,
       });
       const blob = await new Promise((resolve, reject) => {
         canvas.toBlob((value) => {

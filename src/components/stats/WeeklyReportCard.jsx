@@ -1,6 +1,9 @@
 import { forwardRef } from 'react';
 import { formatMinutesHuman } from '../../lib/dates';
 
+const CARD_WIDTH = 540;
+const MIN_CARD_HEIGHT = 675;
+
 function breakdownRowStyle(item, totalMinutes) {
   return {
     width: `${totalMinutes > 0 ? Math.max(12, Math.round((item.minutes / totalMinutes) * 100)) : 0}%`,
@@ -12,21 +15,31 @@ function breakdownRowStyle(item, totalMinutes) {
 
 function BreakdownRow({ item, totalMinutes }) {
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 14 }}>
+    <div style={{ display: 'grid', gap: 10 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) auto',
+          alignItems: 'start',
+          gap: 12,
+          fontSize: 14,
+        }}
+      >
         <span
           style={{
             color: '#E2E8F0',
-            flex: 1,
             minWidth: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            whiteSpace: 'normal',
+            overflowWrap: 'anywhere',
+            lineHeight: 1.35,
+            paddingRight: 6,
           }}
         >
           {item.name}
         </span>
-        <span style={{ color: '#94A3B8', fontWeight: 600 }}>{formatMinutesHuman(item.minutes)}</span>
+        <span style={{ color: '#94A3B8', fontWeight: 600, lineHeight: 1.35 }}>
+          {formatMinutesHuman(item.minutes)}
+        </span>
       </div>
       <div style={{ height: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
         <div style={breakdownRowStyle(item, totalMinutes)} />
@@ -54,15 +67,31 @@ const statValueStyle = {
   color: '#F8FAFC',
 };
 
+const brandMarkStyle = {
+  width: 48,
+  height: 48,
+  borderRadius: 18,
+  backgroundColor: '#10B981',
+  color: '#020617',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 16,
+  fontWeight: 800,
+  letterSpacing: '0.08em',
+};
+
 const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats }, ref) {
+  const breakdownRows = (stats.projectBreakdown || []).slice(0, 3);
+
   return (
     <div
       ref={ref}
       style={{
         position: 'relative',
         overflow: 'hidden',
-        width: 540,
-        height: 675,
+        width: CARD_WIDTH,
+        minHeight: MIN_CARD_HEIGHT,
         padding: 40,
         borderRadius: 32,
         color: '#FFFFFF',
@@ -75,32 +104,24 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats }, ref) {
         style={{
           position: 'absolute',
           inset: 0,
-          background:
-            'radial-gradient(circle at top right, rgba(16,185,129,0.20), transparent 35%)',
+          background: 'radial-gradient(circle at top right, rgba(16,185,129,0.20), transparent 35%)',
         }}
       />
 
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: MIN_CARD_HEIGHT - 80,
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 18,
-              backgroundColor: '#10B981',
-              color: '#020617',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 24,
-              fontWeight: 700,
-            }}
-          >
-            ⚡
-          </div>
+          <div style={brandMarkStyle}>DN</div>
           <div>
             <p style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: '#F8FAFC' }}>
-              DoNext · Weekly Report
+              DoNext Weekly Report
             </p>
             <p style={{ margin: '4px 0 0', fontSize: 14, color: '#94A3B8' }}>{stats.weekLabel}</p>
           </div>
@@ -108,24 +129,24 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats }, ref) {
 
         <div style={{ marginTop: 28, display: 'grid', gap: 12 }}>
           <div style={statCardStyle}>
-            <span style={statLabelStyle}>🔥 Streak</span>
+            <span style={statLabelStyle}>Streak</span>
             <p style={{ ...statValueStyle, fontSize: 30 }}>{stats.streak}-day streak</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div style={statCardStyle}>
-              <span style={statLabelStyle}>⏱ Focused</span>
+              <span style={statLabelStyle}>Focused</span>
               <p style={statValueStyle}>{formatMinutesHuman(stats.focusMinutes)}</p>
             </div>
             <div style={statCardStyle}>
-              <span style={statLabelStyle}>✅ Tasks</span>
+              <span style={statLabelStyle}>Tasks</span>
               <p style={statValueStyle}>{stats.tasksCompleted}</p>
             </div>
             <div style={statCardStyle}>
-              <span style={statLabelStyle}>📋 Projects</span>
+              <span style={statLabelStyle}>Projects</span>
               <p style={statValueStyle}>{stats.projectsWorked}</p>
             </div>
             <div style={statCardStyle}>
-              <span style={statLabelStyle}>✓ Habits</span>
+              <span style={statLabelStyle}>Habits</span>
               <p style={statValueStyle}>{Math.round(stats.habitRate)}%</p>
             </div>
           </div>
@@ -134,7 +155,6 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats }, ref) {
         <div
           style={{
             marginTop: 32,
-            flex: 1,
             borderRadius: 28,
             border: '1px solid rgba(255,255,255,0.10)',
             backgroundColor: 'rgba(2,6,23,0.22)',
@@ -153,9 +173,9 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats }, ref) {
           >
             Focus Breakdown
           </p>
-          <div style={{ marginTop: 16, display: 'grid', gap: 16 }}>
-            {stats.projectBreakdown.length ? (
-              stats.projectBreakdown.slice(0, 3).map((item) => (
+          <div style={{ marginTop: 16, display: 'grid', gap: 18 }}>
+            {breakdownRows.length ? (
+              breakdownRows.map((item) => (
                 <BreakdownRow key={item.name} item={item} totalMinutes={stats.focusMinutes} />
               ))
             ) : (

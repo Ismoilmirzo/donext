@@ -6,11 +6,14 @@ import { createClient } from '@supabase/supabase-js';
 const BASE_URL = process.env.QA_BASE_URL || 'http://127.0.0.1:5173';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://bpyuooiriqauczahkssy.supabase.co';
 const ARTIFACT_DIR = 'qa-artifacts/full-browser';
+const SHARE_PROJECT_TITLE = 'Momentum MVP integration hardening for onboarding analytics and long-name weekly share export verification';
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 const email = `qa_${Date.now()}@example.com`;
 const password = 'QaTest123!';
 const displayName = 'QA Runner';
+let adminClient;
+let qaUserId;
 
 function logStep(step) {
   console.log(`\n[QA] ${step}`);
@@ -33,13 +36,20 @@ function loadKeys() {
   };
 }
 
-async function ensureQaUser() {
+function getAdminClient() {
+  if (adminClient) return adminClient;
+
   const { serviceRole } = loadKeys();
   if (!serviceRole) {
     throw new Error('Missing service role key for browser QA.');
   }
 
-  const admin = createClient(SUPABASE_URL, serviceRole, { auth: { persistSession: false } });
+  adminClient = createClient(SUPABASE_URL, serviceRole, { auth: { persistSession: false } });
+  return adminClient;
+}
+
+async function ensureQaUser() {
+  const admin = getAdminClient();
   const list = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
   if (list.error) throw list.error;
 
@@ -73,6 +83,53 @@ async function ensureQaUser() {
     { onConflict: 'id' }
   );
   if (profileRes.error) throw profileRes.error;
+
+  qaUserId = user.id;
+}
+
+function currentIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function seedWeeklyShareData() {
+  if (!qaUserId) {
+    throw new Error('QA user must exist before seeding share data.');
+  }
+
+  const admin = getAdminClient();
+  const existingProjectRes = await admin
+    .from('projects')
+    .select('id')
+    .eq('user_id', qaUserId)
+    .eq('title', SHARE_PROJECT_TITLE)
+    .maybeSingle();
+  if (existingProjectRes.error) throw existingProjectRes.error;
+
+  let projectId = existingProjectRes.data?.id;
+  if (!projectId) {
+    const projectRes = await admin
+      .from('projects')
+      .insert({
+        user_id: qaUserId,
+        title: SHARE_PROJECT_TITLE,
+        description: 'Long-name QA project for weekly share export validation.',
+        color: '#F97316',
+        status: 'active',
+      })
+      .select('id')
+      .single();
+    if (projectRes.error) throw projectRes.error;
+    projectId = projectRes.data.id;
+  }
+
+  const focusRes = await admin.from('focus_sessions').insert({
+    user_id: qaUserId,
+    project_id: projectId,
+    date: currentIsoDate(),
+    duration_minutes: 180,
+    total_duration_minutes: 180,
+  });
+  if (focusRes.error) throw focusRes.error;
 }
 
 async function shot(page, name) {
@@ -103,6 +160,7 @@ async function authFlow(page) {
 
   logStep('Provision QA account');
   await ensureQaUser();
+  await seedWeeklyShareData();
 
   logStep('Log in');
   await page.getByRole('link', { name: /Get Started Free/i }).click();
@@ -225,6 +283,35 @@ async function statsFlow(page) {
   await ensureVisible(page.getByText(/Focus time/i), 'Summary metric visible');
   await ensureVisible(page.getByRole('button', { name: /Overview/i }), 'Stats tabs visible');
   await ensureVisible(page.getByRole('button', { name: /Open achievements/i }), 'Achievements preview visible');
+  await page.evaluate(() => {
+    Object.defineProperty(window.navigator, 'share', { configurable: true, value: undefined });
+    Object.defineProperty(window.navigator, 'canShare', { configurable: true, value: undefined });
+    window.__qaShareState = { clicked: false, download: null, href: null };
+    const originalClick = HTMLAnchorElement.prototype.click;
+    if (!HTMLAnchorElement.prototype.__qaWrapped) {
+      HTMLAnchorElement.prototype.click = function qaClickProxy(...args) {
+        if (this.download) {
+          window.__qaShareState = {
+            clicked: true,
+            download: this.download,
+            href: this.href,
+          };
+        }
+        return originalClick.apply(this, args);
+      };
+      HTMLAnchorElement.prototype.__qaWrapped = true;
+    }
+  });
+  const shareButton = page.getByRole('button', { name: /Share my week/i });
+  await ensureVisible(shareButton, 'Weekly share action visible');
+  await shareButton.click();
+  await page.waitForFunction(() => window.__qaShareState?.clicked === true, { timeout: 20000 });
+  const shareState = await page.evaluate(() => window.__qaShareState);
+  if (shareState.download !== 'donext-weekly-report.png' || !String(shareState.href || '').startsWith('blob:')) {
+    throw new Error(`Unexpected weekly share fallback payload: ${JSON.stringify(shareState)}`);
+  }
+  await ensureVisible(page.getByText(/Weekly report ready/i), 'Weekly share success toast');
+  console.log('[QA] PASS: Weekly share image exported');
   await shot(page, 'stats');
 }
 
