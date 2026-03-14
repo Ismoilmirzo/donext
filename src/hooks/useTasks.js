@@ -126,6 +126,9 @@ export function useTasks(projectId = null) {
     async (id, focusMinutes) => {
       const currentTask = tasks.find((task) => task.id === id);
       if (!currentTask || !user) return { data: null, error: new Error(translate(getStoredLocale(), 'system.taskNotFound')) };
+      if (currentTask.status === 'completed') {
+        return { data: currentTask, error: null, skipped: true };
+      }
 
       const completedAt = new Date().toISOString();
       const totalElapsedMinutes = getElapsedMinutes(currentTask.started_at, focusMinutes);
@@ -141,10 +144,17 @@ export function useTasks(projectId = null) {
           updated_at: completedAt,
         })
         .eq('id', id)
+        .eq('user_id', user.id)
+        .in('status', ['pending', 'in_progress'])
         .select('*')
-        .single();
+        .maybeSingle();
 
       if (error) return { data: null, error };
+      if (!data) {
+        const existingTaskResult = await supabase.from('tasks').select('*').eq('id', id).eq('user_id', user.id).maybeSingle();
+        if (existingTaskResult.error) return { data: null, error: existingTaskResult.error };
+        return { data: existingTaskResult.data, error: null, skipped: true };
+      }
 
       const sessionResult = await supabase.from('focus_sessions').insert({
         user_id: user.id,
@@ -154,7 +164,20 @@ export function useTasks(projectId = null) {
         duration_minutes: validFocusMinutes,
         total_duration_minutes: totalElapsedMinutes,
       });
-      if (sessionResult.error) return { data, error: sessionResult.error };
+      if (sessionResult.error) {
+        await supabase
+          .from('tasks')
+          .update({
+            status: currentTask.status || 'in_progress',
+            time_spent_minutes: currentTask.time_spent_minutes ?? null,
+            total_time_spent_minutes: currentTask.total_time_spent_minutes ?? null,
+            completed_at: currentTask.completed_at ?? null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .eq('user_id', user.id);
+        return { data, error: sessionResult.error };
+      }
 
       setTasks((prev) =>
         prev
@@ -163,7 +186,7 @@ export function useTasks(projectId = null) {
       );
       emitAppEvent(APP_EVENTS.dailySummaryRefresh);
       emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'task_completed' });
-      await refreshProjectAllDoneState(currentTask.project_id);
+      void refreshProjectAllDoneState(currentTask.project_id);
       return { data, error: null };
     },
     [refreshProjectAllDoneState, tasks, user]

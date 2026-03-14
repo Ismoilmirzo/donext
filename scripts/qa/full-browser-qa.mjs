@@ -268,6 +268,7 @@ async function focusFlow(page) {
 
   await page.getByRole('button', { name: /Let's Go/i }).click();
   await ensureVisible(page.getByRole('button', { name: /I'm Done/i }), 'Active task screen shown');
+  const activeTaskTitle = (await page.locator('.dn-active-focus-card h2').textContent())?.trim();
   await page.waitForTimeout(2000);
   await page.getByRole('button', { name: /I'm Done/i }).click();
 
@@ -276,14 +277,41 @@ async function focusFlow(page) {
   const minuteInput = modal(page).locator('input[type="number"]').nth(1);
   await hourInput.fill('0');
   await minuteInput.fill('5');
-  await modal(page).getByRole('button', { name: /Save & Continue/i }).click();
+  await modal(page).getByRole('button', { name: /Save & Continue/i }).evaluate((element) => {
+    element.click();
+    element.click();
+    element.click();
+  });
   await modal(page).waitFor({ state: 'hidden', timeout: 20000 });
   await Promise.race([
     page.getByRole('button', { name: /Done For Now/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
     page.getByRole('button', { name: /Go to Project/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
     page.getByRole('button', { name: /Start Another Task/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
   ]);
+  const admin = getAdminClient();
+  const completedTask = await admin
+    .from('tasks')
+    .select('id')
+    .eq('user_id', qaUserId)
+    .eq('title', activeTaskTitle)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (completedTask.error || !completedTask.data?.id) {
+    throw new Error(`Completed focus task not found for duplicate-submit check: ${activeTaskTitle}`);
+  }
+  const sessionCount = await admin
+    .from('focus_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', qaUserId)
+    .eq('task_id', completedTask.data.id);
+  if (sessionCount.error) throw sessionCount.error;
+  if (sessionCount.count !== 1) {
+    throw new Error(`Expected exactly one focus session for ${activeTaskTitle}, got ${sessionCount.count}`);
+  }
   console.log('[QA] PASS: Post-completion actions shown');
+  console.log('[QA] PASS: Focus completion is duplicate-submit safe');
   await shot(page, 'focus-after-complete');
 }
 
@@ -316,7 +344,9 @@ async function statsFlow(page) {
   });
   const shareButton = page.getByRole('button', { name: /Share my week/i });
   await ensureVisible(shareButton, 'Weekly share action visible');
-  await shareButton.click();
+  await page.waitForTimeout(500);
+  await dismissBadgePopup(page);
+  await shareButton.evaluate((element) => element.click());
   await ensureVisible(page.getByRole('heading', { name: /Preview weekly card/i }), 'Weekly share preview opens');
   await ensureVisible(page.locator('img[alt=\"Share My Week\"]'), 'Weekly share preview image renders');
   await ensureVisible(page.getByRole('button', { name: /Download image/i }), 'Weekly share download action visible');
@@ -335,6 +365,7 @@ async function statsFlow(page) {
 async function settingsFlow(page) {
   logStep('Settings checks, archive/restore, logout/login');
   await page.goto(`${BASE_URL}/projects`, { waitUntil: 'domcontentloaded' });
+  await dismissBadgePopup(page);
   await page.getByRole('link', { name: /QA Project/i }).click();
   await page.getByRole('button', { name: /^Archive$/i }).click();
   await ensureVisible(page.getByRole('heading', { name: /Archive project/i }), 'Archive confirmation opens');

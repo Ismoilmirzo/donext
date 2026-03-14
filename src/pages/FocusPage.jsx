@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ListChecks, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ActiveTaskScreen from '../components/focus/ActiveTaskScreen';
@@ -51,10 +51,12 @@ export default function FocusPage() {
   const [rerollsLeft, setRerollsLeft] = useState(1);
   const [manualOpen, setManualOpen] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [completionSaving, setCompletionSaving] = useState(false);
   const [postCompleteState, setPostCompleteState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recentDone, setRecentDone] = useState([]);
   const [showHowItWorks, setShowHowItWorks] = useState(true);
+  const completionInFlightRef = useRef(false);
 
   const taskOps = useTasks(activePair?.project?.id || null);
 
@@ -188,51 +190,67 @@ export default function FocusPage() {
   }
 
   async function handleSaveCompletion(minutes) {
-    if (!activePair?.task) return;
+    if (!activePair?.task || completionInFlightRef.current) return;
+
+    completionInFlightRef.current = true;
+    setCompletionSaving(true);
+
     const completedTaskTitle = activePair.task.title;
     const completedProjectTitle = activePair.project.title;
-    const result = await taskOps.completeTask(activePair.task.id, minutes);
-    if (result.error) {
-      toast.error('Could not save focus session', result.error.message);
-      return;
-    }
+    const completedProjectId = activePair.project.id;
+    const wasRandomWithoutReroll = Boolean(activePair.randomWithoutReroll);
 
-    if (activePair.randomWithoutReroll && user) {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('random_without_reroll_count')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (!profileError) {
-        await supabase
-          .from('profiles')
-          .update({
-            random_without_reroll_count: (profileData?.random_without_reroll_count || 0) + 1,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
+    try {
+      const result = await taskOps.completeTask(activePair.task.id, minutes);
+      if (result.error) {
+        toast.error('Could not save focus session', result.error.message);
+        return;
       }
-    }
-    emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'focus_completed' });
 
-    setCompleteModalOpen(false);
-    setActivePair(null);
-    await fetchProjects();
-    await fetchEligible();
-    await fetchRecentDone();
+      if (result.skipped) {
+        setCompleteModalOpen(false);
+        setActivePair(null);
+        await Promise.all([fetchProjects(), fetchEligible(), fetchRecentDone(), fetchInProgress()]);
+        return;
+      }
 
-    const { data: remaining } = await supabase
-      .from('tasks')
-      .select('id')
-      .eq('project_id', activePair.project.id)
-      .in('status', ['pending', 'in_progress']);
+      if (wasRandomWithoutReroll && user) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('random_without_reroll_count')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (!profileError) {
+          await supabase
+            .from('profiles')
+            .update({
+              random_without_reroll_count: (profileData?.random_without_reroll_count || 0) + 1,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id);
+        }
+      }
+      emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'focus_completed' });
 
-    if ((remaining || []).length === 0) {
-      setPostCompleteState('all_done');
-      toast.success('Project queue cleared', completedProjectTitle);
-    } else {
-      setPostCompleteState('more_remaining');
-      toast.success('Task complete', completedTaskTitle);
+      const { data: remaining, error: remainingError } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('project_id', completedProjectId)
+        .in('status', ['pending', 'in_progress']);
+      const nextPostCompleteState = !remainingError && (remaining || []).length > 0 ? 'more_remaining' : 'all_done';
+
+      setCompleteModalOpen(false);
+      setActivePair(null);
+      setPostCompleteState(nextPostCompleteState);
+      if (nextPostCompleteState === 'all_done') {
+        toast.success('Project queue cleared', completedProjectTitle);
+      } else {
+        toast.success('Task complete', completedTaskTitle);
+      }
+      await Promise.all([fetchProjects(), fetchEligible(), fetchRecentDone(), fetchInProgress()]);
+    } finally {
+      completionInFlightRef.current = false;
+      setCompletionSaving(false);
     }
   }
 
@@ -393,9 +411,12 @@ export default function FocusPage() {
 
       <CompleteTaskModal
         open={completeModalOpen}
-        onClose={() => setCompleteModalOpen(false)}
+        onClose={() => {
+          if (!completionSaving) setCompleteModalOpen(false);
+        }}
         startedAt={activePair?.task?.started_at}
         onSave={handleSaveCompletion}
+        saving={completionSaving}
       />
     </div>
   );
