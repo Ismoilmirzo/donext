@@ -39,7 +39,7 @@ import { supabase } from '../lib/supabase';
 import { getWeeklyReportStats } from '../lib/weeklyReport';
 
 const REPORT_WIDTH = 540;
-const REPORT_HEIGHT = 960;
+const REPORT_HEIGHT = 720;
 const SHARE_LINK = 'https://donext.uz';
 
 function canvasToBlob(canvas, type, quality) {

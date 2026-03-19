@@ -1,316 +1,353 @@
 import { forwardRef } from 'react';
-import { formatMinutesHuman } from '../../lib/dates';
 
 const CARD_WIDTH = 540;
-const CARD_HEIGHT = 960;
+const CARD_HEIGHT = 720;
+const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const FALLBACK_PROJECT_GRADIENTS = {
+  '#6366f1': ['#6366f1', '#818cf8'],
+  '#f59e0b': ['#f59e0b', '#fbbf24'],
+  '#10b981': ['#10b981', '#34d399'],
+  '#ef4444': ['#ef4444', '#f87171'],
+  '#ec4899': ['#ec4899', '#f472b6'],
+  '#3b82f6': ['#3b82f6', '#60a5fa'],
+};
 
-function getToneKey(stats) {
-  if (stats.focusMinutes >= 240) return 'stats.reportToneStrongFocus';
-  if (stats.tasksCompleted >= 7) return 'stats.reportToneExecution';
-  if (stats.habitRate >= 80) return 'stats.reportToneConsistency';
-  if (stats.focusMinutes >= 60 || stats.tasksCompleted > 0 || stats.habitRate > 0) return 'stats.reportToneMomentum';
-  return 'stats.reportToneFresh';
+function formatDuration(minutes) {
+  const totalMinutes = Math.max(0, Math.round(Number(minutes) || 0));
+  if (totalMinutes === 0) return '0m';
+
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+  if (!hours) return `${remainingMinutes}m`;
+  if (!remainingMinutes) return `${hours}h`;
+  return `${hours}h ${remainingMinutes}m`;
 }
 
-function statTileStyle() {
-  return {
-    borderRadius: 16,
-    border: '1px solid #1E2D45',
-    backgroundColor: '#141E30',
-    padding: '18px 16px 16px',
-  };
+function normalizeHex(value, fallback = '#10b981') {
+  if (typeof value !== 'string') return fallback;
+  const trimmed = value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed.toLowerCase();
+  return fallback;
 }
 
-function StatTile({ icon, value, label }) {
+function lightenColor(hex, amount = 0.2) {
+  const normalized = normalizeHex(hex);
+  const channels = [1, 3, 5].map((index) => parseInt(normalized.slice(index, index + 2), 16));
+  const [r, g, b] = channels.map((channel) => Math.min(255, Math.round(channel + (255 - channel) * amount)));
+  return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function getGradientColors(color) {
+  const normalized = normalizeHex(color);
+  return FALLBACK_PROJECT_GRADIENTS[normalized] || [normalized, lightenColor(normalized, 0.2)];
+}
+
+function StatCell({ children, label, highlight = false }) {
   return (
-    <div style={statTileStyle()}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 22, lineHeight: 1 }}>{icon}</span>
-        <span
-          style={{
-            fontFamily: 'Inter, system-ui, sans-serif',
-            fontSize: 28,
-            fontWeight: 800,
-            letterSpacing: '-0.04em',
-            color: '#F8FAFC',
-            lineHeight: 1,
-          }}
-        >
-          {value}
-        </span>
-      </div>
-      <p
+    <div
+      style={{
+        background: 'rgba(255,255,255,0.04)',
+        border: '0.5px solid rgba(255,255,255,0.06)',
+        borderRadius: 12,
+        padding: '14px 12px',
+        textAlign: 'center',
+      }}
+    >
+      <div
         style={{
-          margin: '10px 0 0',
-          fontFamily: 'Inter, system-ui, sans-serif',
-          fontSize: 12,
+          fontSize: 24,
           fontWeight: 700,
-          letterSpacing: '0.16em',
-          textTransform: 'uppercase',
-          color: '#8EA2BE',
+          lineHeight: 1.05,
+          color: highlight ? '#f59e0b' : '#f8fafc',
+        }}
+      >
+        {children}
+      </div>
+      <div
+        style={{
+          marginTop: 4,
+          fontSize: 10,
+          letterSpacing: '0.05em',
+          color: '#64748b',
         }}
       >
         {label}
-      </p>
+      </div>
     </div>
   );
 }
 
-function BreakdownRow({ item }) {
+function HeroValue({ value }) {
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) auto',
-          alignItems: 'center',
-          gap: 12,
-        }}
+    <svg width="360" height="82" viewBox="0 0 360 82" role="img" aria-label={value}>
+      <defs>
+        <linearGradient id="weekly-report-hero-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#10b981" />
+          <stop offset="100%" stopColor="#34d399" />
+        </linearGradient>
+      </defs>
+      <text
+        x="180"
+        y="58"
+        textAnchor="middle"
+        fill="url(#weekly-report-hero-gradient)"
+        fontFamily="Inter, system-ui, -apple-system, sans-serif"
+        fontSize="56"
+        fontWeight="700"
+        letterSpacing="-3"
       >
-        <p
-          style={{
-            margin: 0,
-            minWidth: 0,
-            fontFamily: 'Inter, system-ui, sans-serif',
-            fontSize: 16,
-            fontWeight: 700,
-            color: '#F8FAFC',
-            lineHeight: 1.3,
-            wordBreak: 'break-word',
-          }}
-        >
-          {item.name}
-        </p>
-        <p
-          style={{
-            margin: 0,
-            fontFamily: 'Inter, system-ui, sans-serif',
-            fontSize: 16,
-            fontWeight: 600,
-            color: '#D7E2EE',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {formatMinutesHuman(item.minutes)}
-        </p>
-      </div>
-      <div style={{ height: 8, borderRadius: 999, backgroundColor: '#1E2D45', overflow: 'hidden' }}>
-        <div
-          style={{
-            width: `${Math.max(8, Math.round(item.share || 0))}%`,
-            height: '100%',
-            borderRadius: 999,
-            backgroundColor: item.color || '#34D399',
-          }}
-        />
-      </div>
-    </div>
+        {value}
+      </text>
+    </svg>
   );
 }
 
 const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref) {
-  const breakdownRows = (stats.projectBreakdown || []).slice(0, 3).map((item) => ({
-    ...item,
-    share: stats.focusMinutes > 0 ? (item.minutes / stats.focusMinutes) * 100 : 0,
-  }));
-  const accentColor = breakdownRows[0]?.color || '#34D399';
-  const tone = t(getToneKey(stats));
+  const translate = typeof t === 'function' ? t : (value) => value;
+  const dailyFocusMinutes = Array.isArray(stats.dailyFocusMinutes)
+    ? stats.dailyFocusMinutes.slice(0, 7)
+    : Array(7).fill(0);
+  const maxDailyMinutes = Math.max(...dailyFocusMinutes, 1);
+  const topProjects = (stats.projectBreakdown || []).slice(0, 3);
+  const totalProjectMinutes = Math.max(0, Number(stats.focusMinutes) || 0);
+  const todayIndex = Number.isFinite(stats.todayIndex) ? stats.todayIndex : 6;
 
   return (
     <div
       ref={ref}
       style={{
-        position: 'relative',
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
         boxSizing: 'border-box',
+        position: 'relative',
         overflow: 'hidden',
-        padding: 30,
+        padding: '36px 30px 30px',
         borderRadius: 34,
-        color: '#FFFFFF',
-        fontFamily: 'Inter, system-ui, sans-serif',
+        background: 'linear-gradient(165deg, #0f172a 0%, #1a1040 40%, #0f2030 100%)',
+        color: '#f8fafc',
+        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
         WebkitFontSmoothing: 'antialiased',
-        background: `radial-gradient(circle at 84% 14%, ${accentColor}1F 0%, transparent 26%), linear-gradient(170deg, #0C1B2E 0%, #0F1A30 40%, #16132E 100%)`,
       }}
     >
-      <div style={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: -60,
+          right: -60,
+          width: 200,
+          height: 200,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%)',
+        }}
+      />
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          bottom: -40,
+          left: -40,
+          width: 160,
+          height: 160,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%)',
+        }}
+      />
+
+      <div style={{ position: 'relative', display: 'flex', height: '100%', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div
             style={{
-              width: 50,
-              height: 50,
-              borderRadius: 16,
-              background: 'linear-gradient(135deg, #34D399 0%, #10B981 100%)',
-              color: '#05241A',
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: '#10b981',
+              color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontSize: 18,
-              fontWeight: 800,
-              letterSpacing: '0.08em',
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: '-0.04em',
             }}
           >
             DN
           </div>
           <div>
-            <p
+            <div
               style={{
-                margin: 0,
-                fontFamily: 'Inter, system-ui, sans-serif',
-                fontSize: 15,
-                fontWeight: 700,
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-                color: '#8EA2BE',
-              }}
-            >
-              {t('common.appName')}
-            </p>
-            <p
-              style={{
-                margin: '4px 0 0',
-                fontFamily: 'Inter, system-ui, sans-serif',
-                fontSize: 24,
-                fontWeight: 800,
-                letterSpacing: '-0.04em',
-                color: '#F8FAFC',
-              }}
-            >
-              {t('stats.reportTitle')}
-            </p>
-            <p
-              style={{
-                margin: '8px 0 0',
-                fontFamily: 'Inter, system-ui, sans-serif',
-                fontSize: 14,
+                fontSize: 11,
                 fontWeight: 500,
-                color: '#8EA2BE',
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: '#94a3b8',
               }}
             >
-              {stats.weekLabel}
-            </p>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 24, height: 1, backgroundColor: '#1E2D45' }} />
-
-        <div style={{ marginTop: 34, textAlign: 'center' }}>
-          <p
-            style={{
-              margin: 0,
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontSize: 18,
-              fontWeight: 700,
-              color: '#F59E0B',
-            }}
-          >
-            {t('stats.reportStreakLine', { count: stats.streak })}
-          </p>
-          <p
-            style={{
-              margin: '22px 0 0',
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontSize: 72,
-              fontWeight: 800,
-              letterSpacing: '-0.04em',
-              lineHeight: 0.92,
-              color: '#F8FAFC',
-            }}
-          >
-            {formatMinutesHuman(stats.focusMinutes)}
-          </p>
-          <p
-            style={{
-              margin: '10px 0 0',
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontSize: 16,
-              fontWeight: 500,
-              color: '#8EA2BE',
-            }}
-          >
-            {t('stats.reportFocusedThisWeek')}
-          </p>
-        </div>
-
-        <div style={{ marginTop: 34, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <StatTile icon="✅" value={String(stats.tasksCompleted)} label={t('stats.reportTasksDone')} />
-          <StatTile icon="📋" value={String(stats.projectsWorked)} label={t('stats.reportProjects')} />
-          <StatTile icon="✓" value={`${Math.round(stats.habitRate)}%`} label={t('stats.reportHabits')} />
-          <StatTile icon="⚡" value={String(stats.sessionsCount || 0)} label={t('stats.reportSessions')} />
-        </div>
-
-        <div
-          style={{
-            marginTop: 28,
-            flex: 1,
-            borderRadius: 22,
-            border: '1px solid #1E2D45',
-            backgroundColor: '#0E1825',
-            padding: 20,
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: '#8EA2BE',
-            }}
-          >
-            {t('stats.reportBreakdown')}
-          </p>
-          <div style={{ marginTop: 18, display: 'grid', gap: 18 }}>
-            {breakdownRows.length ? (
-              breakdownRows.map((item) => <BreakdownRow key={item.name} item={item} />)
-            ) : (
-              <p
-                style={{
-                  margin: '34px 0 0',
-                  textAlign: 'center',
-                  fontFamily: 'Inter, system-ui, sans-serif',
-                  fontSize: 15,
-                  color: '#8EA2BE',
-                }}
-              >
-                {t('stats.reportEmpty')}
-              </p>
-            )}
+              {translate('stats.reportHeader')}
+            </div>
+            <div style={{ marginTop: 4, fontSize: 13, color: '#64748b' }}>{stats.weekLabel}</div>
           </div>
         </div>
 
         <div style={{ marginTop: 26, textAlign: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <HeroValue value={formatDuration(stats.focusMinutes)} />
+          </div>
+          <div style={{ marginTop: -4, fontSize: 13, color: '#94a3b8' }}>{translate('stats.reportTotalFocusTime')}</div>
+        </div>
+
+        <div style={{ marginTop: 26, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+          <StatCell label={translate('stats.reportStatTasks')}>{stats.tasksCompleted || 0}</StatCell>
+          <StatCell label={translate('stats.reportStatHabits')}>
+            <>
+              {Math.round(stats.habitRate || 0)}
+              <span style={{ fontSize: 14, color: '#94a3b8' }}>%</span>
+            </>
+          </StatCell>
+          <StatCell label={translate('stats.reportStatDayStreak')} highlight>
+            {stats.streak || 0}
+          </StatCell>
+        </div>
+
+        <div style={{ marginTop: 26 }}>
           <div
             style={{
-              display: 'inline-block',
-              borderRadius: 999,
-              border: '1px solid #2A3B56',
-              backgroundColor: '#141E30',
-              padding: '10px 16px',
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontSize: 14,
-              fontWeight: 600,
-              lineHeight: 1.1,
-              color: '#D6E1EE',
-            }}
-          >
-            {`✨ ${tone}`}
-          </div>
-          <p
-            style={{
-              margin: '18px 0 0',
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontSize: 16,
-              fontWeight: 600,
+              marginBottom: 12,
+              fontSize: 10,
+              fontWeight: 500,
               letterSpacing: '0.15em',
-              color: '#627591',
+              textTransform: 'uppercase',
+              color: '#64748b',
             }}
           >
-            donext.uz
-          </p>
+            {translate('stats.reportDailyFocus')}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
+            {dailyFocusMinutes.map((minutes, index) => {
+              const isFuture = index > todayIndex;
+              const isBestDay = minutes > 0 && minutes === maxDailyMinutes;
+              const barHeight = isFuture ? 4 : Math.max(4, Math.round((Math.max(0, minutes) / maxDailyMinutes) * 80));
+              const barColor =
+                isFuture || minutes === 0 ? 'rgba(255,255,255,0.08)' : isBestDay ? '#34d399' : '#10b981';
+
+              return (
+                <div
+                  key={`${DAYS[index]}-${index}`}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    minWidth: 0,
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      height: barHeight,
+                      borderRadius: '4px 4px 0 0',
+                      background: barColor,
+                    }}
+                  />
+                  <span style={{ fontSize: 9, color: isFuture ? '#475569' : '#64748b' }}>{DAYS[index]}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {topProjects.length > 0 ? (
+          <div style={{ marginTop: 26 }}>
+            <div
+              style={{
+                marginBottom: 12,
+                fontSize: 10,
+                fontWeight: 500,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                color: '#64748b',
+              }}
+            >
+              {translate('stats.reportProjectsHeader')}
+            </div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {topProjects.map((project, index) => {
+                const [baseColor, lighterColor] = getGradientColors(project.color);
+                const widthPercent = totalProjectMinutes > 0 ? (project.minutes / totalProjectMinutes) * 100 : 0;
+
+                return (
+                  <div key={`${project.name}-${index}`}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        marginBottom: 5,
+                      }}
+                    >
+                      <span
+                        style={{
+                          minWidth: 0,
+                          maxWidth: 200,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontSize: 12,
+                          lineHeight: 1.2,
+                          color: '#e2e8f0',
+                        }}
+                      >
+                        {project.name}
+                      </span>
+                      <span
+                        style={{
+                          flexShrink: 0,
+                          fontSize: 11,
+                          color: '#94a3b8',
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        }}
+                      >
+                        {formatDuration(project.minutes)}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        height: 6,
+                        borderRadius: 3,
+                        overflow: 'hidden',
+                        background: 'rgba(255,255,255,0.06)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${Math.max(0, Math.min(100, widthPercent))}%`,
+                          borderRadius: 3,
+                          background: `linear-gradient(90deg, ${baseColor}, ${lighterColor})`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        <div
+          style={{
+            marginTop: 'auto',
+            paddingTop: 10,
+            textAlign: 'center',
+            fontSize: 11,
+            letterSpacing: '0.1em',
+            color: '#475569',
+          }}
+        >
+          donext.uz
         </div>
       </div>
     </div>

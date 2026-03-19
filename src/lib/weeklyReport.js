@@ -1,3 +1,4 @@
+import { addDays, differenceInCalendarDays } from 'date-fns';
 import { toISODate, getWeekEnd, getWeekStart } from './dates';
 import { supabase } from './supabase';
 
@@ -28,13 +29,16 @@ function formatWeekLabel(weekStart, weekEnd, localeTag = 'en-US') {
 }
 
 export async function getWeeklyReportStats(userId, streak = 0, localeTag = 'en-US') {
-  const weekStart = toISODate(getWeekStart(new Date()));
-  const weekEnd = toISODate(getWeekEnd(new Date()));
+  const currentDate = new Date();
+  const weekStartDate = getWeekStart(currentDate);
+  const weekEndDate = getWeekEnd(currentDate);
+  const weekStart = toISODate(weekStartDate);
+  const weekEnd = toISODate(weekEndDate);
 
   const [sessionsRes, tasksRes, habitsRes, logsRes] = await Promise.all([
     supabase
       .from('focus_sessions')
-      .select('duration_minutes,project_id,project:projects(title,color)')
+      .select('date,duration_minutes,project_id,project:projects(title,color)')
       .eq('user_id', userId)
       .gte('date', weekStart)
       .lte('date', weekEnd),
@@ -60,6 +64,11 @@ export async function getWeeklyReportStats(userId, streak = 0, localeTag = 'en-U
 
   const sessions = sessionsRes.data || [];
   const focusMinutes = sessions.reduce((sum, session) => sum + (session.duration_minutes || 0), 0);
+  const focusByDate = sessions.reduce((map, session) => {
+    if (!session.date) return map;
+    map[session.date] = (map[session.date] || 0) + (session.duration_minutes || 0);
+    return map;
+  }, {});
   const projectMap = sessions.reduce((map, session) => {
     const key = session.project_id || 'unassigned';
     if (!map[key]) {
@@ -76,6 +85,11 @@ export async function getWeeklyReportStats(userId, streak = 0, localeTag = 'en-U
   const activeHabits = habitsRes.data || [];
   const possibleHabitLogs = activeHabits.length * 7;
   const habitRate = possibleHabitLogs > 0 ? ((logsRes.data || []).length / possibleHabitLogs) * 100 : 0;
+  const dailyFocusMinutes = Array.from({ length: 7 }, (_, index) => {
+    const day = toISODate(addDays(weekStartDate, index));
+    return focusByDate[day] || 0;
+  });
+  const todayIndex = Math.min(6, Math.max(0, differenceInCalendarDays(currentDate, weekStartDate)));
 
   return {
     weekLabel: formatWeekLabel(weekStart, weekEnd, localeTag),
@@ -85,6 +99,8 @@ export async function getWeeklyReportStats(userId, streak = 0, localeTag = 'en-U
     tasksCompleted: (tasksRes.data || []).length,
     projectsWorked: new Set(sessions.map((session) => session.project_id).filter(Boolean)).size,
     habitRate,
+    dailyFocusMinutes,
+    todayIndex,
     projectBreakdown: Object.values(projectMap).sort((a, b) => b.minutes - a.minutes),
     hasShareableData: focusMinutes > 0 || (tasksRes.data || []).length > 0 || (logsRes.data || []).length > 0,
   };
