@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays } from 'date-fns';
+import { addDays, differenceInCalendarDays, subDays } from 'date-fns';
 import { toISODate, getWeekEnd, getWeekStart } from './dates';
 import { supabase } from './supabase';
 
@@ -34,6 +34,8 @@ export async function getWeeklyReportStats(userId, streak = 0, localeTag = 'en-U
   const weekEndDate = getWeekEnd(currentDate);
   const weekStart = toISODate(weekStartDate);
   const weekEnd = toISODate(weekEndDate);
+  const visibleEndDate = currentDate < weekEndDate ? currentDate : weekEndDate;
+  const visibleEndIso = toISODate(visibleEndDate);
 
   const [sessionsRes, tasksRes, habitsRes, logsRes] = await Promise.all([
     supabase
@@ -44,11 +46,11 @@ export async function getWeeklyReportStats(userId, streak = 0, localeTag = 'en-U
       .lte('date', weekEnd),
     supabase
       .from('tasks')
-      .select('id')
+      .select('id,completed_at')
       .eq('user_id', userId)
       .eq('status', 'completed')
-      .gte('completed_at', `${weekStart}T00:00:00`)
-      .lte('completed_at', `${weekEnd}T23:59:59`),
+      .gte('completed_at', `${toISODate(subDays(weekStartDate, 1))}T00:00:00`)
+      .lte('completed_at', `${toISODate(addDays(weekEndDate, 1))}T23:59:59`),
     supabase.from('habits').select('id').eq('user_id', userId).eq('is_active', true),
     supabase
       .from('habit_logs')
@@ -62,7 +64,7 @@ export async function getWeeklyReportStats(userId, streak = 0, localeTag = 'en-U
   const firstError = sessionsRes.error || tasksRes.error || habitsRes.error || logsRes.error;
   if (firstError) throw firstError;
 
-  const sessions = sessionsRes.data || [];
+  const sessions = (sessionsRes.data || []).filter((session) => session.date && session.date <= visibleEndIso);
   const focusMinutes = sessions.reduce((sum, session) => sum + (session.duration_minutes || 0), 0);
   const focusByDate = sessions.reduce((map, session) => {
     if (!session.date) return map;
@@ -90,13 +92,18 @@ export async function getWeeklyReportStats(userId, streak = 0, localeTag = 'en-U
     return focusByDate[day] || 0;
   });
   const todayIndex = Math.min(6, Math.max(0, differenceInCalendarDays(currentDate, weekStartDate)));
+  const completedTasks = (tasksRes.data || []).filter((task) => {
+    if (!task.completed_at) return false;
+    const completedAt = new Date(task.completed_at);
+    return completedAt >= weekStartDate && completedAt <= visibleEndDate;
+  });
 
   return {
     weekLabel: formatWeekLabel(weekStart, weekEnd, localeTag),
     streak,
     focusMinutes,
     sessionsCount: sessions.length,
-    tasksCompleted: (tasksRes.data || []).length,
+    tasksCompleted: completedTasks.length,
     projectsWorked: new Set(sessions.map((session) => session.project_id).filter(Boolean)).size,
     habitRate,
     dailyFocusMinutes,

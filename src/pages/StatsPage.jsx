@@ -258,7 +258,11 @@ export default function StatsPage() {
       throw new Error(t('stats.shareFailed'));
     }
 
-    await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    if (document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+    await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+    await new Promise((resolve) => window.setTimeout(resolve, 120));
     const canvas = await html2canvas(reportRef.current, {
       scale: 2,
       backgroundColor: '#0A1222',
@@ -658,13 +662,15 @@ export default function StatsPage() {
       {weeklyReport?.hasShareableData ? (
         <div
           style={{
-            position: 'absolute',
-            left: -9999,
+            position: 'fixed',
+            left: 0,
             top: 0,
             width: REPORT_WIDTH,
             height: REPORT_HEIGHT,
-            opacity: 0,
+            opacity: 1,
             pointerEvents: 'none',
+            transform: 'translateX(-200vw)',
+            zIndex: -1,
           }}
         >
           <WeeklyReportCard ref={reportRef} stats={weeklyReport} t={t} />

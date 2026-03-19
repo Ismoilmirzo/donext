@@ -23,6 +23,12 @@ function formatDuration(minutes) {
   return `${hours}h ${remainingMinutes}m`;
 }
 
+function truncateProjectName(value, maxLength = 34) {
+  const text = String(value || '').trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
 function normalizeHex(value, fallback = '#10b981') {
   if (typeof value !== 'string') return fallback;
   const trimmed = value.trim();
@@ -66,9 +72,10 @@ function StatCell({ children, label, highlight = false }) {
       <div
         style={{
           marginTop: 4,
-          fontSize: 10,
+          fontSize: 11,
+          fontWeight: 500,
           letterSpacing: '0.05em',
-          color: '#64748b',
+          color: '#7f8fa8',
         }}
       >
         {label}
@@ -79,7 +86,7 @@ function StatCell({ children, label, highlight = false }) {
 
 function HeroValue({ value }) {
   return (
-    <svg width="360" height="82" viewBox="0 0 360 82" role="img" aria-label={value}>
+    <svg width="360" height="72" viewBox="0 0 360 72" role="img" aria-label={value}>
       <defs>
         <linearGradient id="weekly-report-hero-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#10b981" />
@@ -88,7 +95,7 @@ function HeroValue({ value }) {
       </defs>
       <text
         x="180"
-        y="58"
+        y="52"
         textAnchor="middle"
         fill="url(#weekly-report-hero-gradient)"
         fontFamily="Inter, system-ui, -apple-system, sans-serif"
@@ -121,7 +128,7 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
         boxSizing: 'border-box',
         position: 'relative',
         overflow: 'hidden',
-        padding: '36px 30px 30px',
+        padding: '34px 30px 28px',
         borderRadius: 34,
         background: 'linear-gradient(165deg, #0f172a 0%, #1a1040 40%, #0f2030 100%)',
         color: '#f8fafc',
@@ -176,8 +183,8 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
           <div>
             <div
               style={{
-                fontSize: 11,
-                fontWeight: 500,
+                fontSize: 12,
+                fontWeight: 600,
                 letterSpacing: '0.18em',
                 textTransform: 'uppercase',
                 color: '#94a3b8',
@@ -185,18 +192,18 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
             >
               {translate('stats.reportHeader')}
             </div>
-            <div style={{ marginTop: 4, fontSize: 13, color: '#64748b' }}>{stats.weekLabel}</div>
+            <div style={{ marginTop: 4, fontSize: 14, color: '#7f8fa8' }}>{stats.weekLabel}</div>
           </div>
         </div>
 
-        <div style={{ marginTop: 26, textAlign: 'center' }}>
+        <div style={{ marginTop: 20, textAlign: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <HeroValue value={formatDuration(stats.focusMinutes)} />
           </div>
-          <div style={{ marginTop: -4, fontSize: 13, color: '#94a3b8' }}>{translate('stats.reportTotalFocusTime')}</div>
+          <div style={{ marginTop: -2, fontSize: 14, color: '#a4b2c7' }}>{translate('stats.reportTotalFocusTime')}</div>
         </div>
 
-        <div style={{ marginTop: 26, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+        <div style={{ marginTop: 22, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
           <StatCell label={translate('stats.reportStatTasks')}>{stats.tasksCompleted || 0}</StatCell>
           <StatCell label={translate('stats.reportStatHabits')}>
             <>
@@ -209,15 +216,15 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
           </StatCell>
         </div>
 
-        <div style={{ marginTop: 26 }}>
+        <div style={{ marginTop: 22 }}>
           <div
             style={{
               marginBottom: 12,
-              fontSize: 10,
-              fontWeight: 500,
+              fontSize: 11,
+              fontWeight: 600,
               letterSpacing: '0.15em',
               textTransform: 'uppercase',
-              color: '#64748b',
+              color: '#8393ac',
             }}
           >
             {translate('stats.reportDailyFocus')}
@@ -228,7 +235,7 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
               const isBestDay = minutes > 0 && minutes === maxDailyMinutes;
               const barHeight = isFuture ? 4 : Math.max(4, Math.round((Math.max(0, minutes) / maxDailyMinutes) * 80));
               const barColor =
-                isFuture || minutes === 0 ? 'rgba(255,255,255,0.08)' : isBestDay ? '#34d399' : '#10b981';
+                isFuture || minutes === 0 ? 'rgba(255,255,255,0.14)' : isBestDay ? '#34d399' : '#10b981';
 
               return (
                 <div
@@ -251,7 +258,7 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
                       background: barColor,
                     }}
                   />
-                  <span style={{ fontSize: 9, color: isFuture ? '#475569' : '#64748b' }}>{DAYS[index]}</span>
+                  <span style={{ fontSize: 10, fontWeight: 500, color: isFuture ? '#667892' : '#8090aa' }}>{DAYS[index]}</span>
                 </div>
               );
             })}
@@ -259,20 +266,20 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
         </div>
 
         {topProjects.length > 0 ? (
-          <div style={{ marginTop: 26 }}>
+          <div style={{ marginTop: 22 }}>
             <div
               style={{
                 marginBottom: 12,
-                fontSize: 10,
-                fontWeight: 500,
+                fontSize: 11,
+                fontWeight: 600,
                 letterSpacing: '0.15em',
                 textTransform: 'uppercase',
-                color: '#64748b',
+                color: '#8393ac',
               }}
             >
               {translate('stats.reportProjectsHeader')}
             </div>
-            <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ display: 'grid', gap: 14 }}>
               {topProjects.map((project, index) => {
                 const [baseColor, lighterColor] = getGradientColors(project.color);
                 const widthPercent = totalProjectMinutes > 0 ? (project.minutes / totalProjectMinutes) * 100 : 0;
@@ -281,32 +288,35 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
                   <div key={`${project.name}-${index}`}>
                     <div
                       style={{
-                        display: 'flex',
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(0, 1fr) auto',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
                         gap: 12,
-                        marginBottom: 5,
+                        marginBottom: 8,
                       }}
                     >
                       <span
                         style={{
+                          display: 'block',
                           minWidth: 0,
-                          maxWidth: 200,
+                          paddingRight: 8,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
-                          fontSize: 12,
-                          lineHeight: 1.2,
+                          fontSize: 14,
+                          fontWeight: 600,
+                          lineHeight: 1.4,
                           color: '#e2e8f0',
                         }}
                       >
-                        {project.name}
+                        {truncateProjectName(project.name)}
                       </span>
                       <span
                         style={{
                           flexShrink: 0,
-                          fontSize: 11,
-                          color: '#94a3b8',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: '#a4b2c7',
                           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                         }}
                       >
@@ -315,7 +325,7 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
                     </div>
                     <div
                       style={{
-                        height: 6,
+                        height: 7,
                         borderRadius: 3,
                         overflow: 'hidden',
                         background: 'rgba(255,255,255,0.06)',
@@ -340,11 +350,12 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
         <div
           style={{
             marginTop: 'auto',
-            paddingTop: 10,
+            paddingTop: 12,
             textAlign: 'center',
-            fontSize: 11,
+            fontSize: 12,
+            fontWeight: 500,
             letterSpacing: '0.1em',
-            color: '#475569',
+            color: '#6d7e98',
           }}
         >
           donext.uz
