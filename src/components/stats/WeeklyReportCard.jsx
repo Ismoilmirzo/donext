@@ -300,12 +300,11 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
                           display: 'block',
                           minWidth: 0,
                           paddingRight: 8,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
+                          lineHeight: '20px',
+                          paddingTop: 2,
                           fontSize: 14,
                           fontWeight: 600,
-                          lineHeight: 1.4,
                           color: '#e2e8f0',
                         }}
                       >
