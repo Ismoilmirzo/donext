@@ -19,6 +19,7 @@ import { useTasks } from '../hooks/useTasks';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
+import { getTaskElapsedMinutes, getTaskFocusMinutes } from '../lib/taskSessions';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
@@ -27,7 +28,7 @@ export default function ProjectDetailPage() {
   const { locale, t } = useLocale();
   const toast = useToast();
   const { projects, fetchProjects, updateProject, archiveProject, deleteProject, completeProject, reopenProject } = useProjects();
-  const { tasks, loading, addTask, updateTask, reorderTasks, startTask } = useTasks(id);
+  const { tasks, loading, addTask, updateTask, reorderTasks } = useTasks(id);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -90,11 +91,8 @@ export default function ProjectDetailPage() {
   const total = tasks.length;
   const percent = total ? Math.round((completed / total) * 100) : 0;
   const allDone = total > 0 && completed === total;
-  const totalFocusMinutes = tasks.reduce((sum, task) => sum + (task.time_spent_minutes || 0), 0);
-  const totalSpentMinutes = tasks.reduce(
-    (sum, task) => sum + (task.total_time_spent_minutes ?? task.time_spent_minutes ?? 0),
-    0
-  );
+  const totalFocusMinutes = tasks.reduce((sum, task) => sum + getTaskFocusMinutes(task), 0);
+  const totalSpentMinutes = tasks.reduce((sum, task) => sum + getTaskElapsedMinutes(task), 0);
   const overheadMinutes = Math.max(0, totalSpentMinutes - totalFocusMinutes);
   const efficiencyRate = totalSpentMinutes > 0 ? Math.round((totalFocusMinutes / totalSpentMinutes) * 100) : 0;
 
@@ -176,13 +174,7 @@ export default function ProjectDetailPage() {
   }
 
   async function handleStartTask(task) {
-    const { error } = await startTask(task.id);
-    if (error) {
-      toast.error('Could not start task', error.message);
-      return;
-    }
-    toast.success('Focus started', task.title);
-    navigate('/focus');
+    navigate('/focus', { state: { requestedTaskId: task.id, requestedProjectId: id } });
   }
 
   const confirmMap = {

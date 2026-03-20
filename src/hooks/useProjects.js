@@ -4,6 +4,7 @@ import { getStoredLocale, translate } from '../lib/i18n';
 import { getEffectiveProjectPriority, getProjectDeadlineMeta, normalizeProjectPreferredTime } from '../lib/projectPriority';
 import { APP_EVENTS, emitAppEvent } from '../lib/appEvents';
 import { supabase } from '../lib/supabase';
+import { getTaskElapsedMinutes, getTaskFocusMinutes } from '../lib/taskSessions';
 import { useAuth } from '../contexts/AuthContext';
 import { toISODate } from '../lib/dates';
 
@@ -12,11 +13,8 @@ function summarizeProject(project, tasks = []) {
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((task) => task.status === 'completed').length;
   const pendingTasks = tasks.filter((task) => task.status !== 'completed').length;
-  const focusMinutes = tasks.reduce((sum, task) => sum + (task.time_spent_minutes || 0), 0);
-  const totalMinutes = tasks.reduce(
-    (sum, task) => sum + (task.total_time_spent_minutes ?? task.time_spent_minutes ?? 0),
-    0
-  );
+  const focusMinutes = tasks.reduce((sum, task) => sum + getTaskFocusMinutes(task), 0);
+  const totalMinutes = tasks.reduce((sum, task) => sum + getTaskElapsedMinutes(task), 0);
   const overheadMinutes = Math.max(0, totalMinutes - focusMinutes);
   const efficiencyRate = totalMinutes > 0 ? Math.round((focusMinutes / totalMinutes) * 100) : 0;
   const lastWorkedAt = tasks

@@ -143,7 +143,7 @@ async function loadUserDetails(adminClient: ReturnType<typeof createClient>, use
       .limit(10),
     adminClient
       .from('tasks')
-      .select('id, project_id, title, status, time_spent_minutes, created_at, completed_at')
+      .select('id, project_id, title, status, sessions_count, total_focus_minutes, total_elapsed_minutes, time_spent_minutes, total_time_spent_minutes, created_at, completed_at')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .limit(10),
@@ -175,7 +175,11 @@ async function loadUserDetails(adminClient: ReturnType<typeof createClient>, use
       id: task.id,
       title: task.title,
       status: task.status,
+      sessions_count: task.sessions_count,
+      total_focus_minutes: task.total_focus_minutes,
+      total_elapsed_minutes: task.total_elapsed_minutes,
       time_spent_minutes: task.time_spent_minutes,
+      total_time_spent_minutes: task.total_time_spent_minutes,
       created_at: task.created_at,
       completed_at: task.completed_at,
       project_title: task.project_id ? projectTitleById.get(task.project_id) || null : null,

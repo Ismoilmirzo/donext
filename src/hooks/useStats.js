@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { differenceInCalendarDays } from 'date-fns';
 import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
+import { getTaskElapsedMinutes, getTaskFocusMinutes } from '../lib/taskSessions';
 import { useAuth } from '../contexts/AuthContext';
 
 export function useStats() {
@@ -125,16 +126,14 @@ export function useStats() {
 
     const { data: tasks, error: tasksError } = await supabase
       .from('tasks')
-      .select('status,time_spent_minutes,total_time_spent_minutes,completed_at')
+      .select('status,sessions_count,total_focus_minutes,total_elapsed_minutes,time_spent_minutes,total_time_spent_minutes,completed_at')
       .eq('user_id', user.id);
     if (tasksError) return { data: null, error: tasksError };
 
     const completedTasks = (tasks || []).filter((task) => task.status === 'completed');
-    const totalFocusMinutes = completedTasks.reduce((sum, task) => sum + (task.time_spent_minutes || 0), 0);
-    const totalSpentMinutes = completedTasks.reduce(
-      (sum, task) => sum + (task.total_time_spent_minutes ?? task.time_spent_minutes ?? 0),
-      0
-    );
+    const totalFocusMinutes = completedTasks.reduce((sum, task) => sum + getTaskFocusMinutes(task), 0);
+    const totalSpentMinutes = completedTasks.reduce((sum, task) => sum + getTaskElapsedMinutes(task), 0);
+    const totalSessions = completedTasks.reduce((sum, task) => sum + Math.max(1, Number(task.sessions_count) || 0), 0);
     const efficiencyRate = totalSpentMinutes > 0 ? (totalFocusMinutes / totalSpentMinutes) * 100 : 0;
 
     const now = new Date();
@@ -150,6 +149,7 @@ export function useStats() {
         tasksCompleted: completedTasks.length,
         avgFocusTimePerTask: completedTasks.length ? totalFocusMinutes / completedTasks.length : 0,
         avgTotalTimePerTask: completedTasks.length ? totalSpentMinutes / completedTasks.length : 0,
+        avgSessionsPerTask: completedTasks.length ? totalSessions / completedTasks.length : 0,
         efficiencyRate,
       },
       error: null,

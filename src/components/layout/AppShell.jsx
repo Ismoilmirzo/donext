@@ -63,15 +63,24 @@ export default function AppShell() {
       }
 
       const { data } = await supabase
-        .from('tasks')
-        .select('id,title,started_at')
+        .from('task_sessions')
+        .select('id, task:tasks(title)')
         .eq('user_id', user.id)
-        .eq('status', 'in_progress')
-        .order('updated_at', { ascending: false })
+        .eq('status', 'active')
+        .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (active) setActiveTask(data || null);
+      if (active) {
+        setActiveTask(
+          data?.id
+            ? {
+                id: data.id,
+                title: data.task?.title || 'Focus in progress',
+              }
+            : null
+        );
+      }
     }
 
     void loadActiveTask();

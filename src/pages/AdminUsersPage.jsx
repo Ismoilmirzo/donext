@@ -13,6 +13,7 @@ import { isConfiguredAdmin, isUserSuspended } from '../lib/admin';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
+import { getTaskFocusMinutes } from '../lib/taskSessions';
 
 function formatDate(value, locale) {
   if (!value) return '-';
@@ -504,9 +505,10 @@ export default function AdminUsersPage() {
                         <span className="text-xs text-slate-400">{task.status}</span>
                       </div>
                       {task.project_title && <p className="mt-1 text-xs text-slate-400">{t('adminUsers.projectLabel', { value: task.project_title })}</p>}
-                      {task.time_spent_minutes ? (
-                        <p className="mt-1 text-xs text-slate-400">{t('adminUsers.timeSpent', { count: task.time_spent_minutes })}</p>
+                      {getTaskFocusMinutes(task) ? (
+                        <p className="mt-1 text-xs text-slate-400">{t('adminUsers.timeSpent', { count: getTaskFocusMinutes(task) })}</p>
                       ) : null}
+                      {task.sessions_count > 0 ? <p className="mt-1 text-xs text-slate-500">{t('stats.sessionsLabel', { count: task.sessions_count })}</p> : null}
                     </div>
                   ))}
                 </div>

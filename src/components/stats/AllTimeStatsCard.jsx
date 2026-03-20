@@ -14,6 +14,7 @@ export default function AllTimeStatsCard({ stats }) {
         <p>{t('stats.tasksCompleted', { count: stats.tasksCompleted })}</p>
         <p>{t('stats.avgFocusPerTask', { value: formatMinutesHuman(Math.round(stats.avgFocusTimePerTask || 0)) })}</p>
         <p>{t('stats.avgTotalPerTask', { value: formatMinutesHuman(Math.round(stats.avgTotalTimePerTask || 0)) })}</p>
+        <p>{t('stats.avgSessionsPerTask', { value: (stats.avgSessionsPerTask || 0).toFixed(1) })}</p>
         <p>{t('stats.efficiencyRateStat', { value: Math.round(stats.efficiencyRate || 0) })}</p>
       </div>
     </Card>

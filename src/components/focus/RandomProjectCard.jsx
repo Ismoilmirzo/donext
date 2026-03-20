@@ -1,5 +1,7 @@
 import { useLocale } from '../../contexts/LocaleContext';
+import { formatMinutesHuman } from '../../lib/dates';
 import { getLocaleTag } from '../../lib/i18n';
+import { getTaskFocusMinutes } from '../../lib/taskSessions';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import ProjectPriorityBadge from '../projects/ProjectPriorityBadge';
@@ -7,6 +9,8 @@ import ProjectPriorityBadge from '../projects/ProjectPriorityBadge';
 export default function RandomProjectCard({ project, task, onStart }) {
   const { locale, t } = useLocale();
   if (!project || !task) return null;
+  const nextSessionNumber = Math.max(1, (Number(task.sessions_count) || 0) + 1);
+  const priorFocusMinutes = getTaskFocusMinutes(task);
 
   return (
     <Card className="animate-[slideIn_250ms_ease-out]">
@@ -38,6 +42,11 @@ export default function RandomProjectCard({ project, task, onStart }) {
       </p>
       <h3 className="mt-2 text-xl font-semibold text-slate-50">{task.title}</h3>
       {task.description && <p className="mt-2 text-sm text-slate-400">{task.description}</p>}
+      <p className="mt-3 text-sm text-slate-300">
+        {priorFocusMinutes > 0
+          ? t('focus.sessionFocusedSoFar', { count: nextSessionNumber, value: formatMinutesHuman(priorFocusMinutes) })
+          : t('focus.sessionBadge', { count: nextSessionNumber })}
+      </p>
       <div className="mt-4">
         <Button onClick={onStart} className="w-full">
           {t('focus.letsGo')}

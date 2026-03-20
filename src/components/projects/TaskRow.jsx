@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, CheckCircle2, Circle, Play } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
 import { formatMinutesHuman } from '../../lib/dates';
 import { getLocaleTag } from '../../lib/i18n';
+import { getTaskFocusMinutes } from '../../lib/taskSessions';
 
 export default function TaskRow({
   task,
@@ -14,6 +15,8 @@ export default function TaskRow({
 }) {
   const { locale, t } = useLocale();
   const isCompleted = task.status === 'completed';
+  const totalFocusMinutes = getTaskFocusMinutes(task);
+  const sessionCount = Math.max(0, Number(task.sessions_count) || 0);
 
   return (
     <div
@@ -38,8 +41,16 @@ export default function TaskRow({
           ) : null}
           {isCompleted ? (
             <p className="mt-1 text-xs text-slate-500">
-              {formatMinutesHuman(task.time_spent_minutes || 0)} |{' '}
-              {task.completed_at ? new Date(task.completed_at).toLocaleDateString(getLocaleTag(locale)) : ''}
+              {formatMinutesHuman(totalFocusMinutes)}
+              {sessionCount > 1 ? ` | ${t('stats.sessionsLabel', { count: sessionCount })}` : ''}
+              {task.completed_at ? ` | ${new Date(task.completed_at).toLocaleDateString(getLocaleTag(locale))}` : ''}
+            </p>
+          ) : sessionCount > 0 ? (
+            <p className="mt-1 text-xs text-slate-400">
+              {t('focus.sessionFocusedSoFar', {
+                count: sessionCount + 1,
+                value: formatMinutesHuman(totalFocusMinutes),
+              })}
             </p>
           ) : null}
         </button>

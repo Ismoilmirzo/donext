@@ -112,6 +112,7 @@ export default function StatsPage() {
     tasksCompleted: 0,
     avgFocusTimePerTask: 0,
     avgTotalTimePerTask: 0,
+    avgSessionsPerTask: 0,
     efficiencyRate: 0,
   });
   const [monthlyTrendRows, setMonthlyTrendRows] = useState([]);
@@ -174,6 +175,7 @@ export default function StatsPage() {
           tasksCompleted: 0,
           avgFocusTimePerTask: 0,
           avgTotalTimePerTask: 0,
+          avgSessionsPerTask: 0,
           efficiencyRate: 0,
         }
       );
