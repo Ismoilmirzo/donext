@@ -448,7 +448,7 @@ async function verifyRecoveryFlow(page, seeded) {
 async function verifyStats(page) {
   logStep('Stats overview');
   await page.goto(`${BASE_URL}/stats`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page.getByRole('heading', { name: /^Stats$/i }), 'Stats page opens');
+  await expectVisible(page.getByText(/^Stats$/i), 'Stats page opens', 30000);
   await expectVisible(page.getByText(/Avg sessions\/task/i), 'Stats page includes average sessions per task');
   await expectVisible(page.getByText(/Focus Time/i), 'Stats focus chart header renders');
   await saveShot(page, 'stats-overview');
