@@ -31,3 +31,5 @@ qa-artifacts/features-10-14/
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
