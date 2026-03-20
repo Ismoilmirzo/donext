@@ -10,10 +10,20 @@ if (!fs.existsSync(indexPath)) {
 
 fs.copyFileSync(indexPath, path.join(distDir, '404.html'));
 
-const privacyDir = path.join(distDir, 'privacy');
-fs.mkdirSync(privacyDir, { recursive: true });
-fs.copyFileSync(indexPath, path.join(privacyDir, 'index.html'));
+const staticRoutes = [
+  'auth',
+  'privacy',
+  'welcome',
+  'habits',
+  'projects',
+  'focus',
+  'stats',
+  'settings',
+  'admin/users',
+];
 
-const authDir = path.join(distDir, 'auth');
-fs.mkdirSync(authDir, { recursive: true });
-fs.copyFileSync(indexPath, path.join(authDir, 'index.html'));
+for (const route of staticRoutes) {
+  const routeDir = path.join(distDir, route);
+  fs.mkdirSync(routeDir, { recursive: true });
+  fs.copyFileSync(indexPath, path.join(routeDir, 'index.html'));
+}
