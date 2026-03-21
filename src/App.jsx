@@ -28,6 +28,7 @@ function PublicOnlyRoute({ children }) {
   const { t } = useLocale();
   const location = useLocation();
   if (loading) return <LoadingSpinner fullScreen label={t('common.loading')} />;
+  if (user && !profile) return <LoadingSpinner fullScreen label={t('common.loading')} />;
   if (user) return <Navigate to={profile?.onboarding_done ? '/habits' : '/welcome'} replace />;
   if (location.pathname === '/' && isTelegramMiniApp()) {
     return <Navigate to="/auth" replace />;
