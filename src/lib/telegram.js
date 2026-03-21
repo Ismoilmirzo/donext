@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 
 const PENDING_TELEGRAM_AUTH_KEY = 'donext:telegram-pending-auth';
 const TELEGRAM_INTERNAL_EMAIL_DOMAIN = (import.meta.env.VITE_TELEGRAM_INTERNAL_EMAIL_DOMAIN || 'telegram.donext.invalid').toLowerCase();
-export const TELEGRAM_BOT_USERNAME = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME || '').trim();
+export const TELEGRAM_BOT_USERNAME = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'do_Next_bot').trim();
 
 function getSupabaseFunctionUrl(name) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
