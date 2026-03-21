@@ -11,7 +11,7 @@ const MONTHLY_LIMIT = 50;
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-jwt',
 };
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -35,7 +35,8 @@ serve(async (req) => {
 
   // Authenticate user
   const authHeader = req.headers.get('Authorization') || '';
-  const jwt = authHeader.replace('Bearer ', '').trim();
+  const forwardedJwt = req.headers.get('x-user-jwt') || '';
+  const jwt = forwardedJwt.trim() || authHeader.replace('Bearer ', '').trim();
   if (!jwt) {
     return jsonResponse({ error: 'Missing authorization token.' }, 401);
   }

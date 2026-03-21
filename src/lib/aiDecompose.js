@@ -12,11 +12,14 @@ export async function decomposeProject({ title, description, locale, deadline })
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   const res = await fetch(`${supabaseUrl}/functions/v1/ai-decompose`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': supabaseAnonKey,
+      'Authorization': `Bearer ${supabaseAnonKey}`,
+      'x-user-jwt': session.access_token,
     },
     body: JSON.stringify({ title, description, locale, deadline }),
   });
