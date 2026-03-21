@@ -332,6 +332,18 @@ const translations = {
       titlePlaceholder: 'Implement auth flow',
       descriptionPlaceholder: 'Optional details',
     },
+    ai: {
+      breakItDown: 'Break it down',
+      generating: 'Generating...',
+      previewTitle: 'AI-generated tasks',
+      previewBody: 'Review, edit, or remove tasks before adding them to your project.',
+      addTasks: 'Add {{count}} task(s)',
+      noTasksLeft: 'All tasks removed. Cancel to go back.',
+      remainingCalls: '{{daily}}/day · {{monthly}}/month remaining',
+      errorTitle: 'AI breakdown failed',
+      rateLimited: 'AI limit reached. Try again later.',
+      emptyProjectHint: 'Not sure where to start? Let AI suggest tasks.',
+    },
     taskRow: {
       startHint: 'Go to Focus tab to start working on this',
       projectFallback: 'Project',
@@ -591,6 +603,10 @@ const translations = {
     error: {
       title: 'Something went wrong',
       body: 'Please refresh the page. If this keeps happening, send feedback from Settings.',
+    },
+    network: {
+      offline: "You're offline. Changes may not save.",
+      backOnline: 'Back online.',
     },
     privacy: {
       title: 'Privacy Policy',
@@ -1101,6 +1117,18 @@ const translations = {
       titlePlaceholder: 'Auth oqimini joriy qilish',
       descriptionPlaceholder: 'Ixtiyoriy tafsilotlar',
     },
+    ai: {
+      breakItDown: 'Vazifalarga ajratish',
+      generating: 'Yaratilmoqda...',
+      previewTitle: 'AI yaratgan vazifalar',
+      previewBody: "Loyihaga qo'shishdan oldin vazifalarni ko'rib chiqing, tahrirlang yoki o'chiring.",
+      addTasks: "{{count}} ta vazifa qo'shish",
+      noTasksLeft: "Barcha vazifalar o'chirildi. Orqaga qaytish uchun bekor qiling.",
+      remainingCalls: '{{daily}}/kun · {{monthly}}/oy qoldi',
+      errorTitle: 'AI ajratish muvaffaqiyatsiz',
+      rateLimited: "AI limiti tugadi. Keyinroq qayta urinib ko'ring.",
+      emptyProjectHint: 'Qayerdan boshlashni bilmayapsizmi? AI vazifalar taklif qilsin.',
+    },
     taskRow: {
       startHint: 'Ishni boshlash uchun Fokus bo‘limiga o‘ting',
       projectFallback: 'Loyiha',
@@ -1360,6 +1388,10 @@ const translations = {
     error: {
       title: 'Xatolik yuz berdi',
       body: 'Sahifani yangilang. Muammo davom etsa, Sozlamalar orqali fikr yuboring.',
+    },
+    network: {
+      offline: "Internetdan uzilib qoldingiz. O'zgarishlar saqlanmasligi mumkin.",
+      backOnline: 'Internet qayta ulandi.',
     },
     privacy: {
       title: 'Maxfiylik siyosati',

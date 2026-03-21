@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import AddTaskModal from '../components/projects/AddTaskModal';
+import AIBreakdownButton from '../components/projects/AIBreakdownButton';
+import AITaskPreview from '../components/projects/AITaskPreview';
 import CreateProjectModal from '../components/projects/CreateProjectModal';
 import ProjectFocusHistory from '../components/projects/ProjectFocusHistory';
 import ProjectPriorityBadge from '../components/projects/ProjectPriorityBadge';
@@ -16,6 +18,7 @@ import { useLocale } from '../contexts/LocaleContext';
 import { useToast } from '../contexts/ToastContext';
 import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
+import { decomposeProject } from '../lib/aiDecompose';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -38,6 +41,11 @@ export default function ProjectDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [focusHistory, setFocusHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiTasks, setAiTasks] = useState([]);
+  const [aiPreviewOpen, setAiPreviewOpen] = useState(false);
+  const [aiRemaining, setAiRemaining] = useState(null);
+  const [aiInserting, setAiInserting] = useState(false);
 
   const project = useMemo(() => projects.find((item) => item.id === id), [id, projects]);
 
@@ -177,6 +185,48 @@ export default function ProjectDetailPage() {
     navigate('/focus', { state: { requestedTaskId: task.id, requestedProjectId: id } });
   }
 
+  async function handleAIBreakdown() {
+    if (!project || aiLoading) return;
+    setAiLoading(true);
+    const result = await decomposeProject({
+      title: project.title,
+      description: project.description || '',
+      locale,
+      deadline: project.deadline_date || undefined,
+    });
+    setAiLoading(false);
+
+    if (result.error) {
+      toast.error(t('ai.errorTitle'), result.rateLimited ? t('ai.rateLimited') : result.error);
+      if (result.remaining) setAiRemaining(result.remaining);
+      return;
+    }
+
+    setAiTasks(result.tasks || []);
+    setAiRemaining(result.remaining || null);
+    setAiPreviewOpen(true);
+  }
+
+  async function handleConfirmAITasks(confirmedTasks) {
+    if (!confirmedTasks.length) return;
+    setAiInserting(true);
+
+    for (let i = 0; i < confirmedTasks.length; i++) {
+      const task = confirmedTasks[i];
+      const { error } = await addTask(id, task.title, task.description || '', 'end');
+      if (error) {
+        toast.error('Could not add task', error.message);
+        setAiInserting(false);
+        return;
+      }
+    }
+
+    setAiInserting(false);
+    setAiPreviewOpen(false);
+    setAiTasks([]);
+    toast.success(t('ai.addTasks', { count: confirmedTasks.length }));
+  }
+
   const confirmMap = {
     archive: {
       title: t('projects.confirmArchiveTitle'),
@@ -293,15 +343,27 @@ export default function ProjectDetailPage() {
         onStartTask={handleStartTask}
       />
 
+      {total === 0 ? (
+        <Card className="text-center">
+          <p className="mb-3 text-sm text-slate-400">{t('ai.emptyProjectHint')}</p>
+          <AIBreakdownButton onClick={handleAIBreakdown} loading={aiLoading} t={t} />
+        </Card>
+      ) : null}
+
       <div className="flex flex-wrap justify-between gap-2">
-        <Button
-          onClick={() => {
-            setEditingTask(null);
-            setModalOpen(true);
-          }}
-        >
-          {t('projects.addTask')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => {
+              setEditingTask(null);
+              setModalOpen(true);
+            }}
+          >
+            {t('projects.addTask')}
+          </Button>
+          {project.status === 'active' && total > 0 ? (
+            <AIBreakdownButton onClick={handleAIBreakdown} loading={aiLoading} t={t} />
+          ) : null}
+        </div>
         {allDone ? <Button onClick={() => setPendingAction('complete')}>{t('projects.markProjectComplete')}</Button> : null}
       </div>
 
@@ -334,6 +396,16 @@ export default function ProjectDetailPage() {
         cancelLabel={t('common.cancel')}
         confirmVariant={confirmMap[pendingAction]?.variant || 'primary'}
         loading={actionLoading}
+      />
+
+      <AITaskPreview
+        open={aiPreviewOpen}
+        onClose={() => setAiPreviewOpen(false)}
+        tasks={aiTasks}
+        onConfirm={handleConfirmAITasks}
+        saving={aiInserting}
+        remaining={aiRemaining}
+        t={t}
       />
     </div>
   );

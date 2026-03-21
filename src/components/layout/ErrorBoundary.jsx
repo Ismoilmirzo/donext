@@ -23,7 +23,7 @@ export default class ErrorBoundary extends Component {
     if (this.state.hasError) {
       const locale = getStoredLocale();
       return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4">
+        <div className="dn-page-shell flex min-h-screen items-center justify-center px-4">
           <Card className="max-w-lg text-center">
             <h2 className="text-xl font-semibold text-slate-100">{translate(locale, 'error.title')}</h2>
             <p className="mt-2 text-sm text-slate-400">{translate(locale, 'error.body')}</p>

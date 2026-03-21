@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { CalendarCheck2, Plus, Snowflake } from 'lucide-react';
 import { isYesterday, parseISO, startOfMonth } from 'date-fns';
 import AddHabitModal from '../components/habits/AddHabitModal';
 import HabitList from '../components/habits/HabitList';
 import HabitMonthlyGrid from '../components/habits/HabitMonthlyGrid';
-import HabitStatsCard from '../components/habits/HabitStatsCard';
 import HabitStreakCard from '../components/habits/HabitStreakCard';
-import HabitWeeklyChart from '../components/habits/HabitWeeklyChart';
 import WeeklyGoalPromptCard from '../components/habits/WeeklyGoalPromptCard';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -14,6 +12,10 @@ import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import EmptyState from '../components/ui/EmptyState';
 import { HabitsPageSkeleton } from '../components/ui/PageSkeletons';
 import ProgressBar from '../components/ui/ProgressBar';
+import SkeletonCard from '../components/ui/SkeletonCard';
+
+const HabitWeeklyChart = lazy(() => import('../components/habits/HabitWeeklyChart'));
+const HabitStatsCard = lazy(() => import('../components/habits/HabitStatsCard'));
 import { useLocale } from '../contexts/LocaleContext';
 import { useToast } from '../contexts/ToastContext';
 import { useHabits } from '../hooks/useHabits';
@@ -224,22 +226,24 @@ export default function HabitsPage() {
         />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <HabitWeeklyChart habits={habits} logs={logs} />
-        <HabitMonthlyGrid habits={habits} logs={logs} streak={streak} freezeDates={streak.freezeDates} />
-      </div>
+      <Suspense fallback={<div className="grid gap-4 lg:grid-cols-2"><SkeletonCard /><SkeletonCard /></div>}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <HabitWeeklyChart habits={habits} logs={logs} />
+          <HabitMonthlyGrid habits={habits} logs={logs} streak={streak} freezeDates={streak.freezeDates} />
+        </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <HabitStatsCard habits={habits} logs={logs} />
-        <HabitStreakCard
+        <div className="grid gap-4 lg:grid-cols-2">
+          <HabitStatsCard habits={habits} logs={logs} />
+          <HabitStreakCard
           current={streak.current}
           longest={streak.longest}
           availableFreezes={streak.availableFreezes}
           usedThisWeek={streak.usedThisWeek}
           storageCap={streak.storageCap}
           nextGrantDate={streak.nextGrantDate}
-        />
-      </div>
+          />
+        </div>
+      </Suspense>
 
       <AddHabitModal
         open={modalOpen}

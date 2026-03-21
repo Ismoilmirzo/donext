@@ -12,6 +12,7 @@ import { useSetupProgress } from '../../hooks/useSetupProgress';
 import { useLocale } from '../../contexts/LocaleContext';
 import { useProjects } from '../../hooks/useProjects';
 import { useToast } from '../../contexts/ToastContext';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { supabase } from '../../lib/supabase';
 import BottomNav from './BottomNav';
 import DailySummaryBanner from './DailySummaryBanner';
@@ -33,6 +34,8 @@ export default function AppShell() {
   const [activeTask, setActiveTask] = useState(null);
   const [dismissedHints, setDismissedHints] = useState({});
   const lastBadgeToastIdRef = useRef(null);
+  const { isOnline } = useOnlineStatus();
+  const prevOnlineRef = useRef(isOnline);
   const navLinks = [
     { to: '/habits', label: t('nav.habits'), Icon: CheckSquare },
     { to: '/projects', label: t('nav.projects'), Icon: FolderKanban },
@@ -40,6 +43,16 @@ export default function AppShell() {
     { to: '/stats', label: t('nav.stats'), Icon: BarChart3 },
     { to: '/settings', label: t('nav.settings'), Icon: Settings },
   ];
+
+  useEffect(() => {
+    if (prevOnlineRef.current === isOnline) return;
+    prevOnlineRef.current = isOnline;
+    if (isOnline) {
+      toast.success(t('network.backOnline'));
+    } else {
+      toast.error(t('network.offline'));
+    }
+  }, [isOnline, toast, t]);
 
   useEffect(() => {
     void checkForStaleProjects();
