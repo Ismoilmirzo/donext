@@ -46,6 +46,16 @@ export default function SettingsPage() {
 
   if (profileLoading) return <SettingsPageSkeleton />;
 
+  async function getAccessToken(refresh = false) {
+    if (refresh) {
+      const refreshRes = await supabase.auth.refreshSession();
+      return refreshRes.data.session?.access_token || '';
+    }
+
+    const sessionRes = await supabase.auth.getSession();
+    return sessionRes.data?.session?.access_token || '';
+  }
+
   function formatLinkedTimestamp(value) {
     if (!value) return '-';
     return new Date(value).toLocaleString();
@@ -105,8 +115,10 @@ export default function SettingsPage() {
     }
 
     setDeleting(true);
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
+    let accessToken = await getAccessToken();
+    if (!accessToken) {
+      accessToken = await getAccessToken(true);
+    }
     if (!accessToken) {
       setDeleting(false);
       setError(t('settings.missingSession'));
@@ -114,16 +126,26 @@ export default function SettingsPage() {
       return;
     }
 
-    const response = await fetch(`${supabaseUrl}/functions/v1/account-delete-user`, {
-      method: 'POST',
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
-        'x-user-jwt': accessToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
+    async function deleteRequest(token) {
+      return fetch(`${supabaseUrl}/functions/v1/account-delete-user`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+          'x-user-jwt': token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ confirmation: deleteText }),
+      });
+    }
+
+    let response = await deleteRequest(accessToken);
+    if (response.status === 401) {
+      const refreshedToken = await getAccessToken(true);
+      if (refreshedToken) {
+        response = await deleteRequest(refreshedToken);
+      }
+    }
 
     if (!response.ok) {
       let message = t('settings.accountDeletionFailed');
@@ -169,13 +191,8 @@ export default function SettingsPage() {
         throw new Error(t('settings.missingSupabase'));
       }
 
-      async function getAccessToken() {
-        const sessionRes = await supabase.auth.getSession();
-        return sessionRes.data?.session?.access_token || '';
-      }
-
       async function fetchExport(accessToken) {
-        return fetch(`${supabaseUrl}/functions/v1/export-data`, {
+        return fetch(`${supabaseUrl}/functions/v1/user-export-data`, {
           method: 'POST',
           headers: {
             apikey: supabaseAnonKey,
