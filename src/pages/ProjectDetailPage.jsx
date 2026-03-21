@@ -79,7 +79,7 @@ export default function ProjectDetailPage() {
       if (!active) return;
 
       if (historyError) {
-        toast.error('Could not load focus history', historyError.message);
+        toast.error(t('toasts.historyLoadFailed'), historyError.message);
         setFocusHistory([]);
       } else {
         setFocusHistory(data || []);
@@ -116,14 +116,14 @@ export default function ProjectDetailPage() {
       result = await addTask(id, payload.title, payload.description, payload.position);
     }
     if (result?.error) {
-      toast.error('Could not save task', result.error.message);
+      toast.error(t('toasts.taskSaveFailed'), result.error.message);
       setSaving(false);
       return;
     }
     setSaving(false);
     setEditingTask(null);
     setModalOpen(false);
-    toast.success(editingTask ? 'Task updated' : 'Task added', payload.title);
+    toast.success(editingTask ? t('toasts.taskUpdated') : t('toasts.taskAdded'), payload.title);
   }
 
   async function handleSaveProject(payload) {
@@ -131,12 +131,12 @@ export default function ProjectDetailPage() {
     const { error: updateError } = await updateProject(id, payload);
     setProjectSaving(false);
     if (updateError) {
-      toast.error('Could not update project', updateError.message);
+      toast.error(t('toasts.projectUpdateFailed'), updateError.message);
       return;
     }
     setProjectModalOpen(false);
     await fetchProjects();
-    toast.success('Project updated', payload.title || project.title);
+    toast.success(t('toasts.projectUpdated'), payload.title || project.title);
   }
 
   async function handleConfirmAction() {
@@ -157,25 +157,25 @@ export default function ProjectDetailPage() {
     setActionLoading(false);
 
     if (result?.error) {
-      toast.error('Project action failed', result.error.message);
+      toast.error(t('toasts.projectActionFailed'), result.error.message);
       return;
     }
 
     setPendingAction(null);
 
     if (pendingAction === 'delete') {
-      toast.success('Project deleted', project.title);
+      toast.success(t('toasts.projectDeleted'), project.title);
       navigate('/projects', { replace: true });
       return;
     }
 
     if (pendingAction === 'complete') {
-      toast.success('Project complete', formatMinutesHuman(totalFocusMinutes));
+      toast.success(t('toasts.projectComplete'), formatMinutesHuman(totalFocusMinutes));
     } else if (pendingAction === 'archive') {
-      toast.success('Project archived', project.title);
+      toast.success(t('toasts.projectArchived'), project.title);
       navigate('/projects');
     } else if (pendingAction === 'restore') {
-      toast.success('Project restored', project.title);
+      toast.success(t('toasts.projectRestored'), project.title);
     }
 
     await fetchProjects();
@@ -215,7 +215,7 @@ export default function ProjectDetailPage() {
       const task = confirmedTasks[i];
       const { error } = await addTask(id, task.title, task.description || '', 'end');
       if (error) {
-        toast.error('Could not add task', error.message);
+        toast.error(t('toasts.taskAddFailed'), error.message);
         setAiInserting(false);
         return;
       }
@@ -334,10 +334,10 @@ export default function ProjectDetailPage() {
         onMove={(task, direction) => {
           void reorderTasks(task.id, direction).then(({ error }) => {
             if (error) {
-              toast.error('Could not reorder task', error.message);
+              toast.error(t('toasts.taskReorderFailed'), error.message);
               return;
             }
-            toast.info(direction === 'up' ? 'Task moved up' : 'Task moved down', task.title);
+            toast.info(direction === 'up' ? t('toasts.taskMovedUp') : t('toasts.taskMovedDown'), task.title);
           });
         }}
         onStartTask={handleStartTask}

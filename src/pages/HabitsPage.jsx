@@ -100,10 +100,10 @@ export default function HabitsPage() {
     const currentValue = Boolean(checkedMap[habit.id]);
     const { error: toggleError } = await toggleHabit(habit.id, todayIso, currentValue);
     if (toggleError) {
-      toast.error('Could not update habit', toggleError.message);
+      toast.error(t('toasts.habitUpdateFailed'), toggleError.message);
       return;
     }
-    toast.success(currentValue ? 'Habit unchecked' : 'Habit completed', habit.title);
+    toast.success(currentValue ? t('toasts.habitUnchecked') : t('toasts.habitCompleted'), habit.title);
   }
 
   async function handleSaveHabit(payload) {
@@ -115,14 +115,14 @@ export default function HabitsPage() {
       result = await addHabit(payload.title, payload.icon);
     }
     if (result?.error) {
-      toast.error('Could not save habit', result.error.message);
+      toast.error(t('toasts.habitSaveFailed'), result.error.message);
       setSaving(false);
       return;
     }
     setSaving(false);
     setEditingHabit(null);
     setModalOpen(false);
-    toast.success(editingHabit ? 'Habit updated' : 'Habit added', payload.title);
+    toast.success(editingHabit ? t('toasts.habitUpdated') : t('toasts.habitAdded'), payload.title);
   }
 
   async function handleHabitAction() {
@@ -134,11 +134,11 @@ export default function HabitsPage() {
         : await deleteHabit(pendingHabitAction.habit.id);
     setActionLoading(false);
     if (result?.error) {
-      toast.error('Action failed', result.error.message);
+      toast.error(t('toasts.habitActionFailed'), result.error.message);
       return;
     }
     toast.success(
-      pendingHabitAction.type === 'archive' ? 'Habit archived' : 'Habit deleted',
+      pendingHabitAction.type === 'archive' ? t('toasts.habitArchived') : t('toasts.habitDeleted'),
       pendingHabitAction.habit.title
     );
     setPendingHabitAction(null);
@@ -218,10 +218,10 @@ export default function HabitsPage() {
           onReorder={async (habit, direction) => {
             const { error: reorderError } = await reorderHabits(habit.id, direction);
             if (reorderError) {
-              toast.error('Could not reorder habit', reorderError.message);
+              toast.error(t('toasts.habitReorderFailed'), reorderError.message);
               return;
             }
-            toast.info(direction === 'up' ? 'Habit moved up' : 'Habit moved down', habit.title);
+            toast.info(direction === 'up' ? t('toasts.habitMovedUp') : t('toasts.habitMovedDown'), habit.title);
           }}
         />
       )}

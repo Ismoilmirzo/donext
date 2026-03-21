@@ -138,7 +138,7 @@ export default function FocusPage() {
 
     const result = await fetchActiveTaskSession(user.id);
     if (result.error) {
-      toast.error('Could not load active focus session', result.error.message);
+      toast.error(t('toasts.focusLoadFailed'), result.error.message);
       setActiveSession(null);
       setRecoverySession(null);
       return;
@@ -264,7 +264,7 @@ export default function FocusPage() {
     try {
       const result = await startTaskSession({ userId: user.id, task: pair.task });
       if (result.error) {
-        toast.error('Could not start task', result.error.message);
+        toast.error(t('toasts.focusStartFailed'), result.error.message);
         return;
       }
 
@@ -276,7 +276,7 @@ export default function FocusPage() {
       setManualOpen(false);
       setRerollsLeft(1);
       await Promise.all([fetchProjects(), fetchEligible()]);
-      toast.success('Focus started', pair.task.title);
+      toast.success(t('toasts.focusStarted'), pair.task.title);
     } finally {
       setSessionAction('');
     }
@@ -290,7 +290,7 @@ export default function FocusPage() {
     try {
       const result = await toggleTaskSession(activeSession, nextType);
       if (result.error) {
-        toast.error('Could not update session state', result.error.message);
+        toast.error(t('toasts.focusToggleFailed'), result.error.message);
         return;
       }
       setActiveSession(result.data);
@@ -306,7 +306,7 @@ export default function FocusPage() {
     try {
       const result = await pauseTaskSession(activeSession, user.id);
       if (result.error) {
-        toast.error('Could not pause session', result.error.message);
+        toast.error(t('toasts.focusPauseFailed'), result.error.message);
         return;
       }
 
@@ -314,7 +314,7 @@ export default function FocusPage() {
       setActiveSession(null);
       setRecoverySession(null);
       await refreshFocusData();
-      toast.success('Session saved', t('focus.sessionSavedToast'));
+      toast.success(t('toasts.focusSaved'), t('focus.sessionSavedToast'));
     } finally {
       setSessionAction('');
     }
@@ -327,7 +327,7 @@ export default function FocusPage() {
     try {
       const result = await completeTaskSession(activeSession, user.id);
       if (result.error) {
-        toast.error('Could not complete task', result.error.message);
+        toast.error(t('toasts.focusCompleteFailed'), result.error.message);
         return;
       }
 
@@ -353,7 +353,7 @@ export default function FocusPage() {
     try {
       const result = await resolveOrphanTaskSession(recoverySession, user.id, action);
       if (result.error) {
-        toast.error('Could not recover session', result.error.message);
+        toast.error(t('toasts.focusRecoverFailed'), result.error.message);
         return;
       }
 
@@ -369,9 +369,9 @@ export default function FocusPage() {
           postCompleteState: nextState,
         });
       } else if (action === 'pause') {
-        toast.success('Session saved', t('focus.sessionSavedToast'));
+        toast.success(t('toasts.focusSaved'), t('focus.sessionSavedToast'));
       } else {
-        toast.info('Session discarded', t('focus.sessionDiscardedToast'));
+        toast.info(t('toasts.focusDiscarded'), t('focus.sessionDiscardedToast'));
       }
 
       await refreshFocusData();
@@ -473,7 +473,7 @@ export default function FocusPage() {
                   <h2 className="text-base font-semibold text-slate-100">{t('focus.howItWorksTitle')}</h2>
                   <p className="mt-1 text-sm text-slate-400">{t('focus.howItWorksBody')}</p>
                 </div>
-                <button type="button" onClick={hideHowItWorks} className="dn-icon-button rounded-full p-1.5" aria-label="Hide focus intro">
+                <button type="button" onClick={hideHowItWorks} className="dn-icon-button rounded-full p-1.5" aria-label={t('hints.dismiss')}>
                   <X className="h-4 w-4" />
                 </button>
               </div>

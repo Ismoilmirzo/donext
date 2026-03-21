@@ -73,13 +73,13 @@ export default function AuthPage() {
   const passwordStrength = useMemo(() => {
     if (!password) return null;
     if (password.length >= 12 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password)) {
-      return { label: 'Strong', width: '100%', className: 'bg-emerald-500' };
+      return { label: t('passwordStrength.strong'), width: '100%', className: 'bg-emerald-500' };
     }
     if (password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password)) {
-      return { label: 'Medium', width: '68%', className: 'bg-amber-400' };
+      return { label: t('passwordStrength.medium'), width: '68%', className: 'bg-amber-400' };
     }
-    return { label: 'Weak', width: '36%', className: 'bg-red-400' };
-  }, [password]);
+    return { label: t('passwordStrength.weak'), width: '36%', className: 'bg-red-400' };
+  }, [password, t]);
 
   if (user) return <Navigate to={profile?.onboarding_done ? '/habits' : '/welcome'} replace />;
 
@@ -303,7 +303,7 @@ export default function AuthPage() {
               {passwordStrength && (
                 <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-2">
                   <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span>Password strength</span>
+                    <span>{t('passwordStrength.label')}</span>
                     <span>{passwordStrength.label}</span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-800">

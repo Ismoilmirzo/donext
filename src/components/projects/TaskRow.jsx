@@ -63,7 +63,7 @@ export default function TaskRow({
                 className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-500/15"
               >
                 <Play className="h-3.5 w-3.5" />
-                <span>Start</span>
+                <span>{t('taskRow.start')}</span>
               </button>
             ) : null}
             <button
@@ -71,7 +71,7 @@ export default function TaskRow({
               onClick={() => onMove?.(task, 'up')}
               disabled={!canMoveUp}
               className="rounded-md border border-slate-700 bg-slate-900/70 p-2 text-slate-300 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-35"
-              aria-label={`Move ${task.title} up`}
+              aria-label={t('taskRow.moveUp')}
             >
               <ArrowUp className="h-3.5 w-3.5" />
             </button>
@@ -80,7 +80,7 @@ export default function TaskRow({
               onClick={() => onMove?.(task, 'down')}
               disabled={!canMoveDown}
               className="rounded-md border border-slate-700 bg-slate-900/70 p-2 text-slate-300 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-35"
-              aria-label={`Move ${task.title} down`}
+              aria-label={t('taskRow.moveDown')}
             >
               <ArrowDown className="h-3.5 w-3.5" />
             </button>

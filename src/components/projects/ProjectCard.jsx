@@ -51,7 +51,7 @@ export default function ProjectCard({ project, onReopen, onArchive }) {
             {t('projects.investedTime', { value: formatMinutesHuman(project.focusMinutes || 0) })}
           </p>
           <p>
-            {t('projects.totalTimeSpentShort')}: {formatMinutesHuman(project.totalMinutes || 0)}
+            {t('projects.totalTimeSpentShort', { value: formatMinutesHuman(project.totalMinutes || 0) })}
           </p>
           <p>
             {t('projects.efficiencyRate', { value: project.efficiencyRate || 0 })}

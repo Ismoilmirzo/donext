@@ -42,12 +42,12 @@ export default function ProjectsPage() {
     const { error: createError } = await createProject(payload);
     setSaving(false);
     if (createError) {
-      toast.error('Could not create project', createError.message);
+      toast.error(t('toasts.projectCreateFailed'), createError.message);
       return;
     }
     setModalOpen(false);
     await fetchProjects();
-    toast.success('Project created', payload.title);
+    toast.success(t('toasts.projectCreated'), payload.title);
   }
 
   if (loading) return <ProjectsPageSkeleton />;
@@ -65,12 +65,12 @@ export default function ProjectsPage() {
 
     setActionLoading(false);
     if (result?.error) {
-      toast.error('Project action failed', result.error.message);
+      toast.error(t('toasts.projectActionFailed'), result.error.message);
       return;
     }
 
     toast.success(
-      pendingAction.type === 'archive' ? 'Project archived' : 'Project restored',
+      pendingAction.type === 'archive' ? t('toasts.projectArchived') : t('toasts.projectRestored'),
       pendingAction.project.title
     );
     setPendingAction(null);
@@ -122,10 +122,10 @@ export default function ProjectsPage() {
               onComplete={async () => {
                 const { error } = await completeProject(project.id);
                 if (error) {
-                  toast.error('Could not complete project', error.message);
+                  toast.error(t('toasts.projectCompleteFailed'), error.message);
                   return;
                 }
-                toast.success('Project completed', project.title);
+                toast.success(t('toasts.projectCompleted'), project.title);
               }}
             />
           ))

@@ -224,7 +224,7 @@ export default function StatsPage() {
         }
       } catch (reportError) {
         if (active) {
-          toast.error('Could not prepare weekly report', reportError.message);
+          toast.error(t('toasts.reportFailed'), reportError.message);
         }
       }
     }
@@ -445,7 +445,7 @@ export default function StatsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold text-slate-50">{t('stats.title')}</h1>
-            <p className="mt-1 text-sm text-slate-400">{t('stats.labelThisWeek')}</p>
+            <p className="mt-1 text-sm text-slate-400">{period === 'week' ? t('stats.labelThisWeek') : t('stats.labelThisMonth')}</p>
           </div>
             <div className="flex flex-wrap items-center gap-2">
               {period === 'week' && weeklyReport?.hasShareableData ? (

@@ -89,7 +89,7 @@ export default function AppShell() {
           data?.id
             ? {
                 id: data.id,
-                title: data.task?.title || 'Focus in progress',
+                title: data.task?.title || t('sidebar.focusInProgress'),
               }
             : null
         );
@@ -110,7 +110,7 @@ export default function AppShell() {
     }
     if (lastBadgeToastIdRef.current === nextBadge.id) return;
     lastBadgeToastIdRef.current = nextBadge.id;
-    toast.success('Badge unlocked', `${nextBadge.icon} ${nextBadge.title}`);
+    toast.success(t('badges.unlocked'), `${nextBadge.icon} ${nextBadge.title}`);
   }, [queue, toast]);
 
   useEffect(() => {
@@ -151,28 +151,28 @@ export default function AppShell() {
   const pageHint = useMemo(() => {
     const hintMap = {
       '/habits': {
-        title: 'Track the smallest daily wins here',
-        message: 'Add one habit, tick it off today, and the charts will start to build naturally.',
+        title: t('hints.habits.title'),
+        message: t('hints.habits.message'),
       },
       '/projects': {
-        title: 'Keep projects concrete and current',
-        message: 'A small list of active projects works better than dumping everything here.',
+        title: t('hints.projects.title'),
+        message: t('hints.projects.message'),
       },
       '/focus': {
-        title: 'Use Focus when you are ready to start',
-        message: 'Let the app pick the next task so you spend less time deciding what to do.',
+        title: t('hints.focus.title'),
+        message: t('hints.focus.message'),
       },
       '/stats': {
-        title: 'Stats are for reflection, not pressure',
-        message: 'Once you log a little real usage, this page becomes a quick weekly review instead of a dashboard wall.',
+        title: t('hints.stats.title'),
+        message: t('hints.stats.message'),
       },
       '/settings': {
-        title: 'Settings should stay quiet',
-        message: 'Most people only need language, theme, export, and account controls here.',
+        title: t('hints.settings.title'),
+        message: t('hints.settings.message'),
       },
     };
     return hintMap[location.pathname] || null;
-  }, [location.pathname]);
+  }, [location.pathname, t]);
 
   const showPageHint = pageHint && !dismissedHints[location.pathname];
 
@@ -186,7 +186,7 @@ export default function AppShell() {
   return (
     <div className="dn-page-shell min-h-screen">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:px-4 focus:py-2 focus:text-sm dn-button dn-button-primary">
-        Skip to content
+        {t('hints.skipToContent')}
       </a>
       <div className="mx-auto flex w-full max-w-7xl">
         <aside className="dn-shell-panel sticky top-0 hidden h-screen w-64 flex-col border-r px-4 py-6 md:flex">
@@ -218,7 +218,7 @@ export default function AppShell() {
             onClick={() => navigate('/focus')}
           >
             <Play className="h-4 w-4" />
-            Quick Focus
+            {t('sidebar.quickFocus')}
           </Button>
           <div className="mt-auto rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
             <div className="flex items-center gap-3">
@@ -236,7 +236,7 @@ export default function AppShell() {
             </div>
             <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
               <Flame className="h-4 w-4" />
-              <span>{streak.current || 0} day streak</span>
+              <span>{t('sidebar.dayStreak', { count: streak.current || 0 })}</span>
             </div>
           </div>
         </aside>
@@ -257,7 +257,7 @@ export default function AppShell() {
                     className="inline-flex max-w-[18rem] items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-200"
                   >
                     <Timer className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{activeTask.title || 'Focus in progress'}</span>
+                    <span className="truncate">{activeTask.title || t('sidebar.focusInProgress')}</span>
                   </Link>
                 )}
               </div>
@@ -268,7 +268,7 @@ export default function AppShell() {
                     className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200"
                   >
                     <Timer className="h-3.5 w-3.5" />
-                    <span>Focus</span>
+                    <span>{t('nav.focus')}</span>
                   </Link>
                 ) : null}
                 <NavLink to="/settings" className="dn-link-muted text-sm">

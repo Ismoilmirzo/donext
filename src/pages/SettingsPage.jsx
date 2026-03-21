@@ -116,7 +116,7 @@ export default function SettingsPage() {
       return;
     }
     setRestoreProject(null);
-    toast.success(t('common.restore'));
+    toast.success(t('toasts.projectRestored'), restoreProject.title);
   }
 
   async function handleExportData() {
@@ -208,14 +208,14 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Personal</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{t('sections.personal')}</p>
         <h2 className="text-base font-semibold text-slate-100">{t('settings.profile')}</h2>
         <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} onBlur={saveProfile} />
         <Input value={user?.email || ''} disabled />
       </Card>
 
       <Card className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Appearance</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{t('sections.appearance')}</p>
         <h2 className="text-base font-semibold text-slate-100">{t('settings.language')}</h2>
         <p className="text-sm text-slate-400">{t('settings.languageDescription')}</p>
         <div className="flex flex-wrap gap-2">
@@ -258,7 +258,7 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Data</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{t('sections.data')}</p>
         <h2 className="text-base font-semibold text-slate-100">{t('settings.habits')}</h2>
         <Link to="/habits" className="text-sm text-emerald-400 hover:text-emerald-300">
           {t('settings.manageHabits')}
@@ -306,14 +306,14 @@ export default function SettingsPage() {
         <Card className={`space-y-3 ${dangerOpen ? 'border-red-500/40' : 'border-slate-700'}`}>
           <button type="button" onClick={() => setDangerOpen((prev) => !prev)} className="flex w-full items-center justify-between text-left">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-red-300">Danger Zone</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-red-300">{t('sections.dangerZone')}</p>
               <h2 className="mt-2 text-base font-semibold text-slate-100">{t('settings.account')}</h2>
             </div>
-            <span className="text-sm text-slate-500">{dangerOpen ? 'Hide' : 'Show'}</span>
+            <span className="text-sm text-slate-500">{dangerOpen ? t('sections.hide') : t('sections.show')}</span>
           </button>
           {dangerOpen && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-400">Account actions are intentionally separated from regular settings.</p>
+              <p className="text-sm text-slate-400">{t('sections.dangerDescription')}</p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={signOut}>
                   {t('settings.logOut')}
