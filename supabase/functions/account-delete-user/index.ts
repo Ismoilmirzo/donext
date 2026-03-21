@@ -16,6 +16,13 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS });
   }
 
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed.' }), {
+      status: 405,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  }
+
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
     return new Response(JSON.stringify({ error: 'Missing service role configuration.' }), {
       status: 500,
@@ -40,6 +47,15 @@ serve(async (req) => {
   if (userError || !userData?.user?.id) {
     return new Response(JSON.stringify({ error: 'Invalid authorization token.' }), {
       status: 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const body = await req.json().catch(() => null);
+  const confirmation = typeof body?.confirmation === 'string' ? body.confirmation.trim() : '';
+  if (confirmation !== 'DELETE') {
+    return new Response(JSON.stringify({ error: 'Account deletion requires explicit DELETE confirmation.' }), {
+      status: 400,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }

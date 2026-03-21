@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "qa:cleanup-users": "node scripts/qa/cleanup-users.mjs",
+    "qa:settings-export": "node scripts/qa/settings-export-safety-browser.mjs",
     "qa:telegram-auth": "node scripts/qa/telegram-auth-browser.mjs",
     "qa:seed:features": "node scripts/qa/seed-feature-10-14.mjs",
     "qa:features": "node scripts/qa/feature-10-14-browser.mjs"

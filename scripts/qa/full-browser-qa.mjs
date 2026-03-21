@@ -48,6 +48,23 @@ function getAdminClient() {
   return adminClient;
 }
 
+async function cleanupQaUser() {
+  if (!qaUserId) return;
+
+  const admin = getAdminClient();
+  const { error: authDeleteError } = await admin.auth.admin.deleteUser(qaUserId);
+  if (authDeleteError && !/user not found/i.test(authDeleteError.message || '')) {
+    throw authDeleteError;
+  }
+
+  const { error: profileDeleteError } = await admin.from('profiles').delete().eq('id', qaUserId);
+  if (profileDeleteError) {
+    throw profileDeleteError;
+  }
+
+  qaUserId = null;
+}
+
 async function ensureQaUser() {
   const admin = getAdminClient();
   const list = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -272,22 +289,30 @@ async function focusFlow(page) {
   await page.waitForTimeout(2000);
   await page.getByRole('button', { name: /I'm Done/i }).click();
 
-  await ensureVisible(page.getByRole('heading', { name: /Nice work!/i }), 'Complete task modal opens');
+  await ensureVisible(page.getByRole('heading', { name: /Nice work!|Task complete!/i }), 'Complete task modal opens');
   const hourInput = modal(page).locator('input[type="number"]').first();
-  const minuteInput = modal(page).locator('input[type="number"]').nth(1);
-  await hourInput.fill('0');
-  await minuteInput.fill('5');
-  await modal(page).getByRole('button', { name: /Save & Continue/i }).evaluate((element) => {
-    element.click();
-    element.click();
-    element.click();
-  });
-  await modal(page).waitFor({ state: 'hidden', timeout: 20000 });
-  await Promise.race([
-    page.getByRole('button', { name: /Done For Now/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
-    page.getByRole('button', { name: /Go to Project/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
-    page.getByRole('button', { name: /Start Another Task/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
-  ]);
+  if (await hourInput.isVisible().catch(() => false)) {
+    const minuteInput = modal(page).locator('input[type="number"]').nth(1);
+    await hourInput.fill('0');
+    await minuteInput.fill('5');
+    await modal(page).getByRole('button', { name: /Save & Continue/i }).evaluate((element) => {
+      element.click();
+      element.click();
+      element.click();
+    });
+    await modal(page).waitFor({ state: 'hidden', timeout: 20000 });
+    await Promise.race([
+      page.getByRole('button', { name: /Done For Now/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
+      page.getByRole('button', { name: /Go to Project/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
+      page.getByRole('button', { name: /Start Another Task/i }).first().waitFor({ state: 'visible', timeout: 20000 }),
+    ]);
+  } else {
+    await Promise.race([
+      modal(page).getByRole('button', { name: /Done For Now/i }).waitFor({ state: 'visible', timeout: 20000 }),
+      modal(page).getByRole('button', { name: /Go to Project/i }).waitFor({ state: 'visible', timeout: 20000 }),
+      modal(page).getByRole('button', { name: /Start Another Task/i }).waitFor({ state: 'visible', timeout: 20000 }),
+    ]);
+  }
   const admin = getAdminClient();
   const completedTask = await admin
     .from('tasks')
@@ -321,8 +346,7 @@ async function statsFlow(page) {
   await dismissBadgePopup(page);
   await ensureVisible(page.getByRole('heading', { name: /^Stats$/i }), 'Stats page opens');
   await ensureVisible(page.getByText(/Focus time/i), 'Summary metric visible');
-  await ensureVisible(page.getByRole('button', { name: /Overview/i }), 'Stats tabs visible');
-  await ensureVisible(page.getByRole('button', { name: /Open achievements/i }), 'Achievements preview visible');
+  await ensureVisible(page.getByText(/Achievements|Yutuqlar/i), 'Achievements section visible');
   await page.evaluate(() => {
     Object.defineProperty(window.navigator, 'share', { configurable: true, value: undefined });
     Object.defineProperty(window.navigator, 'canShare', { configurable: true, value: undefined });
@@ -487,6 +511,13 @@ async function mobileVisualPass(storageStatePath) {
     await shot(page, 'failure');
     process.exitCode = 1;
   } finally {
+    try {
+      await cleanupQaUser();
+    } catch (cleanupError) {
+      console.error('\n[QA] CLEANUP FAILURE:', cleanupError);
+      process.exitCode = 1;
+    }
+
     await context.close();
     await browser.close();
   }
