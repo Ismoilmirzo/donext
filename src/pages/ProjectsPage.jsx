@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react';
 import { ChevronDown, FolderKanban, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import CreateProjectModal from '../components/projects/CreateProjectModal';
 import ProjectCard from '../components/projects/ProjectCard';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import ConfirmActionModal from '../components/ui/ConfirmActionModal';
 import EmptyState from '../components/ui/EmptyState';
+import Input from '../components/ui/Input';
 import { ProjectsPageSkeleton } from '../components/ui/PageSkeletons';
 import { useLocale } from '../contexts/LocaleContext';
 import { useToast } from '../contexts/ToastContext';
 import { useProjects } from '../hooks/useProjects';
 
 export default function ProjectsPage() {
+  const navigate = useNavigate();
   const { t } = useLocale();
   const toast = useToast();
   const {
@@ -23,7 +26,6 @@ export default function ProjectsPage() {
     completeProject,
     archiveProject,
     reopenProject,
-    fetchProjects,
     checkForStaleProjects,
   } = useProjects();
   const [modalOpen, setModalOpen] = useState(false);
@@ -32,6 +34,7 @@ export default function ProjectsPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     void checkForStaleProjects();
@@ -39,15 +42,15 @@ export default function ProjectsPage() {
 
   async function handleCreate(payload) {
     setSaving(true);
-    const { error: createError } = await createProject(payload);
+    const { data, error: createError } = await createProject(payload);
     setSaving(false);
     if (createError) {
       toast.error(t('toasts.projectCreateFailed'), createError.message);
       return;
     }
     setModalOpen(false);
-    await fetchProjects();
     toast.success(t('toasts.projectCreated'), payload.title);
+    navigate(`/projects/${data.id}`);
   }
 
   if (loading) return <ProjectsPageSkeleton />;
@@ -82,6 +85,21 @@ export default function ProjectsPage() {
     pendingAction?.type === 'archive'
       ? t('projects.confirmArchiveBody', { title: pendingAction?.project?.title || '' })
       : t('projects.confirmRestoreBody', { title: pendingAction?.project?.title || '' });
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const matchesQuery = (project) =>
+    !normalizedQuery ||
+    project.title?.toLowerCase().includes(normalizedQuery) ||
+    project.description?.toLowerCase().includes(normalizedQuery);
+  const filteredActiveProjects = activeProjects.filter(matchesQuery);
+  const filteredCompletedProjects = completedProjects.filter(matchesQuery);
+  const filteredArchivedProjects = archivedProjects.filter(matchesQuery);
+  const hasSearch = Boolean(normalizedQuery);
+  const hasAnyFilteredProjects =
+    filteredActiveProjects.length || filteredCompletedProjects.length || filteredArchivedProjects.length;
+  const showCompletedSection = showCompleted || hasSearch;
+  const showArchivedSection = showArchived || hasSearch;
+  const showEmptyActiveState = !filteredActiveProjects.length && (!hasSearch || !hasAnyFilteredProjects);
+  const showActiveSearchEmptyState = hasSearch && !filteredActiveProjects.length && hasAnyFilteredProjects;
 
   return (
     <div className="space-y-4">
@@ -93,6 +111,16 @@ export default function ProjectsPage() {
             {t('projects.newProject')}
           </Button>
         </div>
+        {(activeProjects.length || completedProjects.length || archivedProjects.length) ? (
+          <div className="mt-3">
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t('projects.searchPlaceholder')}
+              aria-label={t('projects.searchPlaceholder')}
+            />
+          </div>
+        ) : null}
       </Card>
 
       {!activeProjects.length && !completedProjects.length && !archivedProjects.length && (
@@ -104,16 +132,20 @@ export default function ProjectsPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('projects.activeCount', { count: activeProjects.length })}</h2>
-        {!activeProjects.length ? (
+        {showEmptyActiveState ? (
           <EmptyState
             icon={<FolderKanban className="h-5 w-5 text-emerald-400" />}
-            title={t('projects.noProjectsTitle')}
-            message={t('projects.noProjectsMessage')}
-            ctaLabel={t('projects.createProject')}
-            onCta={() => setModalOpen(true)}
+            title={hasSearch ? t('projects.noSearchResultsTitle') : t('projects.noProjectsTitle')}
+            message={hasSearch ? t('projects.noSearchResults') : t('projects.noProjectsMessage')}
+            ctaLabel={hasSearch ? undefined : t('projects.createProject')}
+            onCta={hasSearch ? undefined : () => setModalOpen(true)}
           />
+        ) : showActiveSearchEmptyState ? (
+          <Card>
+            <p className="text-sm text-slate-500">{t('projects.noActiveSearchResults')}</p>
+          </Card>
         ) : (
-          activeProjects.map((project) => (
+          filteredActiveProjects.map((project) => (
             <ProjectCard
               key={project.id}
               project={project}
@@ -138,10 +170,10 @@ export default function ProjectsPage() {
           className="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500 transition-colors hover:text-slate-300"
         >
           {t('projects.completedCount', { count: completedProjects.length })}
-          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showCompleted ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showCompletedSection ? 'rotate-180' : ''}`} />
         </button>
-        {showCompleted &&
-          completedProjects.map((project) => (
+        {showCompletedSection &&
+          filteredCompletedProjects.map((project) => (
             <ProjectCard
               key={project.id}
               project={project}
@@ -157,11 +189,11 @@ export default function ProjectsPage() {
           className="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500 transition-colors hover:text-slate-300"
         >
           {t('projects.archivedCount', { count: archivedProjects.length })}
-          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showArchived ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showArchivedSection ? 'rotate-180' : ''}`} />
         </button>
-        {showArchived &&
-          (archivedProjects.length ? (
-            archivedProjects.map((project) => (
+        {showArchivedSection &&
+          (filteredArchivedProjects.length ? (
+            filteredArchivedProjects.map((project) => (
               <ProjectCard
                 key={project.id}
                 project={project}
@@ -170,7 +202,9 @@ export default function ProjectsPage() {
             ))
           ) : (
             <Card>
-              <p className="text-sm text-slate-500">{t('projects.noArchivedProjectsTitle')}</p>
+              <p className="text-sm text-slate-500">
+                {hasSearch ? t('projects.noSearchResults') : t('projects.noArchivedProjectsTitle')}
+              </p>
             </Card>
           ))}
       </section>

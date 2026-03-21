@@ -11,6 +11,7 @@ import StartTaskButton from '../components/focus/StartTaskButton';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
+import Input from '../components/ui/Input';
 import { FocusPageSkeleton } from '../components/ui/PageSkeletons';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
@@ -75,6 +76,7 @@ export default function FocusPage() {
   const [postCompleteState, setPostCompleteState] = useState(null);
   const [rerollsLeft, setRerollsLeft] = useState(1);
   const [manualOpen, setManualOpen] = useState(false);
+  const [manualQuery, setManualQuery] = useState('');
   const [pauseModalOpen, setPauseModalOpen] = useState(false);
   const [sessionAction, setSessionAction] = useState('');
   const [loading, setLoading] = useState(true);
@@ -163,7 +165,7 @@ export default function FocusPage() {
 
     setActiveSession(null);
     setRecoverySession(nextSession);
-  }, [toast, user]);
+  }, [t, toast, user]);
 
   const refreshFocusData = useCallback(async () => {
     await Promise.all([fetchProjects(), fetchEligible(), fetchRecentDone(), syncActiveSession()]);
@@ -231,6 +233,22 @@ export default function FocusPage() {
     () => todaysSessions.reduce((sum, session) => sum + (session.duration_minutes || 0), 0),
     [todaysSessions]
   );
+  const filteredEligible = useMemo(() => {
+    const query = manualQuery.trim().toLowerCase();
+    if (!query) return eligible;
+    return eligible.filter((pair) => {
+      const projectTitle = pair.project?.title?.toLowerCase() || '';
+      const taskTitle = pair.task?.title?.toLowerCase() || '';
+      const taskDescription = pair.task?.description?.toLowerCase() || '';
+      return projectTitle.includes(query) || taskTitle.includes(query) || taskDescription.includes(query);
+    });
+  }, [eligible, manualQuery]);
+
+  useEffect(() => {
+    if (!manualOpen && manualQuery) {
+      setManualQuery('');
+    }
+  }, [manualOpen, manualQuery]);
 
   function pickRandom(options = {}) {
     if (!eligible.length) return;
@@ -524,27 +542,38 @@ export default function FocusPage() {
 
               {manualOpen ? (
                 <div className="space-y-2 rounded-lg border border-slate-700 bg-slate-900/40 p-2">
-                  {eligible.map((pair) => (
-                    <button
-                      key={pair.project.id}
-                      type="button"
-                      onClick={() => {
-                        setSummaryState(null);
-                        setSelected(decoratePair(pair, 'manual'));
-                        setManualOpen(false);
-                      }}
-                      className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-left text-sm hover:bg-slate-700"
-                    >
-                      <p className="text-slate-200">{pair.project.title}</p>
-                      <p className="text-xs text-slate-400">
-                        {pair.project.effectivePriority === 'urgent'
-                          ? t('projects.priority.urgent')
-                          : t(`projects.priority.${pair.project.priority_tag || 'normal'}`)}
-                        {' | '}
-                        {pair.task.title}
-                      </p>
-                    </button>
-                  ))}
+                  <Input
+                    value={manualQuery}
+                    onChange={(event) => setManualQuery(event.target.value)}
+                    placeholder={t('focus.manualSearchPlaceholder')}
+                    aria-label={t('focus.manualSearchPlaceholder')}
+                    className="px-3 py-2"
+                  />
+                  {filteredEligible.length ? (
+                    filteredEligible.map((pair) => (
+                      <button
+                        key={pair.project.id}
+                        type="button"
+                        onClick={() => {
+                          setSummaryState(null);
+                          setSelected(decoratePair(pair, 'manual'));
+                          setManualOpen(false);
+                        }}
+                        className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-left text-sm hover:bg-slate-700"
+                      >
+                        <p className="text-slate-200">{pair.project.title}</p>
+                        <p className="text-xs text-slate-400">
+                          {pair.project.effectivePriority === 'urgent'
+                            ? t('projects.priority.urgent')
+                            : t(`projects.priority.${pair.project.priority_tag || 'normal'}`)}
+                          {' | '}
+                          {pair.task.title}
+                        </p>
+                      </button>
+                      ))
+                  ) : (
+                    <p className="px-1 py-2 text-sm text-slate-400">{t('focus.manualNoResults')}</p>
+                  )}
                 </div>
               ) : null}
             </Card>
@@ -555,6 +584,10 @@ export default function FocusPage() {
       {!activeSession && selected ? (
         <div className="space-y-3">
           <RandomProjectCard project={selected.project} task={selected.task} onStart={() => startSelected(selected)} />
+          <Card className="bg-slate-900/40 py-3">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t('focus.selectionReasonLabel')}</p>
+            <p className="mt-1 text-sm text-slate-300">{describeSelectionReason(selected, t)}</p>
+          </Card>
           <RerollButton
             remaining={rerollsLeft}
             hidden={eligible.length <= 1 || selected.selectionMode !== 'random'}
@@ -602,4 +635,31 @@ export default function FocusPage() {
       </Card>
     </div>
   );
+}
+
+function describeSelectionReason(selected, t) {
+  if (selected?.selectionMode === 'manual') {
+    return t('focus.selectionReasonManual', {
+      project: selected?.project?.title || '',
+      task: selected?.task?.title || '',
+    });
+  }
+
+  const project = selected?.project;
+  if (!project) return t('focus.selectionReasonBalance');
+  if (project.isOverdue || project.daysUntilDeadline === 0 || project.isDueSoon) {
+    return t('focus.selectionReasonDeadline');
+  }
+  if (project.effectivePriority === 'urgent') {
+    return t('focus.selectionReasonUrgent');
+  }
+  if (project.preferred_time && project.preferred_time !== 'any') {
+    return t('focus.selectionReasonPreferredTime', {
+      time: t(`projects.preferredTime.${project.preferred_time}`),
+    });
+  }
+  if ((project.completedTasks || 0) > 0 || (selected?.task?.sessions_count || 0) > 0) {
+    return t('focus.selectionReasonMomentum');
+  }
+  return t('focus.selectionReasonBalance');
 }

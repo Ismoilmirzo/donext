@@ -33,7 +33,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useHabits } from '../hooks/useHabits';
 import { useStats } from '../hooks/useStats';
 import { useWeeklyGoal } from '../hooks/useWeeklyGoal';
-import { toISODate } from '../lib/dates';
+import { formatMinutesHuman, toISODate } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { getWeeklyReportStats } from '../lib/weeklyReport';
@@ -41,6 +41,8 @@ import { getWeeklyReportStats } from '../lib/weeklyReport';
 const REPORT_WIDTH = 540;
 const REPORT_HEIGHT = 720;
 const SHARE_LINK = 'https://donext.uz';
+const STATS_PERIOD_STORAGE_KEY = 'donext:stats-period';
+const STATS_TAB_STORAGE_KEY = 'donext:stats-tab';
 
 function canvasToBlob(canvas, type, quality) {
   return new Promise((resolve, reject) => {
@@ -87,8 +89,10 @@ export default function StatsPage() {
   const weeklyGoal = useWeeklyGoal();
   const reportRef = useRef(null);
 
-  const [period, setPeriod] = useState('week');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [period, setPeriod] = useState(() => readStoredStatsValue(STATS_PERIOD_STORAGE_KEY, ['week', 'month'], 'week'));
+  const [activeTab, setActiveTab] = useState(() =>
+    readStoredStatsValue(STATS_TAB_STORAGE_KEY, ['overview', 'focus', 'habits', 'achievements'], 'overview')
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [shareLoading, setShareLoading] = useState(false);
@@ -124,6 +128,16 @@ export default function StatsPage() {
       }
     };
   }, [sharePreviewAsset]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(STATS_PERIOD_STORAGE_KEY, period);
+  }, [period]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(STATS_TAB_STORAGE_KEY, activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     let mounted = true;
@@ -233,7 +247,7 @@ export default function StatsPage() {
     return () => {
       active = false;
     };
-  }, [currentStreak, locale, toast, user]);
+  }, [currentStreak, locale, t, toast, user]);
 
   const dailyRows = useMemo(() => {
     const range = getPeriodDates(period);
@@ -425,6 +439,16 @@ export default function StatsPage() {
     { label: t('stats.metricHabitRate'), value: `${habitData.overallRate || 0}%` },
     { label: t('stats.metricStreak'), value: `${currentStreak || 0}d` },
   ];
+  const focusDeltaSummary = deltaMinutes > 0
+    ? t('stats.quickFocusUp', { delta: formatMinutesHuman(deltaMinutes) })
+    : deltaMinutes < 0
+      ? t('stats.quickFocusDown', { delta: formatMinutesHuman(Math.abs(deltaMinutes)) })
+      : t('stats.quickFocusFlat');
+  const quickSummary = t('stats.quickSummary', {
+    focus: focusDeltaSummary,
+    tasks: projectData.tasksCompleted || 0,
+    habits: habitData.overallRate || 0,
+  });
 
   const tabs = [
     { id: 'overview', label: t('stats.tabOverview') },
@@ -475,6 +499,12 @@ export default function StatsPage() {
 
       {error ? <Card className="border-red-500/30 bg-red-500/10 text-sm text-red-200">{error}</Card> : null}
       {freezeNotice ? <Card className="dn-banner-info text-sm">{freezeNoticeText}</Card> : null}
+      {hasMeaningfulStats ? (
+        <Card className="border-slate-700 bg-slate-900/40">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t('stats.quickSummaryTitle')}</p>
+          <p className="mt-1 text-sm text-slate-200">{quickSummary}</p>
+        </Card>
+      ) : null}
 
       {!hasMeaningfulStats ? (
         <EmptyState title={t('stats.emptyTitle')} message={t('stats.emptyMessage')} />
@@ -684,4 +714,10 @@ export default function StatsPage() {
       ) : null}
     </div>
   );
+}
+
+function readStoredStatsValue(storageKey, allowedValues, fallback) {
+  if (typeof window === 'undefined') return fallback;
+  const value = window.localStorage.getItem(storageKey);
+  return allowedValues.includes(value) ? value : fallback;
 }

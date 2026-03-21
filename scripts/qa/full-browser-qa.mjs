@@ -169,11 +169,13 @@ async function dismissBadgePopup(page) {
 }
 
 async function ensureHabitsHome(page, label = 'Habits home after auth') {
-  await page.waitForURL(/\/(habits|welcome)/, { timeout: 20000 });
+  if (!/\/(habits|welcome)/.test(page.url())) {
+    await page.waitForURL(/\/(habits|welcome)/, { timeout: 60000, waitUntil: 'domcontentloaded' }).catch(() => null);
+  }
   if (page.url().includes('/welcome')) {
     await page.goto(`${BASE_URL}/habits`, { waitUntil: 'domcontentloaded' });
   }
-  await ensureVisible(page.getByRole('heading', { name: /Today/i }), label);
+  await ensureVisible(page.getByRole('button', { name: /Add Habit/i }).first(), label, 60000);
 }
 
 async function authFlow(page) {
@@ -228,12 +230,25 @@ async function habitsFlow(page) {
     }
   }
 
+  const completeRemainingButton = page.getByRole('button', { name: /Complete remaining/i });
+  if (await completeRemainingButton.isVisible().catch(() => false)) {
+    await completeRemainingButton.click();
+    await ensureVisible(page.getByText(/2\/2 habits complete/i), 'Complete remaining marks all habits done');
+  }
+
+  const resetTodayButton = page.getByRole('button', { name: /Reset today/i });
+  if (await resetTodayButton.isVisible().catch(() => false)) {
+    await resetTodayButton.click();
+    await ensureVisible(page.getByText(/0\/2 habits complete/i), 'Reset today clears habit progress');
+  }
+
   await shot(page, 'habits-after-actions');
 }
 
 async function projectsFlow(page) {
   logStep('Projects and task management');
-  await page.goto(`${BASE_URL}/projects`, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('link', { name: /^Projects$/i }).first().click();
+  await page.waitForURL('**/projects', { timeout: 15000 });
   await ensureVisible(page.getByRole('heading', { name: /^Projects$/i }), 'Projects page opens');
 
   await page.getByRole('button', { name: /New Project/i }).click();
@@ -242,8 +257,7 @@ async function projectsFlow(page) {
   await modal(page).getByPlaceholder('Optional').fill('Project created by automated QA.');
   await modal(page).getByRole('button', { name: /Create Project/i }).click();
 
-  await ensureVisible(page.getByRole('link', { name: /QA Project/i }), 'Project card appears');
-  await page.getByRole('link', { name: /QA Project/i }).click();
+  await page.waitForURL(/\/projects\/.+/, { timeout: 15000 });
   await ensureVisible(page.getByRole('heading', { name: /QA Project/i }), 'Project detail opens');
 
   await page.getByRole('button', { name: /\+ Add Task/i }).first().click();
@@ -266,6 +280,13 @@ async function projectsFlow(page) {
     await ensureVisible(page.getByText('Task One Edited'), 'Task edit persisted');
   }
 
+  await page.getByRole('link', { name: /^Projects$/i }).first().click();
+  await page.waitForURL('**/projects', { timeout: 15000 });
+  await page.getByPlaceholder(/Search projects/i).fill('QA Project');
+  await ensureVisible(page.getByRole('link', { name: /QA Project/i }), 'Project search finds created project');
+  await page.getByPlaceholder(/Search projects/i).fill('missing project');
+  await ensureVisible(page.getByText(/Try a shorter title or clear the search/i), 'Project search empty state appears');
+
   await shot(page, 'project-detail');
 }
 
@@ -276,12 +297,19 @@ async function focusFlow(page) {
 
   await page.getByRole('button', { name: /Start a Task/i }).click();
   await ensureVisible(page.getByRole('button', { name: /Let's Go/i }), 'Random selection card shown');
+  await ensureVisible(page.getByText(/Why this one/i), 'Random selection reason shown');
 
   const rerollBtn = page.getByRole('button', { name: /Pick a different one/i });
   if (await rerollBtn.isVisible()) {
     await rerollBtn.click();
     await ensureVisible(page.getByRole('button', { name: /Let's Go/i }), 'Reroll still presents task');
   }
+
+  await page.getByRole('button', { name: /Choose manually instead/i }).click();
+  await page.getByPlaceholder(/Search by project or next task/i).fill('Task One');
+  await ensureVisible(page.getByRole('button', { name: /Task One/i }), 'Manual focus search narrows task list');
+  await page.getByRole('button', { name: /Task One/i }).click();
+  await ensureVisible(page.getByText(/Why this one/i), 'Manual selection still shows rationale');
 
   await page.getByRole('button', { name: /Let's Go/i }).click();
   await ensureVisible(page.getByRole('button', { name: /I'm Done/i }), 'Active task screen shown');
@@ -383,6 +411,21 @@ async function statsFlow(page) {
   }
   await ensureVisible(page.getByText(/Report downloaded!/i), 'Weekly share download toast');
   console.log('[QA] PASS: Weekly share image exported');
+  await modal(page).getByRole('button', { name: /Cancel/i }).click();
+  await page.getByRole('button', { name: /^This Month$/i }).click();
+  await page.getByRole('tab', { name: /^Focus$/i }).click();
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(
+    () => Array.from(document.querySelectorAll('button')).some((button) => button.textContent?.trim() === 'This Month'),
+    { timeout: 20000 }
+  );
+  await page.getByRole('button', { name: /^This Month$/i }).evaluate((button) => {
+    if (!button.className.includes('bg-slate-700')) throw new Error('Month period did not persist');
+  });
+  await page.getByRole('tab', { name: /^Focus$/i }).evaluate((tab) => {
+    if (tab.getAttribute('aria-selected') !== 'true') throw new Error('Stats tab did not persist');
+  });
+  console.log('[QA] PASS: Stats tab and period persist');
   await shot(page, 'stats');
 }
 

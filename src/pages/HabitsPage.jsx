@@ -48,6 +48,7 @@ export default function HabitsPage() {
   const [saving, setSaving] = useState(false);
   const [pendingHabitAction, setPendingHabitAction] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [bulkAction, setBulkAction] = useState('');
   const todayIso = toISODate(new Date());
 
   useEffect(() => {
@@ -66,6 +67,9 @@ export default function HabitsPage() {
   const completed = habits.filter((habit) => checkedMap[habit.id]).length;
   const total = habits.length;
   const percent = total ? Math.round((completed / total) * 100) : 0;
+  const remainingHabits = habits.filter((habit) => !checkedMap[habit.id]);
+  const completedHabits = habits.filter((habit) => checkedMap[habit.id]);
+  const nextHabit = remainingHabits[0] || null;
   const todayLabel = new Intl.DateTimeFormat(getLocaleTag(locale), {
     weekday: 'long',
     month: 'short',
@@ -125,6 +129,32 @@ export default function HabitsPage() {
     toast.success(editingHabit ? t('toasts.habitUpdated') : t('toasts.habitAdded'), payload.title);
   }
 
+  async function handleBulkToggle(targetChecked) {
+    const targetHabits = targetChecked ? remainingHabits : completedHabits;
+    if (!targetHabits.length) return;
+
+    setBulkAction(targetChecked ? 'complete' : 'reset');
+    const results = await Promise.all(
+      targetHabits.map((habit) => toggleHabit(habit.id, todayIso, !targetChecked))
+    );
+    setBulkAction('');
+
+    const failed = results.find((result) => result?.error);
+    if (failed?.error) {
+      toast.error(t('toasts.habitActionFailed'), failed.error.message);
+      return;
+    }
+
+    toast.success(
+      targetChecked ? t('toasts.habitsCompletedRemaining') : t('toasts.habitsResetToday'),
+      t('habits.summary', {
+        completed: targetChecked ? total : 0,
+        total,
+        percent: targetChecked && total ? 100 : 0,
+      })
+    );
+  }
+
   async function handleHabitAction() {
     if (!pendingHabitAction?.habit) return;
     setActionLoading(true);
@@ -169,6 +199,38 @@ export default function HabitsPage() {
         <div className="mt-3">
           <ProgressBar value={percent} max={100} />
         </div>
+        {total ? (
+          <div className="mt-3 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-700 bg-slate-900/40 px-4 py-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t('habits.remainingToday', { count: remainingHabits.length })}</p>
+              <p className="mt-1 text-sm text-slate-200">
+                {nextHabit ? t('habits.nextUp', { title: nextHabit.title }) : t('habits.allDoneToday')}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {remainingHabits.length ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={bulkAction === 'complete'}
+                  onClick={() => void handleBulkToggle(true)}
+                >
+                  {t('habits.completeRemaining')}
+                </Button>
+              ) : null}
+              {completedHabits.length ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  loading={bulkAction === 'reset'}
+                  onClick={() => void handleBulkToggle(false)}
+                >
+                  {t('habits.resetToday')}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
         <div className="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs" style={{ borderColor: 'rgb(var(--dn-accent-rgb) / 0.2)', background: 'rgb(var(--dn-accent-rgb) / 0.1)', color: 'color-mix(in srgb, var(--dn-accent) 32%, var(--dn-text))' }}>
           <Snowflake className="h-3.5 w-3.5" />
           <span>{t('habits.freezeInventoryValue', { available: streak.availableFreezes, total: streak.storageCap })}</span>

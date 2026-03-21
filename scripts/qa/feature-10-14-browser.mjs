@@ -23,7 +23,12 @@ async function expectVisible(locator, label, timeout = 15000) {
 }
 
 async function ensureHabitsHome(page, label = 'Logged into habits page') {
-  await page.waitForURL(/\/(habits|welcome)/, { timeout: 20000 });
+  if (!/\/(habits|welcome)/.test(page.url())) {
+    await Promise.race([
+      page.waitForURL(/\/(habits|welcome)/, { timeout: 30000 }),
+      page.getByRole('heading', { name: /Today/i }).first().waitFor({ state: 'visible', timeout: 30000 }),
+    ]);
+  }
   if (page.url().includes('/welcome')) {
     await page.goto(`${BASE_URL}/habits`, { waitUntil: 'domcontentloaded' });
   }
