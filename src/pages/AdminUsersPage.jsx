@@ -81,7 +81,7 @@ export default function AdminUsersPage() {
           method,
           headers: {
             apikey: supabaseAnonKey,
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${supabaseAnonKey}`,
             'x-user-jwt': token,
             'Content-Type': 'application/json',
           },
