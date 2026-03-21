@@ -5,6 +5,7 @@ import TelegramLoginWidget from '../components/auth/TelegramLoginWidget';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import LocaleSwitcher from '../components/ui/LocaleSwitcher';
 import ThemeToggle from '../components/ui/ThemeToggle';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,7 +14,7 @@ import { useTelegramAuth } from '../hooks/useTelegramAuth';
 import { supabase } from '../lib/supabase';
 
 export default function AuthPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const { t } = useLocale();
   const telegramAuth = useTelegramAuth();
   const [mode, setMode] = useState('signup');
@@ -140,6 +141,10 @@ export default function AuthPage() {
     setTelegramBootstrapping(true);
     void handleTelegramMiniAppSignIn().finally(() => setTelegramBootstrapping(false));
   }, [handleTelegramMiniAppSignIn, telegramAuth.hasMiniApp]);
+
+  if (authLoading || (user && !profile)) {
+    return <LoadingSpinner fullScreen label={t('common.loading')} />;
+  }
 
   if (user) return <Navigate to={profile?.onboarding_done ? '/habits' : '/welcome'} replace />;
 
