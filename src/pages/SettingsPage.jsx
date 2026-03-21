@@ -13,8 +13,12 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { useProfile } from '../hooks/useProfile';
 import { useProjects } from '../hooks/useProjects';
+import { useTelegramAccount } from '../hooks/useTelegramAccount';
+import { useTelegramAuth } from '../hooks/useTelegramAuth';
 import { isConfiguredAdmin } from '../lib/admin';
 import { supabase } from '../lib/supabase';
+import { isTelegramPlaceholderEmail } from '../lib/telegram';
+import TelegramLoginWidget from '../components/auth/TelegramLoginWidget';
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
@@ -22,6 +26,8 @@ export default function SettingsPage() {
   const { theme, setTheme, themes } = useTheme();
   const { profile, loading: profileLoading, updateProfile } = useProfile();
   const { archivedProjects, reopenProject } = useProjects();
+  const { telegramAccount, loading: telegramLoading, refetch: refetchTelegramAccount } = useTelegramAccount();
+  const telegramAuth = useTelegramAuth();
   const toast = useToast();
   const canAccessAdmin = isConfiguredAdmin(user);
 
@@ -36,8 +42,40 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [exportCooldown, setExportCooldown] = useState(false);
   const [dangerOpen, setDangerOpen] = useState(false);
+  const telegramOnlyAccount = isTelegramPlaceholderEmail(user?.email);
 
   if (profileLoading) return <SettingsPageSkeleton />;
+
+  function formatLinkedTimestamp(value) {
+    if (!value) return '-';
+    return new Date(value).toLocaleString();
+  }
+
+  async function handleTelegramLink(authData) {
+    try {
+      await telegramAuth.linkLoginWidgetTelegram(authData);
+      await refetchTelegramAccount();
+      setStatusMessage(t('settings.telegramLinked'));
+      toast.success(t('settings.telegramLinked'));
+    } catch (issue) {
+      const message = issue.message || t('settings.telegramLinkFailed');
+      setError(message);
+      toast.error(message);
+    }
+  }
+
+  async function handleMiniAppTelegramLink() {
+    try {
+      await telegramAuth.linkCurrentMiniAppTelegram();
+      await refetchTelegramAccount();
+      setStatusMessage(t('settings.telegramLinked'));
+      toast.success(t('settings.telegramLinked'));
+    } catch (issue) {
+      const message = issue.message || t('settings.telegramLinkFailed');
+      setError(message);
+      toast.error(message);
+    }
+  }
 
   async function saveProfile() {
     setError('');
@@ -211,7 +249,57 @@ export default function SettingsPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{t('sections.personal')}</p>
         <h2 className="text-base font-semibold text-slate-100">{t('settings.profile')}</h2>
         <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} onBlur={saveProfile} />
-        <Input value={user?.email || ''} disabled />
+        {telegramOnlyAccount ? (
+          <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-3 py-3">
+            <p className="text-sm text-slate-100">{t('settings.telegramManagedAccount')}</p>
+            <p className="mt-1 text-xs text-slate-400">
+              {telegramAccount?.telegram_username
+                ? t('settings.telegramManagedAccountWithHandle', { username: `@${telegramAccount.telegram_username}` })
+                : t('settings.telegramManagedAccountHint')}
+            </p>
+          </div>
+        ) : (
+          <Input value={user?.email || ''} disabled />
+        )}
+      </Card>
+
+      <Card className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{t('sections.personal')}</p>
+        <h2 className="text-base font-semibold text-slate-100">{t('settings.telegramAccess')}</h2>
+        {telegramAccount ? (
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-4">
+            <p className="text-sm font-medium text-emerald-100">
+              {telegramAccount.telegram_username
+                ? t('settings.telegramLinkedHandle', { username: `@${telegramAccount.telegram_username}` })
+                : t('settings.telegramLinkedNoHandle')}
+            </p>
+            <p className="mt-1 text-xs text-emerald-100/80">
+              {t('settings.telegramLinkedAt', { value: formatLinkedTimestamp(telegramAccount.linked_at) })}
+            </p>
+            <p className="mt-1 text-xs text-emerald-100/80">
+              {t('settings.telegramLastLogin', { value: formatLinkedTimestamp(telegramAccount.last_login_at) })}
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-slate-400">{t('settings.telegramDescription')}</p>
+            {telegramLoading ? (
+              <p className="text-sm text-slate-400">{t('settings.telegramLoading')}</p>
+            ) : telegramAuth.hasMiniApp ? (
+              <div className="space-y-2">
+                <Button variant="secondary" onClick={() => void handleMiniAppTelegramLink()} loading={telegramAuth.loading}>
+                  {t('settings.linkCurrentTelegram')}
+                </Button>
+                <p className="text-xs text-slate-500">{t('settings.telegramMiniAppLinkHint')}</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <TelegramLoginWidget className="flex justify-start" disabled={telegramAuth.loading} onAuth={(authData) => void handleTelegramLink(authData)} />
+                <p className="text-xs text-slate-500">{t('settings.telegramLinkHint')}</p>
+              </div>
+            )}
+          </>
+        )}
       </Card>
 
       <Card className="space-y-3">

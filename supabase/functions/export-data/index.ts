@@ -58,6 +58,7 @@ serve(async (req) => {
 
   const [
     profileRes,
+    telegramRes,
     habitsRes,
     habitLogsRes,
     projectsRes,
@@ -68,6 +69,7 @@ serve(async (req) => {
     freezesRes,
   ] = await Promise.all([
     adminClient.from('profiles').select('*').eq('id', userId).maybeSingle(),
+    adminClient.from('telegram_accounts').select('*').eq('auth_user_id', userId).maybeSingle(),
     adminClient.from('habits').select('*').eq('user_id', userId).order('sort_order'),
     adminClient.from('habit_logs').select('*').eq('user_id', userId).order('date'),
     adminClient.from('projects').select('*').eq('user_id', userId).order('created_at'),
@@ -80,6 +82,7 @@ serve(async (req) => {
 
   const firstError = [
     profileRes.error,
+    telegramRes.error,
     habitsRes.error,
     habitLogsRes.error,
     projectsRes.error,
@@ -108,6 +111,13 @@ serve(async (req) => {
       display_name: profileRes.data?.display_name,
       created_at: profileRes.data?.created_at,
       random_without_reroll_count: profileRes.data?.random_without_reroll_count || 0,
+      telegram: telegramRes.data
+        ? {
+            linked_at: telegramRes.data.linked_at,
+            telegram_user_id: telegramRes.data.telegram_user_id,
+            username: telegramRes.data.telegram_username,
+          }
+        : null,
     },
     habits: habitsRes.data || [],
     habit_logs: habitLogsRes.data || [],

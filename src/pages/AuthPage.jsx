@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
+import TelegramLoginWidget from '../components/auth/TelegramLoginWidget';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
@@ -8,11 +9,13 @@ import LocaleSwitcher from '../components/ui/LocaleSwitcher';
 import ThemeToggle from '../components/ui/ThemeToggle';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { useTelegramAuth } from '../hooks/useTelegramAuth';
 import { supabase } from '../lib/supabase';
 
 export default function AuthPage() {
   const { user, profile } = useAuth();
   const { t } = useLocale();
+  const telegramAuth = useTelegramAuth();
   const [mode, setMode] = useState('signup');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -26,6 +29,9 @@ export default function AuthPage() {
   const [googleEnabled, setGoogleEnabled] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [telegramBridge, setTelegramBridge] = useState(null);
+  const [telegramBootstrapping, setTelegramBootstrapping] = useState(false);
+  const miniAppAttemptedRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -66,6 +72,7 @@ export default function AuthPage() {
     setMode(nextMode);
     setPendingVerification(false);
     setVerificationCode('');
+    setTelegramBridge(null);
     setError('');
     setMessage('');
   }
@@ -80,6 +87,59 @@ export default function AuthPage() {
     }
     return { label: t('passwordStrength.weak'), width: '36%', className: 'bg-red-400' };
   }, [password, t]);
+
+  const handleTelegramResult = useCallback(
+    (payload, context) => {
+      if (payload?.status === 'unlinked') {
+        setTelegramBridge({
+          authData: context?.authData || null,
+          provider: context?.provider || 'login_widget',
+          telegram: payload.telegram || null,
+        });
+        return;
+      }
+
+      setTelegramBridge(null);
+      setError('');
+      setMessage(t('auth.telegramSuccess'));
+    },
+    [t]
+  );
+
+  const handleTelegramMiniAppSignIn = useCallback(
+    async ({ allowCreate = false } = {}) => {
+      setError('');
+      setMessage('');
+      try {
+        const payload = await telegramAuth.signInWithMiniApp({ allowCreate });
+        handleTelegramResult(payload, { provider: 'miniapp' });
+      } catch (issue) {
+        setError(issue.message || t('auth.telegramFailed'));
+      }
+    },
+    [handleTelegramResult, t, telegramAuth]
+  );
+
+  const handleTelegramWidgetAuth = useCallback(
+    async (authData, { allowCreate = false } = {}) => {
+      setError('');
+      setMessage('');
+      try {
+        const payload = await telegramAuth.signInWithLoginWidget(authData, { allowCreate });
+        handleTelegramResult(payload, { authData, provider: 'login_widget' });
+      } catch (issue) {
+        setError(issue.message || t('auth.telegramFailed'));
+      }
+    },
+    [handleTelegramResult, t, telegramAuth]
+  );
+
+  useEffect(() => {
+    if (!telegramAuth.hasMiniApp || miniAppAttemptedRef.current) return;
+    miniAppAttemptedRef.current = true;
+    setTelegramBootstrapping(true);
+    void handleTelegramMiniAppSignIn().finally(() => setTelegramBootstrapping(false));
+  }, [handleTelegramMiniAppSignIn, telegramAuth.hasMiniApp]);
 
   if (user) return <Navigate to={profile?.onboarding_done ? '/habits' : '/welcome'} replace />;
 
@@ -339,17 +399,74 @@ export default function AuthPage() {
           )}
         </form>
 
-        <div className="my-4 flex items-center gap-2">
-          <div className="h-px flex-1 bg-slate-700"></div>
-          <span className="text-xs text-slate-500">{t('common.or')}</span>
-          <div className="h-px flex-1 bg-slate-700"></div>
-        </div>
+        {!pendingVerification && (
+          <>
+            <div className="my-4 flex items-center gap-2">
+              <div className="h-px flex-1 bg-slate-700"></div>
+              <span className="text-xs text-slate-500">{t('common.or')}</span>
+              <div className="h-px flex-1 bg-slate-700"></div>
+            </div>
 
-        <Button variant="secondary" className="w-full" onClick={handleGoogleAuth} disabled={loading || googleEnabled === false}>
-          {t('auth.continueWithGoogle')}
-        </Button>
-        {googleEnabled === false && <p className="mt-3 text-sm text-amber-300">{t('auth.googleDisabled')}</p>}
-        {googleEnabled !== false && <p className="mt-3 text-sm text-slate-400">{t('auth.googleHelper')}</p>}
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/60 px-4 py-4">
+                <div className="space-y-3">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-100">{t('auth.continueWithTelegram')}</h2>
+                    <p className="mt-1 text-sm text-slate-400">
+                      {telegramAuth.hasMiniApp ? t('auth.telegramMiniAppHelper') : t('auth.telegramHelper')}
+                    </p>
+                  </div>
+
+                  {telegramAuth.hasMiniApp && telegramBootstrapping ? (
+                    <p className="text-sm text-emerald-300">{t('auth.telegramChecking')}</p>
+                  ) : telegramBridge ? (
+                    <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                      <div>
+                        <p className="text-sm font-medium text-amber-100">{t('auth.telegramUnlinkedTitle')}</p>
+                        <p className="mt-1 text-sm text-amber-50/90">{t('auth.telegramUnlinkedBody')}</p>
+                      </div>
+                      {telegramBridge?.telegram?.username && (
+                        <p className="text-xs text-amber-100/80">@{telegramBridge.telegram.username}</p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="primary"
+                          onClick={() =>
+                            telegramBridge.provider === 'miniapp'
+                              ? void handleTelegramMiniAppSignIn({ allowCreate: true })
+                              : void handleTelegramWidgetAuth(telegramBridge.authData, { allowCreate: true })
+                          }
+                          loading={telegramAuth.loading}
+                        >
+                          {t('auth.telegramCreateAccount')}
+                        </Button>
+                        <Button variant="secondary" onClick={() => setTelegramBridge(null)} disabled={telegramAuth.loading}>
+                          {t('auth.telegramUseDifferentMethod')}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-slate-300">{t('auth.telegramExistingAccountHint')}</p>
+                    </div>
+                  ) : telegramAuth.hasMiniApp ? (
+                    <Button variant="secondary" onClick={() => void handleTelegramMiniAppSignIn()} loading={telegramAuth.loading} className="w-full">
+                      {t('auth.continueWithTelegram')}
+                    </Button>
+                  ) : (
+                    <>
+                      <TelegramLoginWidget className="flex justify-center" disabled={telegramAuth.loading} onAuth={(authData) => void handleTelegramWidgetAuth(authData)} />
+                      <p className="text-xs text-slate-500">{t('auth.telegramWidgetHint')}</p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <Button variant="secondary" className="w-full" onClick={handleGoogleAuth} disabled={loading || googleEnabled === false}>
+                {t('auth.continueWithGoogle')}
+              </Button>
+              {googleEnabled === false && <p className="text-sm text-amber-300">{t('auth.googleDisabled')}</p>}
+              {googleEnabled !== false && <p className="text-sm text-slate-400">{t('auth.googleHelper')}</p>}
+            </div>
+          </>
+        )}
 
         {mode === 'login' && (
           <button onClick={handleForgotPassword} className="mt-4 text-sm text-slate-400 hover:text-slate-200">

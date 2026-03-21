@@ -38,6 +38,15 @@ These must exist in Vercel for `production` and `preview`:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_ADMIN_EMAILS`
+- `VITE_TELEGRAM_BOT_USERNAME`
+- `TELEGRAM_BOT_TOKEN`
+
+## Telegram auth setup
+
+- Bot username currently used by the app: `do_Next_bot`
+- In `@BotFather`, configure Web Login / domain access for `https://donext.uz`
+- Mini App auth uses the bot token server-side via the `telegram-auth` edge function
+- Website Telegram login uses Telegram's website login widget and must be allowed for the production origin
 
 ## Routing
 

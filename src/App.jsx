@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 import ProtectedRoute from './components/layout/ProtectedRoute';
@@ -9,6 +9,7 @@ import ToastViewport from './components/ui/ToastViewport';
 import { BadgeProvider } from './contexts/BadgeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useLocale } from './contexts/LocaleContext';
+import { isTelegramMiniApp } from './lib/telegram';
 
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
@@ -25,8 +26,12 @@ const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 function PublicOnlyRoute({ children }) {
   const { user, profile, loading } = useAuth();
   const { t } = useLocale();
+  const location = useLocation();
   if (loading) return <LoadingSpinner fullScreen label={t('common.loading')} />;
   if (user) return <Navigate to={profile?.onboarding_done ? '/habits' : '/welcome'} replace />;
+  if (location.pathname === '/' && isTelegramMiniApp()) {
+    return <Navigate to="/auth" replace />;
+  }
   return children;
 }
 
