@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
 
 const DAILY_LIMIT = 5;
@@ -26,7 +27,7 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS });
   }
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
     return jsonResponse({ error: 'Missing Supabase configuration.' }, 500);
   }
   if (!OPENROUTER_API_KEY) {
@@ -51,6 +52,10 @@ serve(async (req) => {
 
   const userId = userData.user.id;
 
+  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+
   // Parse request body
   let body: { title?: string; description?: string; locale?: string; deadline?: string };
   try {
@@ -64,8 +69,8 @@ serve(async (req) => {
     return jsonResponse({ error: 'Project title is required (min 2 characters).' }, 400);
   }
 
-  // Rate limiting: check profile counters
-  const { data: profile, error: profileError } = await userClient
+  // Rate limiting: check profile counters (use admin client to bypass RLS)
+  const { data: profile, error: profileError } = await adminClient
     .from('profiles')
     .select('ai_calls_today, ai_calls_month, ai_last_reset')
     .eq('id', userId)
@@ -180,7 +185,7 @@ serve(async (req) => {
   }
 
   // Update rate limit counters
-  await userClient
+  await adminClient
     .from('profiles')
     .update({
       ai_calls_today: callsToday + 1,
