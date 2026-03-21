@@ -50,7 +50,12 @@ export default function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState('');
   const [pendingAction, setPendingAction] = useState('');
 
-  const getAccessToken = useCallback(async () => {
+  const getAccessToken = useCallback(async (refresh = false) => {
+    if (refresh) {
+      const refreshRes = await supabase.auth.refreshSession();
+      return refreshRes.data.session?.access_token || '';
+    }
+
     const { data: sessionData } = await supabase.auth.getSession();
     return sessionData?.session?.access_token || '';
   }, []);
@@ -63,21 +68,34 @@ export default function AdminUsersPage() {
         throw new Error(t('adminUsers.missingConfig'));
       }
 
-      const accessToken = await getAccessToken();
+      let accessToken = await getAccessToken();
+      if (!accessToken) {
+        accessToken = await getAccessToken(true);
+      }
       if (!accessToken) {
         throw new Error(t('adminUsers.missingSession'));
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/admin-list-users`, {
-        method,
-        headers: {
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${supabaseAnonKey}`,
-          'x-user-jwt': accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
+      async function fetchAdminEndpoint(token) {
+        return fetch(`${supabaseUrl}/functions/v1/admin-list-users`, {
+          method,
+          headers: {
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${token}`,
+            'x-user-jwt': token,
+            'Content-Type': 'application/json',
+          },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+      }
+
+      let response = await fetchAdminEndpoint(accessToken);
+      if (response.status === 401) {
+        const refreshedToken = await getAccessToken(true);
+        if (refreshedToken) {
+          response = await fetchAdminEndpoint(refreshedToken);
+        }
+      }
 
       let payload = null;
       try {
