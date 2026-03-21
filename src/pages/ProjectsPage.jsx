@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FolderKanban, Plus } from 'lucide-react';
+import { ChevronDown, FolderKanban, Plus } from 'lucide-react';
 import CreateProjectModal from '../components/projects/CreateProjectModal';
 import ProjectCard from '../components/projects/ProjectCard';
 import Button from '../components/ui/Button';
@@ -135,9 +135,10 @@ export default function ProjectsPage() {
       <section className="space-y-3">
         <button
           onClick={() => setShowCompleted((prev) => !prev)}
-          className="text-sm font-semibold uppercase tracking-wide text-slate-500"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500 transition-colors hover:text-slate-300"
         >
-          {t('projects.completedCount', { count: completedProjects.length })} {showCompleted ? '▲' : '▼'}
+          {t('projects.completedCount', { count: completedProjects.length })}
+          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showCompleted ? 'rotate-180' : ''}`} />
         </button>
         {showCompleted &&
           completedProjects.map((project) => (
@@ -153,9 +154,10 @@ export default function ProjectsPage() {
       <section className="space-y-3">
         <button
           onClick={() => setShowArchived((prev) => !prev)}
-          className="text-sm font-semibold uppercase tracking-wide text-slate-500"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500 transition-colors hover:text-slate-300"
         >
-          {t('projects.archivedCount', { count: archivedProjects.length })} {showArchived ? '▲' : '▼'}
+          {t('projects.archivedCount', { count: archivedProjects.length })}
+          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showArchived ? 'rotate-180' : ''}`} />
         </button>
         {showArchived &&
           (archivedProjects.length ? (

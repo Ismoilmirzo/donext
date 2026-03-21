@@ -8,7 +8,8 @@ export default function StartTaskButton({ onClick, disabled = false }) {
     <Button
       onClick={onClick}
       disabled={disabled}
-      className="w-full py-4 text-lg shadow-lg shadow-emerald-500/20"
+      className="w-full py-4 text-lg"
+      style={{ boxShadow: '0 12px 28px rgb(var(--dn-accent-rgb) / 0.24)' }}
     >
       {t('focus.startTask')}
     </Button>

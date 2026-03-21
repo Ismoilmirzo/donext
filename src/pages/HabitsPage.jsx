@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarCheck2, Plus } from 'lucide-react';
+import { CalendarCheck2, Plus, Snowflake } from 'lucide-react';
 import { isYesterday, parseISO, startOfMonth } from 'date-fns';
 import AddHabitModal from '../components/habits/AddHabitModal';
 import HabitList from '../components/habits/HabitList';
@@ -167,10 +167,10 @@ export default function HabitsPage() {
         <div className="mt-3">
           <ProgressBar value={percent} max={100} />
         </div>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs text-sky-100">
-          <span>*</span>
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs" style={{ borderColor: 'rgb(var(--dn-accent-rgb) / 0.2)', background: 'rgb(var(--dn-accent-rgb) / 0.1)', color: 'color-mix(in srgb, var(--dn-accent) 32%, var(--dn-text))' }}>
+          <Snowflake className="h-3.5 w-3.5" />
           <span>{t('habits.freezeInventoryValue', { available: streak.availableFreezes, total: streak.storageCap })}</span>
-          <span className="text-sky-100/70">|</span>
+          <span style={{ opacity: 0.5 }}>|</span>
           <span>{freezeInventorySummary(streak, refillLabel, t)}</span>
         </div>
       </Card>

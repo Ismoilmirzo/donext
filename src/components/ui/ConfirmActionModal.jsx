@@ -22,7 +22,7 @@ export default function ConfirmActionModal({
           <Button variant="secondary" onClick={onClose} disabled={loading}>
             {cancelLabel}
           </Button>
-          <Button variant={confirmVariant} onClick={onConfirm} disabled={loading}>
+          <Button variant={confirmVariant} onClick={onConfirm} loading={loading}>
             {confirmLabel}
           </Button>
         </div>

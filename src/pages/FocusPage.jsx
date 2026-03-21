@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ListChecks, X } from 'lucide-react';
+import { ChevronDown, CircleDot, ListChecks, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ActiveTaskScreen from '../components/focus/ActiveTaskScreen';
 import PauseSessionModal from '../components/focus/PauseSessionModal';
@@ -477,10 +477,10 @@ export default function FocusPage() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <ul className="space-y-2 text-sm text-slate-300">
+              <ul className="space-y-2.5 text-sm text-slate-300">
                 {[t('focus.howItWorksPoint1'), t('focus.howItWorksPoint2'), t('focus.howItWorksPoint3')].map((item) => (
-                  <li key={item} className="flex gap-2">
-                    <span className="text-emerald-400">*</span>
+                  <li key={item} className="flex items-start gap-2.5">
+                    <CircleDot className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
                     <span>{item}</span>
                   </li>
                 ))}

@@ -9,8 +9,14 @@ export default function LoadingSpinner({ fullScreen = false, label }) {
   return (
     <div className={wrapperClass}>
       <div className="flex items-center gap-3">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-600 border-b-emerald-400"></div>
-        <span className="text-sm text-slate-400">{label || t('common.loading')}</span>
+        <div
+          className="h-7 w-7 animate-spin rounded-full border-2"
+          style={{
+            borderColor: 'var(--dn-border)',
+            borderBottomColor: 'var(--dn-accent)',
+          }}
+        />
+        <span className="text-sm" style={{ color: 'var(--dn-text-muted)' }}>{label || t('common.loading')}</span>
       </div>
     </div>
   );

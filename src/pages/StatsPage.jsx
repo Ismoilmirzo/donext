@@ -420,17 +420,17 @@ export default function StatsPage() {
     (projectData.tasksCompleted || 0) > 0;
 
   const summaryMetrics = [
-    { label: 'Focus time', value: `${focusData.focusMinutes || 0}m` },
-    { label: 'Tasks done', value: `${projectData.tasksCompleted || 0}` },
-    { label: 'Habit rate', value: `${habitData.overallRate || 0}%` },
-    { label: 'Streak', value: `${currentStreak || 0}d` },
+    { label: t('stats.metricFocusTime'), value: `${focusData.focusMinutes || 0}m` },
+    { label: t('stats.metricTasksDone'), value: `${projectData.tasksCompleted || 0}` },
+    { label: t('stats.metricHabitRate'), value: `${habitData.overallRate || 0}%` },
+    { label: t('stats.metricStreak'), value: `${currentStreak || 0}d` },
   ];
 
   const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'focus', label: 'Focus' },
-    { id: 'habits', label: 'Habits' },
-    { id: 'achievements', label: 'Achievements' },
+    { id: 'overview', label: t('stats.tabOverview') },
+    { id: 'focus', label: t('stats.tabFocus') },
+    { id: 'habits', label: t('stats.tabHabits') },
+    { id: 'achievements', label: t('stats.tabAchievements') },
   ];
   const canUseNativeShare =
     typeof navigator !== 'undefined' &&
@@ -445,7 +445,7 @@ export default function StatsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold text-slate-50">{t('stats.title')}</h1>
-            <p className="mt-1 text-sm text-slate-400">Keep this page for review, not hunting through a long feed.</p>
+            <p className="mt-1 text-sm text-slate-400">{t('stats.labelThisWeek')}</p>
           </div>
             <div className="flex flex-wrap items-center gap-2">
               {period === 'week' && weeklyReport?.hasShareableData ? (
@@ -492,14 +492,18 @@ export default function StatsPage() {
           </Card>
 
           <Card>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2" role="tablist">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`rounded-full px-4 py-2 text-sm font-medium ${
-                    activeTab === tab.id ? 'bg-slate-700 text-slate-100' : 'bg-slate-900/50 text-slate-400'
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                    activeTab === tab.id
+                      ? 'bg-slate-700 text-slate-100 shadow-sm'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-300'
                   }`}
                 >
                   {tab.label}
@@ -544,11 +548,11 @@ export default function StatsPage() {
                   <div>
                     <h3 className="text-base font-semibold text-slate-100">{t('stats.achievementsTitle')}</h3>
                     <p className="mt-1 text-sm text-slate-400">
-                      {unlockedCount}/{badges.length} unlocked
+                      {unlockedCount}/{badges.length}
                     </p>
                   </div>
                   <Button variant="secondary" onClick={() => setActiveTab('achievements')}>
-                    Open achievements
+                    {t('stats.tabAchievements')}
                   </Button>
                 </div>
               </Card>

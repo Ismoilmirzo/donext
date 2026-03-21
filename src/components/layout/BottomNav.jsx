@@ -12,12 +12,13 @@ export default function BottomNav({ summary }) {
   ];
 
   return (
-    <nav className="dn-shell-nav fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur md:hidden">
+    <nav className="dn-shell-nav fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur md:hidden" aria-label="Main navigation">
       <div className="mx-auto grid max-w-md grid-cols-4 px-2 py-2">
         {links.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}
+            aria-label={link.label}
             className={({ isActive }) =>
               `relative flex min-h-11 flex-col items-center justify-center rounded-2xl px-2 py-2 text-center text-xs font-medium transition-all ${
                 isActive ? 'dn-nav-item-active scale-[1.02]' : 'dn-nav-item'
@@ -27,15 +28,22 @@ export default function BottomNav({ summary }) {
             {({ isActive }) => (
               <>
                 <span
-                  className={`absolute left-1/2 top-1.5 h-1.5 w-10 -translate-x-1/2 rounded-full transition-opacity ${
-                    isActive ? 'bg-emerald-400 opacity-100' : 'opacity-0'
+                  className={`absolute left-1/2 top-1 h-[3px] w-8 -translate-x-1/2 rounded-full transition-all duration-200 ${
+                    isActive ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-0'
                   }`}
+                  style={{ background: isActive ? 'var(--dn-accent)' : 'transparent' }}
                   aria-hidden="true"
                 />
                 <link.Icon className="mx-auto mb-1 h-5 w-5" />
                 <span className="block">{link.label}</span>
                 {link.to === '/habits' && summary?.totalHabits ? (
-                  <span className="mt-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300">
+                  <span
+                    className="mt-1 rounded-full px-2 py-0.5 text-[10px]"
+                    style={{
+                      background: 'rgb(var(--dn-accent-rgb) / 0.15)',
+                      color: 'var(--dn-accent)',
+                    }}
+                  >
                     {summary.completedHabits}/{summary.totalHabits}
                   </span>
                 ) : null}

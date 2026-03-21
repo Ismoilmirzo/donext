@@ -172,19 +172,23 @@ export default function AppShell() {
 
   return (
     <div className="dn-page-shell min-h-screen">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:px-4 focus:py-2 focus:text-sm dn-button dn-button-primary">
+        Skip to content
+      </a>
       <div className="mx-auto flex w-full max-w-7xl">
         <aside className="dn-shell-panel sticky top-0 hidden h-screen w-64 flex-col border-r px-4 py-6 md:flex">
           <Link to="/habits" className="dn-brand mb-6 text-xl font-semibold">
             DoNext
           </Link>
           <div className="mb-5 h-px w-full bg-slate-700/70" />
-          <nav className="space-y-1">
+          <nav className="space-y-1" aria-label="Main navigation">
             {navLinks.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
+                aria-current={location.pathname === link.to ? 'page' : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                  `flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${
                     isActive ? 'dn-nav-item-active' : 'dn-nav-item'
                   }`
                 }
@@ -261,7 +265,7 @@ export default function AppShell() {
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-5xl px-4 pb-24 pt-6 sm:px-6 md:pb-8">
+          <main id="main-content" className="mx-auto w-full max-w-5xl px-4 pb-24 pt-6 sm:px-6 md:pb-8">
             {location.pathname !== '/welcome' && <DailySummaryBanner summary={summary} />}
             {!profile?.onboarding_done && location.pathname !== '/welcome' && (
               <div className="dn-onboarding-banner mb-4 rounded-xl border px-4 py-3 text-sm">
