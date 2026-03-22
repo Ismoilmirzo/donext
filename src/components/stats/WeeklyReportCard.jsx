@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 
 const CARD_WIDTH = 540;
 const CARD_HEIGHT = 720;
+const DAILY_BAR_MAX_HEIGHT = 68;
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const FALLBACK_PROJECT_GRADIENTS = {
   '#6366f1': ['#6366f1', '#818cf8'],
@@ -216,24 +217,36 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
           </StatCell>
         </div>
 
-        <div style={{ marginTop: 22 }}>
+        <div style={{ marginTop: 22, display: 'grid', gap: 12 }}>
           <div
             style={{
-              marginBottom: 12,
               fontSize: 11,
               fontWeight: 600,
               letterSpacing: '0.15em',
               textTransform: 'uppercase',
               color: '#8393ac',
+              lineHeight: 1.2,
+              position: 'relative',
+              zIndex: 2,
             }}
           >
             {translate('stats.reportDailyFocus')}
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 6,
+              minHeight: DAILY_BAR_MAX_HEIGHT + 18,
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
             {dailyFocusMinutes.map((minutes, index) => {
               const isFuture = index > todayIndex;
               const isBestDay = minutes > 0 && minutes === maxDailyMinutes;
-              const barHeight = isFuture ? 4 : Math.max(4, Math.round((Math.max(0, minutes) / maxDailyMinutes) * 80));
+              const barHeight =
+                isFuture ? 4 : Math.max(4, Math.round((Math.max(0, minutes) / maxDailyMinutes) * DAILY_BAR_MAX_HEIGHT));
               const barColor =
                 isFuture || minutes === 0 ? 'rgba(255,255,255,0.14)' : isBestDay ? '#34d399' : '#10b981';
 
@@ -245,19 +258,20 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
                     display: 'flex',
                     minWidth: 0,
                     flexDirection: 'column',
-                    justifyContent: 'flex-end',
                     alignItems: 'center',
                     gap: 6,
                   }}
                 >
-                  <div
-                    style={{
-                      width: '100%',
-                      height: barHeight,
-                      borderRadius: '4px 4px 0 0',
-                      background: barColor,
-                    }}
-                  />
+                  <div style={{ display: 'flex', width: '100%', height: DAILY_BAR_MAX_HEIGHT, alignItems: 'flex-end' }}>
+                    <div
+                      style={{
+                        width: '100%',
+                        height: barHeight,
+                        borderRadius: '4px 4px 0 0',
+                        background: barColor,
+                      }}
+                    />
+                  </div>
                   <span style={{ fontSize: 10, fontWeight: 500, color: isFuture ? '#667892' : '#8090aa' }}>{DAYS[index]}</span>
                 </div>
               );
