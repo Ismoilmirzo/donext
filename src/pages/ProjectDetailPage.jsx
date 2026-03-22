@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import AddTaskModal from '../components/projects/AddTaskModal';
 import AIBreakdownButton from '../components/projects/AIBreakdownButton';
@@ -66,21 +66,28 @@ export default function ProjectDetailPage() {
     });
   }, [tasks]);
 
-  // Load time estimates for pending tasks
-  const loadEstimates = useCallback(async () => {
-    if (!user || !tasks.length) return;
-    const pendingTasks = tasks.filter((t) => t.status !== 'completed');
-    const estimates = {};
-    for (const task of pendingTasks.slice(0, 10)) {
-      const result = await estimateTaskTime(task.title, user.id);
-      if (result.estimate) estimates[task.id] = result.estimate;
-    }
-    setTaskEstimates(estimates);
-  }, [tasks, user]);
+  // Load time estimates for pending tasks (stable key to avoid re-render loops)
+  const pendingTaskKey = useMemo(
+    () => tasks.filter((tk) => tk.status !== 'completed').slice(0, 10).map((tk) => tk.id).join(','),
+    [tasks]
+  );
 
   useEffect(() => {
-    void loadEstimates();
-  }, [loadEstimates]);
+    if (!user || !pendingTaskKey) return;
+    let active = true;
+    async function load() {
+      const ids = pendingTaskKey.split(',');
+      const pending = tasks.filter((tk) => ids.includes(tk.id));
+      const estimates = {};
+      for (const task of pending) {
+        const result = await estimateTaskTime(task.title, user.id);
+        if (result.estimate) estimates[task.id] = result.estimate;
+      }
+      if (active) setTaskEstimates(estimates);
+    }
+    void load();
+    return () => { active = false; };
+  }, [pendingTaskKey, user, tasks]);
 
   useEffect(() => {
     if (!projects.length) {
@@ -331,8 +338,8 @@ export default function ProjectDetailPage() {
   async function handleReplanProject() {
     if (!project || aiLoading) return;
     setAiLoading(true);
-    const completedTaskTitles = tasks.filter((t) => t.status === 'completed').map((t) => t.title);
-    const pendingTaskTitles = tasks.filter((t) => t.status !== 'completed').map((t) => t.title);
+    const completedTaskTitles = tasks.filter((tk) => tk.status === 'completed').map((tk) => tk.title);
+    const pendingTaskTitles = tasks.filter((tk) => tk.status !== 'completed').map((tk) => tk.title);
     const result = await replanProject({
       title: project.title,
       description: project.description || '',
@@ -447,7 +454,7 @@ export default function ProjectDetailPage() {
         </div>
       </Card>
 
-      <DeadlinePacingAlert project={project} />
+      <DeadlinePacingAlert project={{ ...project, totalTasks: total, completedTasks: completed, pendingTasks: total - completed }} />
 
       {hasStaleUntouched ? (
         <Card className="border-amber-500/20 bg-amber-500/5">

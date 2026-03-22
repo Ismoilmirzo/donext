@@ -62,7 +62,7 @@ export async function generateSessionInsights(summary, task, userId, t) {
         .gt('sessions_count', 0);
 
       if (avgData?.length >= 3) {
-        const avgSessions = avgData.reduce((s, t) => s + (Number(t.sessions_count) || 0), 0) / avgData.length;
+        const avgSessions = avgData.reduce((s, row) => s + (Number(row.sessions_count) || 0), 0) / avgData.length;
         if (sessionsCount > avgSessions * 1.5) {
           insights.push(t('insights.moreSessions', {
             count: sessionsCount,
@@ -81,7 +81,7 @@ export async function generateSessionInsights(summary, task, userId, t) {
 
       if (projectTasks?.length) {
         const total = projectTasks.length;
-        const completed = projectTasks.filter((t) => t.status === 'completed').length;
+        const completed = projectTasks.filter((row) => row.status === 'completed').length;
         if (completed > 0 && completed < total) {
           const pct = Math.round((completed / total) * 100);
           insights.push(t('insights.projectProgress', { completed, total, percent: pct }));

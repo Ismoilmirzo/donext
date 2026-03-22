@@ -9,7 +9,7 @@ export default function WeeklyPlanningCard({ activeProjects, weeklyGoal, focusSt
   const suggestions = getSuggestions(activeProjects, t);
 
   const remaining = weeklyGoal?.remainingMinutes ?? 0;
-  const sessionsNeeded = Math.max(1, Math.ceil(remaining / avgSession));
+  const sessionsNeeded = Math.max(0, Math.ceil(remaining / avgSession));
 
   const daysLeft = weeklyGoal?.daysLeft ?? 7;
   const sessionsPerDay = (sessionsNeeded / Math.max(1, daysLeft)).toFixed(1);
@@ -71,9 +71,9 @@ function getSuggestions(activeProjects, t) {
       ? differenceInCalendarDays(new Date(p.deadline_date), now)
       : Infinity;
     const isUrgent = p.effectivePriority === 'urgent' || p.priority_tag === 'urgent' || daysUntilDeadline <= 3;
-    const reason = isUrgent || daysUntilDeadline <= 7
+    const reason = daysUntilDeadline <= 7
       ? t('planning.deadlineReason')
-      : p.priority_tag === 'urgent'
+      : isUrgent
         ? t('planning.priorityReason')
         : t('planning.momentumReason');
 

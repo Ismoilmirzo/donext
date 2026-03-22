@@ -198,7 +198,9 @@ serve(async (req) => {
     const aiData = await aiResponse.json();
     const rawText = aiData?.choices?.[0]?.message?.content || '';
 
-    const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+    const startIdx = rawText.indexOf('[');
+    const endIdx = rawText.lastIndexOf(']');
+    const jsonMatch = startIdx !== -1 && endIdx > startIdx ? [rawText.slice(startIdx, endIdx + 1)] : null;
     if (!jsonMatch) {
       console.error('[ai-decompose] Could not parse AI response:', rawText);
       return jsonResponse({ error: 'AI returned an unexpected format.' }, 502);
