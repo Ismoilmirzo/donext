@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 
 /**
- * Estimate focus time for a task based on historical completion data.
+ * Estimate focus time for tasks based on historical completion data.
  * Pure rule-based — no LLM needed.
  */
 
@@ -36,38 +36,33 @@ function wordSimilarity(keywords1, keywords2) {
   return matches / Math.max(keywords1.length, keywords2.length);
 }
 
+function heuristicEstimate(title) {
+  const words = (title || '').split(/\s+/).length;
+  const heavy = /\b(research|design|write|build|implement|create|develop|analyze|review|test)\b/i;
+  const light = /\b(fix|update|add|rename|remove|delete|check|read|list)\b/i;
+  if (heavy.test(title)) return words > 5 ? 60 : 45;
+  if (light.test(title)) return 15;
+  return words > 6 ? 45 : 30;
+}
+
 /**
- * Estimate minutes for a task based on historical data.
- * @param {string} taskTitle
- * @param {string} userId
- * @returns {Promise<{ estimate: number|null, confidence: string, basedOn: number }>}
+ * Estimate a single task from pre-fetched history (pure, no DB call).
  */
-export async function estimateTaskTime(taskTitle, userId) {
-  if (!userId || !taskTitle) return { estimate: null, confidence: 'none', basedOn: 0 };
-
-  const { data: completedTasks } = await supabase
-    .from('tasks')
-    .select('title,total_focus_minutes,total_elapsed_minutes,sessions_count')
-    .eq('user_id', userId)
-    .eq('status', 'completed')
-    .gt('total_focus_minutes', 0)
-    .limit(200);
-
+function estimateFromHistory(taskTitle, completedTasks) {
   if (!completedTasks?.length) {
-    // Fallback: estimate based on task title heuristics
     return { estimate: heuristicEstimate(taskTitle), confidence: 'low', basedOn: 0 };
   }
 
   const targetKeywords = extractKeywords(taskTitle);
   if (!targetKeywords.length) {
-    const avgMinutes = completedTasks.reduce((s, t) => s + (t.total_focus_minutes || 0), 0) / completedTasks.length;
+    const avgMinutes = completedTasks.reduce((s, row) => s + (row.total_focus_minutes || 0), 0) / completedTasks.length;
     return { estimate: closestBucket(avgMinutes), confidence: 'low', basedOn: completedTasks.length };
   }
 
   const scored = completedTasks
-    .map((task) => ({
-      minutes: task.total_focus_minutes || 0,
-      similarity: wordSimilarity(targetKeywords, extractKeywords(task.title)),
+    .map((row) => ({
+      minutes: row.total_focus_minutes || 0,
+      similarity: wordSimilarity(targetKeywords, extractKeywords(row.title)),
     }))
     .filter((item) => item.similarity > 0)
     .sort((a, b) => b.similarity - a.similarity);
@@ -84,17 +79,33 @@ export async function estimateTaskTime(taskTitle, userId) {
     return { estimate: closestBucket(avgMinutes), confidence: 'medium', basedOn: scored.length };
   }
 
-  const avgMinutes = completedTasks.reduce((s, t) => s + (t.total_focus_minutes || 0), 0) / completedTasks.length;
+  const avgMinutes = completedTasks.reduce((s, row) => s + (row.total_focus_minutes || 0), 0) / completedTasks.length;
   return { estimate: closestBucket(avgMinutes), confidence: 'low', basedOn: completedTasks.length };
 }
 
-function heuristicEstimate(title) {
-  const words = (title || '').split(/\s+/).length;
-  const heavy = /\b(research|design|write|build|implement|create|develop|analyze|review|test)\b/i;
-  const light = /\b(fix|update|add|rename|remove|delete|check|read|list)\b/i;
-  if (heavy.test(title)) return words > 5 ? 60 : 45;
-  if (light.test(title)) return 15;
-  return words > 6 ? 45 : 30;
+/**
+ * Batch estimate for multiple tasks — single DB query.
+ * @param {{ id: string, title: string }[]} pendingTasks
+ * @param {string} userId
+ * @returns {Promise<Record<string, number>>} Map of taskId -> estimated minutes
+ */
+export async function estimateTaskTimes(pendingTasks, userId) {
+  if (!userId || !pendingTasks?.length) return {};
+
+  const { data: completedTasks } = await supabase
+    .from('tasks')
+    .select('title,total_focus_minutes')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .gt('total_focus_minutes', 0)
+    .limit(200);
+
+  const estimates = {};
+  for (const task of pendingTasks) {
+    const result = estimateFromHistory(task.title, completedTasks);
+    if (result.estimate) estimates[task.id] = result.estimate;
+  }
+  return estimates;
 }
 
 /**

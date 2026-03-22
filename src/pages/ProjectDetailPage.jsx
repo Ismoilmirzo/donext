@@ -24,7 +24,7 @@ import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { getTaskElapsedMinutes, getTaskFocusMinutes } from '../lib/taskSessions';
-import { estimateTaskTime } from '../lib/timeEstimates';
+import { estimateTaskTimes } from '../lib/timeEstimates';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
@@ -66,7 +66,7 @@ export default function ProjectDetailPage() {
     });
   }, [tasks]);
 
-  // Load time estimates for pending tasks (stable key to avoid re-render loops)
+  // Load time estimates for pending tasks (single DB query via batch)
   const pendingTaskKey = useMemo(
     () => tasks.filter((tk) => tk.status !== 'completed').slice(0, 10).map((tk) => tk.id).join(','),
     [tasks]
@@ -75,19 +75,13 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (!user || !pendingTaskKey) return;
     let active = true;
-    async function load() {
-      const ids = pendingTaskKey.split(',');
-      const pending = tasks.filter((tk) => ids.includes(tk.id));
-      const estimates = {};
-      for (const task of pending) {
-        const result = await estimateTaskTime(task.title, user.id);
-        if (result.estimate) estimates[task.id] = result.estimate;
-      }
-      if (active) setTaskEstimates(estimates);
-    }
-    void load();
+    const pending = tasks.filter((tk) => tk.status !== 'completed').slice(0, 10);
+    void estimateTaskTimes(pending, user.id).then((result) => {
+      if (active) setTaskEstimates(result);
+    });
     return () => { active = false; };
-  }, [pendingTaskKey, user, tasks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingTaskKey, user?.id]);
 
   useEffect(() => {
     if (!projects.length) {

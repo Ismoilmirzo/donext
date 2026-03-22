@@ -52,18 +52,18 @@ export default function ProjectsPage() {
       toast.error(t('toasts.projectCreateFailed'), createError.message);
       return;
     }
-    // Insert template tasks if provided
+    // Insert template tasks if provided (batch insert)
     if (_templateTasks?.length && data?.id && user) {
-      for (let i = 0; i < _templateTasks.length; i++) {
-        await supabase.from('tasks').insert({
+      await supabase.from('tasks').insert(
+        _templateTasks.map((tmpl, i) => ({
           user_id: user.id,
           project_id: data.id,
-          title: _templateTasks[i].title,
-          description: _templateTasks[i].description || '',
+          title: tmpl.title,
+          description: tmpl.description || '',
           sort_order: i + 1,
           status: 'pending',
-        });
-      }
+        }))
+      );
     }
     setSaving(false);
     setModalOpen(false);
