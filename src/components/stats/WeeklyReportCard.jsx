@@ -26,7 +26,7 @@ function formatDuration(minutes) {
 function truncateProjectName(value, maxLength = 34) {
   const text = String(value || '').trim();
   if (text.length <= maxLength) return text;
-  return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+  return `${text.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
 }
 
 function normalizeHex(value, fallback = '#10b981') {

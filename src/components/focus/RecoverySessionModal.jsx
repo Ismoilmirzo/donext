@@ -1,12 +1,14 @@
 import { useLocale } from '../../contexts/LocaleContext';
 import { formatMinutesHuman, formatRelativeTime } from '../../lib/dates';
-import { calculateSessionMetrics } from '../../lib/taskSessions';
+import { calculateSessionMetrics, getCurrentSegment } from '../../lib/taskSessions';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 
 export default function RecoverySessionModal({ open, session, onResolve, loading = false }) {
   const { t } = useLocale();
-  const metrics = calculateSessionMetrics(session, new Date());
+  const currentSegment = getCurrentSegment(session?.segments);
+  const recoveryCutoff = currentSegment?.start || session?.started_at || new Date().toISOString();
+  const metrics = calculateSessionMetrics(session, recoveryCutoff);
   const taskTitle = session?.task?.title || t('focus.recoveryFallbackTask');
 
   return (

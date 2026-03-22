@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { getStoredLocale, translate } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 
@@ -34,6 +34,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const authRequestIdRef = useRef(0);
+  const pendingProfileTimeoutRef = useRef(null);
 
   const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
@@ -96,6 +98,13 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const nextUser = session?.user ?? null;
+      authRequestIdRef.current += 1;
+      const requestId = authRequestIdRef.current;
+      if (pendingProfileTimeoutRef.current) {
+        clearTimeout(pendingProfileTimeoutRef.current);
+        pendingProfileTimeoutRef.current = null;
+      }
+
       setLoading(true);
       setUser(nextUser);
       if (!nextUser) {
@@ -106,20 +115,34 @@ export function AuthProvider({ children }) {
 
       setProfile(null);
 
-      setTimeout(() => {
+      pendingProfileTimeoutRef.current = setTimeout(() => {
+        if (!active || authRequestIdRef.current !== requestId) return;
         void ensureProfile(nextUser)
-          .then((ensured) => setProfile(ensured))
+          .then((ensured) => {
+            if (active && authRequestIdRef.current === requestId) {
+              setProfile(ensured);
+            }
+          })
           .catch((error) => {
             if (import.meta.env.DEV) {
               console.error('[auth] onAuthStateChange ensureProfile failed', error);
             }
           })
-          .finally(() => setLoading(false));
+          .finally(() => {
+            if (active && authRequestIdRef.current === requestId) {
+              setLoading(false);
+            }
+          });
       }, 0);
     });
 
     return () => {
       active = false;
+      authRequestIdRef.current += 1;
+      if (pendingProfileTimeoutRef.current) {
+        clearTimeout(pendingProfileTimeoutRef.current);
+        pendingProfileTimeoutRef.current = null;
+      }
       subscription.unsubscribe();
     };
   }, []);

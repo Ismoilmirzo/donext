@@ -91,9 +91,28 @@ export default function ProjectDetailPage() {
     return () => {
       active = false;
     };
-  }, [id, toast, user]);
+  }, [id, t, toast, user]);
 
-  if (loading || !project) return <ProjectDetailSkeleton />;
+  if (loading) return <ProjectDetailSkeleton />;
+
+  if (!project) {
+    return (
+      <div className="space-y-4">
+        <Card className="text-center">
+          <h1 className="text-xl font-semibold text-slate-50">{t('projects.projectNotFoundTitle')}</h1>
+          <p className="mt-2 text-sm text-slate-400">{t('projects.projectNotFoundBody')}</p>
+          <div className="mt-4">
+            <Link
+              to="/projects"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-100 transition-colors hover:border-slate-600 hover:bg-slate-800"
+            >
+              {t('projects.backToProjects')}
+            </Link>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   const completed = tasks.filter((task) => task.status === 'completed').length;
   const total = tasks.length;

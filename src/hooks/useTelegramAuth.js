@@ -6,6 +6,24 @@ export function useTelegramAuth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const getAccessToken = useCallback(async ({ refresh = false } = {}) => {
+    let accessToken = '';
+    if (!refresh) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      accessToken = sessionData?.session?.access_token || '';
+      if (accessToken) return accessToken;
+    }
+
+    const refreshRes = await supabase.auth.refreshSession();
+    accessToken = refreshRes.data.session?.access_token || '';
+    return accessToken;
+  }, []);
+
+  const isAuthTokenError = useCallback((issue) => {
+    const message = String(issue?.message || '').toLowerCase();
+    return /no active session|invalid authorization token|jwt|token/i.test(message);
+  }, []);
+
   const signIn = useCallback(async ({ provider, allowCreate = false, authData = null, initData = '' }) => {
     setLoading(true);
     setError('');
@@ -58,19 +76,35 @@ export function useTelegramAuth() {
     setError('');
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token || '';
-      if (!accessToken) {
-        throw new Error('No active session. Please log in again.');
-      }
+      const invokeLink = async () => {
+        const accessToken = await getAccessToken();
+        if (!accessToken) {
+          throw new Error('No active session. Please log in again.');
+        }
 
-      return await invokeTelegramAuthEndpoint({
-        accessToken,
-        action: 'link',
-        authData,
-        initData,
-        provider,
-      });
+        return invokeTelegramAuthEndpoint({
+          accessToken,
+          action: 'link',
+          authData,
+          initData,
+          provider,
+        });
+      };
+
+      try {
+        return await invokeLink();
+      } catch (issue) {
+        if (!isAuthTokenError(issue)) throw issue;
+        const refreshedToken = await getAccessToken({ refresh: true });
+        if (!refreshedToken) throw issue;
+        return invokeTelegramAuthEndpoint({
+          accessToken: refreshedToken,
+          action: 'link',
+          authData,
+          initData,
+          provider,
+        });
+      }
     } catch (issue) {
       const message = issue.message || 'Telegram link failed.';
       setError(message);
@@ -78,7 +112,7 @@ export function useTelegramAuth() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getAccessToken, isAuthTokenError]);
 
   const linkCurrentMiniAppTelegram = useCallback(
     async () =>

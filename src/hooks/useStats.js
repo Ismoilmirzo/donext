@@ -133,7 +133,7 @@ export function useStats() {
     const completedTasks = (tasks || []).filter((task) => task.status === 'completed');
     const totalFocusMinutes = completedTasks.reduce((sum, task) => sum + getTaskFocusMinutes(task), 0);
     const totalSpentMinutes = completedTasks.reduce((sum, task) => sum + getTaskElapsedMinutes(task), 0);
-    const totalSessions = completedTasks.reduce((sum, task) => sum + Math.max(1, Number(task.sessions_count) || 0), 0);
+    const totalSessions = completedTasks.reduce((sum, task) => sum + (Number(task.sessions_count) || 0), 0);
     const efficiencyRate = totalSpentMinutes > 0 ? (totalFocusMinutes / totalSpentMinutes) * 100 : 0;
 
     const now = new Date();

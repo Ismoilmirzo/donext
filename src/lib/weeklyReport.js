@@ -109,6 +109,6 @@ export async function getWeeklyReportStats(userId, streak = 0, localeTag = 'en-U
     dailyFocusMinutes,
     todayIndex,
     projectBreakdown: Object.values(projectMap).sort((a, b) => b.minutes - a.minutes),
-    hasShareableData: focusMinutes > 0 || (tasksRes.data || []).length > 0 || (logsRes.data || []).length > 0,
+    hasShareableData: focusMinutes > 0 || completedTasks.length > 0 || (logsRes.data || []).length > 0,
   };
 }

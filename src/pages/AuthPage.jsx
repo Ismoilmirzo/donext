@@ -149,12 +149,16 @@ export default function AuthPage() {
   if (user) return <Navigate to={profile?.onboarding_done ? '/habits' : '/welcome'} replace />;
 
   async function handleForgotPassword() {
-    if (!email) {
+    setError('');
+    setMessage('');
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
       setError(t('auth.enterEmailFirst'));
       return;
     }
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
       redirectTo: getAuthRedirectUrl(),
     });
     if (resetError) {

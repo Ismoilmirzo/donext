@@ -65,7 +65,7 @@ function getPeriodDates(mode) {
   if (mode === 'month') {
     return {
       start: startOfMonth(now),
-      end: endOfMonth(now),
+      end: now,
       prevStart: startOfMonth(subMonths(now, 1)),
       prevEnd: endOfMonth(subMonths(now, 1)),
     };
@@ -77,6 +77,29 @@ function getPeriodDates(mode) {
     prevStart: startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 }),
     prevEnd: endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 }),
   };
+}
+
+function buildTrendRows(rows = [], localeTag) {
+  const endWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const startWeek = addDays(endWeek, -49);
+  const weeklyMap = new Map();
+
+  rows.forEach((row) => {
+    if (!row?.date) return;
+    const weekStart = toISODate(startOfWeek(parseISO(row.date), { weekStartsOn: 1 }));
+    weeklyMap.set(weekStart, (weeklyMap.get(weekStart) || 0) + (row.duration_minutes || 0));
+  });
+
+  const result = [];
+  for (let cursor = startWeek; cursor <= endWeek; cursor = addDays(cursor, 7)) {
+    const key = toISODate(cursor);
+    result.push({
+      label: new Intl.DateTimeFormat(localeTag, { month: 'short', day: 'numeric' }).format(cursor),
+      minutes: weeklyMap.get(key) || 0,
+    });
+  }
+
+  return result;
 }
 
 export default function StatsPage() {
@@ -159,7 +182,7 @@ export default function StatsPage() {
 
       await fetchHabitLogs(startIso, endIso);
 
-      const trendStart = toISODate(addDays(new Date(), -56));
+      const trendStart = toISODate(addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), -49));
       const trendEnd = toISODate(new Date());
       const trendRes = await supabase
         .from('focus_sessions')
@@ -194,23 +217,7 @@ export default function StatsPage() {
         }
       );
 
-      const weeklyMap = {};
-      (trendRes.data || []).forEach((row) => {
-        const weekStart = startOfWeek(parseISO(row.date), { weekStartsOn: 1 });
-        const key = toISODate(weekStart);
-        if (!weeklyMap[key]) {
-          weeklyMap[key] = {
-            label: new Intl.DateTimeFormat(getLocaleTag(locale), { month: 'short', day: 'numeric' }).format(weekStart),
-            minutes: 0,
-          };
-        }
-        weeklyMap[key].minutes += row.duration_minutes || 0;
-      });
-      setMonthlyTrendRows(
-        Object.entries(weeklyMap)
-          .sort(([a], [b]) => (a < b ? -1 : 1))
-          .map(([, value]) => value)
-      );
+      setMonthlyTrendRows(buildTrendRows(trendRes.data || [], getLocaleTag(locale)));
       setLoading(false);
     }
 
@@ -381,7 +388,7 @@ export default function StatsPage() {
       const asset = await ensureShareAsset();
       await navigator.share({
         files: [asset.file],
-        title: `${t('common.appName')} · ${t('stats.reportTitle')}`,
+        title: `${t('common.appName')} - ${t('stats.reportTitle')}`,
         text: SHARE_LINK,
       });
       toast.success(t('stats.shareTitle'), t('stats.shareShared'));
@@ -432,11 +439,12 @@ export default function StatsPage() {
     (focusData.totalMinutes || 0) > 0 ||
     (habitData.perHabit?.length || 0) > 0 ||
     (projectData.tasksCompleted || 0) > 0;
+  const roundedHabitRate = Math.round(habitData.overallRate || 0);
 
   const summaryMetrics = [
     { label: t('stats.metricFocusTime'), value: `${focusData.focusMinutes || 0}m` },
     { label: t('stats.metricTasksDone'), value: `${projectData.tasksCompleted || 0}` },
-    { label: t('stats.metricHabitRate'), value: `${habitData.overallRate || 0}%` },
+    { label: t('stats.metricHabitRate'), value: `${roundedHabitRate}%` },
     { label: t('stats.metricStreak'), value: `${currentStreak || 0}d` },
   ];
   const focusDeltaSummary = deltaMinutes > 0
@@ -447,7 +455,7 @@ export default function StatsPage() {
   const quickSummary = t('stats.quickSummary', {
     focus: focusDeltaSummary,
     tasks: projectData.tasksCompleted || 0,
-    habits: habitData.overallRate || 0,
+    habits: roundedHabitRate,
   });
 
   const tabs = [

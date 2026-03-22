@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import Button from '../components/ui/Button';
@@ -43,6 +43,10 @@ export default function SettingsPage() {
   const [exportCooldown, setExportCooldown] = useState(false);
   const [dangerOpen, setDangerOpen] = useState(false);
   const telegramOnlyAccount = isTelegramPlaceholderEmail(user?.email);
+
+  useEffect(() => {
+    setDisplayName(profile?.display_name || '');
+  }, [profile?.display_name]);
 
   if (profileLoading) return <SettingsPageSkeleton />;
 

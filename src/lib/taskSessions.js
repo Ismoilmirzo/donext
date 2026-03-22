@@ -1,4 +1,5 @@
 import { toISODate } from './dates';
+import { APP_EVENTS, emitAppEvent } from './appEvents';
 import { supabase } from './supabase';
 
 export const ACTIVE_SESSION_STORAGE_KEY = 'donext:active-task-session';
@@ -269,7 +270,22 @@ export async function startTaskSession({ userId, task }) {
     .eq('id', currentTask.id)
     .eq('user_id', userId);
 
-  if (taskUpdateError) return { data: null, error: taskUpdateError };
+  if (taskUpdateError) {
+    const { error: cleanupError } = await supabase
+      .from('task_sessions')
+      .delete()
+      .eq('id', insertedSession.id)
+      .eq('user_id', userId);
+
+    if (cleanupError) {
+      return {
+        data: null,
+        error: new Error(`${taskUpdateError.message || 'Task update failed'}; cleanup failed: ${cleanupError.message}`),
+      };
+    }
+
+    return { data: null, error: taskUpdateError };
+  }
 
   const sessionResult = await fetchTaskSessionById(insertedSession.id, userId);
   if (sessionResult.data?.id) {
@@ -351,6 +367,8 @@ async function finalizeTask(session, userId, mode, endedAt) {
 
   await refreshProjectCompletionState(userId, session.project_id || task.project_id);
   storeActiveSessionId(null);
+  emitAppEvent(APP_EVENTS.dailySummaryRefresh);
+  emitAppEvent(APP_EVENTS.badgeCheckRequested, { trigger: 'focus_completed' });
 
   const sessionResult = await fetchTaskSessionById(session.id, userId);
   return {
@@ -410,6 +428,7 @@ export async function resolveOrphanTaskSession(session, userId, action) {
 
     await refreshProjectCompletionState(userId, session.project_id || task?.project_id);
     storeActiveSessionId(null);
+    emitAppEvent(APP_EVENTS.dailySummaryRefresh);
     return { data: { action: 'discard' }, error: null };
   }
 
