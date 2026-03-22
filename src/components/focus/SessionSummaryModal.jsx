@@ -1,11 +1,29 @@
+import { useEffect, useState } from 'react';
+import { Lightbulb } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { useLocale } from '../../contexts/LocaleContext';
 import { formatMinutesHuman } from '../../lib/dates';
+import { generateSessionInsights } from '../../lib/sessionInsights';
 import { getTaskElapsedMinutes, getTaskFocusMinutes } from '../../lib/taskSessions';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 
 export default function SessionSummaryModal({ open, onClose, onPrimary, primaryLabel, task, summary, loading = false }) {
   const { t } = useLocale();
+  const { user } = useAuth();
+  const [insights, setInsights] = useState([]);
+
+  useEffect(() => {
+    if (!open || !summary || !task || !user) {
+      setInsights([]);
+      return;
+    }
+    let active = true;
+    void generateSessionInsights(summary, task, user.id, t).then((result) => {
+      if (active) setInsights(result);
+    });
+    return () => { active = false; };
+  }, [open, summary, task, user, t]);
 
   if (!summary || !task) return null;
 
@@ -54,6 +72,20 @@ export default function SessionSummaryModal({ open, onClose, onPrimary, primaryL
               <p>{t('focus.summaryFocus', { value: formatMinutesHuman(totalFocusMinutes) })}</p>
               <p>{t('focus.summaryElapsed', { value: formatMinutesHuman(totalElapsedMinutes) })}</p>
             </div>
+          </div>
+        ) : null}
+
+        {insights.length > 0 ? (
+          <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 px-4 py-4">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-indigo-400" />
+              <p className="text-xs uppercase tracking-[0.2em] text-indigo-300">{t('insights.title')}</p>
+            </div>
+            <ul className="mt-3 space-y-2">
+              {insights.map((insight, i) => (
+                <li key={i} className="text-sm text-slate-300">{insight}</li>
+              ))}
+            </ul>
           </div>
         ) : null}
       </div>

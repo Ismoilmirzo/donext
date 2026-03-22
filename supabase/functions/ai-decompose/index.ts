@@ -22,6 +22,60 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+interface RequestBody {
+  title?: string;
+  description?: string;
+  locale?: string;
+  deadline?: string;
+  mode?: 'decompose' | 'split' | 'clarify' | 'replan';
+  taskTitle?: string;
+  completedTasks?: string[];
+  pendingTasks?: string[];
+}
+
+function buildPrompt(body: RequestBody): { system: string; user: string } {
+  const { title, description, locale, deadline, mode, taskTitle, completedTasks, pendingTasks } = body;
+  const isUzbek = locale === 'uz';
+  const deadlineNote = deadline ? `\nDeadline: ${deadline}` : '';
+  const descriptionNote = description ? `\nDescription: ${description}` : '';
+
+  switch (mode) {
+    case 'split': {
+      const system = isUzbek
+        ? `Siz mahsuldorlik ilovasi yordamchisisiz. Foydalanuvchi bitta vazifani beradi. Uni 2-3 ta kichikroq, aniq vazifalarga ajrating. Har birini fe'l bilan boshlang. Javobni faqat JSON massiv sifatida bering: [{"title": "...", "description": "..."}, ...]. Boshqa matn qo'shmang.`
+        : `You are a productivity assistant. The user gives a single task that is too large. Split it into 2-3 smaller, specific tasks. Start each with an action verb. Respond ONLY with a JSON array: [{"title": "...", "description": "..."}, ...]. No other text.`;
+      const user = `Project: ${title}\nTask to split: ${taskTitle}${descriptionNote}`;
+      return { system, user };
+    }
+
+    case 'clarify': {
+      const system = isUzbek
+        ? `Siz mahsuldorlik ilovasi yordamchisisiz. Foydalanuvchi noaniq vazifani beradi. Uni aniq harakatga ega vazifaga qayta yozing. Natijada aniq maqsad va bajariladigan qadam bo'lishi kerak. Javobni faqat JSON massiv sifatida bering: [{"title": "...", "description": "..."}]. Boshqa matn qo'shmang.`
+        : `You are a productivity assistant. The user gives a vague task. Rewrite it as a clear, actionable task with a specific deliverable and concrete next step. Respond ONLY with a JSON array: [{"title": "...", "description": "..."}]. No other text.`;
+      const user = `Project: ${title}\nVague task: ${taskTitle}${descriptionNote}`;
+      return { system, user };
+    }
+
+    case 'replan': {
+      const completedList = (completedTasks || []).map((t) => `  - [done] ${t}`).join('\n');
+      const pendingList = (pendingTasks || []).map((t) => `  - [stale] ${t}`).join('\n');
+      const system = isUzbek
+        ? `Siz mahsuldorlik ilovasi yordamchisisiz. Loyihada ba'zi vazifalar bajarilgan, qolganlari eskirgan. Qolgan ishni 3-8 ta yangi, aniq vazifalarga qayta rejalashtiring. Bajarilganlarni takrorlamang. Javobni faqat JSON massiv sifatida bering: [{"title": "...", "description": "..."}, ...]. Boshqa matn qo'shmang.`
+        : `You are a productivity assistant. A project has some completed tasks and remaining stale tasks. Re-plan the remaining work into 3-8 fresh, actionable tasks. Do not repeat completed work. Consider what the user has already accomplished. Respond ONLY with a JSON array: [{"title": "...", "description": "..."}, ...]. No other text.`;
+      const user = `Project: ${title}${descriptionNote}${deadlineNote}\n\nCompleted tasks:\n${completedList || '  (none)'}\n\nStale/pending tasks:\n${pendingList || '  (none)'}`;
+      return { system, user };
+    }
+
+    default: {
+      const system = isUzbek
+        ? `Siz mahsuldorlik ilovasi yordamchisisiz. Foydalanuvchi loyiha sarlavhasi va tavsifini beradi. Loyihani 4-10 ta aniq, bajariladigan vazifalarga ajrating. Har bir vazifa bitta fokus sessiyasida bajarilishi kerak. Fe'l bilan boshlang ("Yozish...", "O'rganish...", "Sozlash..."). Quyi vazifalar yoki murakkab tuzilmalar yaratmang. Javobni faqat JSON massiv sifatida bering: [{"title": "...", "description": "..."}, ...]. Boshqa matn qo'shmang.`
+        : `You are a productivity app assistant. The user gives a project title and description. Break the project into 4-10 clear, actionable tasks. Each task should be completable in one focus session. Start with action verbs ("Write...", "Research...", "Set up..."). Do not create sub-tasks or complex structures. Respond ONLY with a JSON array: [{"title": "...", "description": "..."}, ...]. No other text.`;
+      const user = `Project: ${title?.trim()}${descriptionNote}${deadlineNote}`;
+      return { system, user };
+    }
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS });
@@ -57,19 +111,24 @@ serve(async (req) => {
   });
 
   // Parse request body
-  let body: { title?: string; description?: string; locale?: string; deadline?: string };
+  let body: RequestBody;
   try {
     body = await req.json();
   } catch {
     return jsonResponse({ error: 'Invalid JSON body.' }, 400);
   }
 
-  const { title, description, locale, deadline } = body;
-  if (!title || typeof title !== 'string' || title.trim().length < 2) {
+  const { title, mode } = body;
+  // For split/clarify mode, taskTitle is required instead of project title
+  const needsTitle = mode !== 'split' && mode !== 'clarify';
+  if (needsTitle && (!title || typeof title !== 'string' || title.trim().length < 2)) {
     return jsonResponse({ error: 'Project title is required (min 2 characters).' }, 400);
   }
+  if ((mode === 'split' || mode === 'clarify') && (!body.taskTitle || body.taskTitle.trim().length < 2)) {
+    return jsonResponse({ error: 'Task title is required for split/clarify mode.' }, 400);
+  }
 
-  // Rate limiting: check profile counters (use admin client to bypass RLS)
+  // Rate limiting
   const { data: profile, error: profileError } = await adminClient
     .from('profiles')
     .select('ai_calls_today, ai_calls_month, ai_last_reset')
@@ -88,14 +147,8 @@ serve(async (req) => {
   let callsToday = profile?.ai_calls_today || 0;
   let callsMonth = profile?.ai_calls_month || 0;
 
-  // Reset daily counter if it's a new day
-  if (lastReset !== today) {
-    callsToday = 0;
-  }
-  // Reset monthly counter if it's a new month
-  if (lastResetMonth !== currentMonth) {
-    callsMonth = 0;
-  }
+  if (lastReset !== today) callsToday = 0;
+  if (lastResetMonth !== currentMonth) callsMonth = 0;
 
   if (callsToday >= DAILY_LIMIT) {
     return jsonResponse({
@@ -112,16 +165,8 @@ serve(async (req) => {
     }, 429);
   }
 
-  // Build prompt
-  const isUzbek = locale === 'uz';
-  const deadlineNote = deadline ? `\nDeadline: ${deadline}` : '';
-  const descriptionNote = description ? `\nDescription: ${description}` : '';
-
-  const systemPrompt = isUzbek
-    ? `Siz mahsuldorlik ilovasi yordamchisisiz. Foydalanuvchi loyiha sarlavhasi va tavsifini beradi. Loyihani 4-10 ta aniq, bajariladigan vazifalarga ajrating. Har bir vazifa bitta fokus sessiyasida bajarilishi kerak. Fe'l bilan boshlang ("Yozish...", "O'rganish...", "Sozlash..."). Quyi vazifalar yoki murakkab tuzilmalar yaratmang. Javobni faqat JSON massiv sifatida bering: [{"title": "...", "description": "..."}, ...]. Boshqa matn qo'shmang.`
-    : `You are a productivity app assistant. The user gives a project title and description. Break the project into 4-10 clear, actionable tasks. Each task should be completable in one focus session. Start with action verbs ("Write...", "Research...", "Set up..."). Do not create sub-tasks or complex structures. Respond ONLY with a JSON array: [{"title": "...", "description": "..."}, ...]. No other text.`;
-
-  const userMessage = `Project: ${title.trim()}${descriptionNote}${deadlineNote}`;
+  // Build prompt based on mode
+  const { system: systemPrompt, user: userMessage } = buildPrompt(body);
 
   // Call OpenRouter API
   let tasks: Array<{ title: string; description?: string }>;
@@ -153,7 +198,6 @@ serve(async (req) => {
     const aiData = await aiResponse.json();
     const rawText = aiData?.choices?.[0]?.message?.content || '';
 
-    // Extract JSON array from response (handle markdown code blocks)
     const jsonMatch = rawText.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
       console.error('[ai-decompose] Could not parse AI response:', rawText);
@@ -166,7 +210,6 @@ serve(async (req) => {
       return jsonResponse({ error: 'AI returned no tasks.' }, 502);
     }
 
-    // Validate and sanitize each task
     tasks = tasks
       .filter((t) => t && typeof t.title === 'string' && t.title.trim().length > 0)
       .slice(0, 12)

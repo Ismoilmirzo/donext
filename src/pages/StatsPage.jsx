@@ -20,6 +20,7 @@ import ProjectProgressChart from '../components/stats/ProjectProgressChart';
 import WeeklyGoalCard from '../components/stats/WeeklyGoalCard';
 import WeeklyGoalHistoryTable from '../components/stats/WeeklyGoalHistoryTable';
 import WeeklyOverviewCard from '../components/stats/WeeklyOverviewCard';
+import WeeklyPlanningCard from '../components/stats/WeeklyPlanningCard';
 import WeeklyReportCard from '../components/stats/WeeklyReportCard';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -31,6 +32,7 @@ import { useBadges } from '../contexts/BadgeContext';
 import { useLocale } from '../contexts/LocaleContext';
 import { useToast } from '../contexts/ToastContext';
 import { useHabits } from '../hooks/useHabits';
+import { useProjects } from '../hooks/useProjects';
 import { useStats } from '../hooks/useStats';
 import { useWeeklyGoal } from '../hooks/useWeeklyGoal';
 import { formatMinutesHuman, toISODate } from '../lib/dates';
@@ -109,6 +111,7 @@ export default function StatsPage() {
   const { getFocusStats, getHabitStats, getProjectStats } = useStats();
   const { freezeNotice, streak, fetchHabitLogs } = useHabits();
   const { badges, unlockedCount } = useBadges();
+  const { activeProjects } = useProjects();
   const weeklyGoal = useWeeklyGoal();
   const reportRef = useRef(null);
 
@@ -579,6 +582,14 @@ export default function StatsPage() {
                 worstHabit={worstHabit}
                 streak={currentStreak}
               />
+              {period === 'week' && activeProjects?.length > 0 ? (
+                <WeeklyPlanningCard
+                  activeProjects={activeProjects}
+                  weeklyGoal={weeklyGoal}
+                  focusStats={{ avgSessionLength: projectData.avgFocusTimePerTask || 30 }}
+                  t={t}
+                />
+              ) : null}
               <MonthlyOverviewCard rows={monthlyTrendRows} trendPercent={trendPercent} />
               <AllTimeStatsCard stats={projectData} />
               <Card>

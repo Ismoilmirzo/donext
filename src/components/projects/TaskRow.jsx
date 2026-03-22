@@ -1,8 +1,10 @@
-import { ArrowDown, ArrowUp, CheckCircle2, Circle, Play } from 'lucide-react';
+import { ArrowDown, ArrowUp, CheckCircle2, Circle, Clock, Play } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
 import { formatMinutesHuman } from '../../lib/dates';
 import { getLocaleTag } from '../../lib/i18n';
 import { getTaskFocusMinutes } from '../../lib/taskSessions';
+import { formatEstimate } from '../../lib/timeEstimates';
+import TaskAIActions from './TaskAIActions';
 
 export default function TaskRow({
   task,
@@ -12,6 +14,11 @@ export default function TaskRow({
   canMoveUp = false,
   canMoveDown = false,
   onStart,
+  onSplit,
+  onClarify,
+  aiLoading = false,
+  projectTitle = '',
+  estimatedMinutes = null,
 }) {
   const { locale, t } = useLocale();
   const isCompleted = task.status === 'completed';
@@ -56,6 +63,21 @@ export default function TaskRow({
         </button>
         {!isCompleted ? (
           <div className="ml-auto flex shrink-0 items-center gap-1 self-start">
+            {estimatedMinutes ? (
+              <span className="inline-flex items-center gap-0.5 rounded-md bg-slate-700/50 px-1.5 py-0.5 text-xs text-slate-400" title={t('ai.timeEstimate')}>
+                <Clock className="h-3 w-3" />
+                {formatEstimate(estimatedMinutes)}
+              </span>
+            ) : null}
+            {onSplit ? (
+              <TaskAIActions
+                task={task}
+                projectTitle={projectTitle}
+                onSplit={onSplit}
+                onClarify={onClarify}
+                loading={aiLoading}
+              />
+            ) : null}
             {isNext && onStart ? (
               <button
                 type="button"

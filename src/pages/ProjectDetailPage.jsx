@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import AddTaskModal from '../components/projects/AddTaskModal';
 import AIBreakdownButton from '../components/projects/AIBreakdownButton';
 import AITaskPreview from '../components/projects/AITaskPreview';
 import CreateProjectModal from '../components/projects/CreateProjectModal';
+import DeadlinePacingAlert from '../components/projects/DeadlinePacingAlert';
 import ProjectFocusHistory from '../components/projects/ProjectFocusHistory';
 import ProjectPriorityBadge from '../components/projects/ProjectPriorityBadge';
 import ProjectStatusBadge from '../components/projects/ProjectStatusBadge';
@@ -18,11 +19,12 @@ import { useLocale } from '../contexts/LocaleContext';
 import { useToast } from '../contexts/ToastContext';
 import { useProjects } from '../hooks/useProjects';
 import { useTasks } from '../hooks/useTasks';
-import { decomposeProject } from '../lib/aiDecompose';
+import { decomposeProject, splitTask, clarifyTask, replanProject } from '../lib/aiDecompose';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { getTaskElapsedMinutes, getTaskFocusMinutes } from '../lib/taskSessions';
+import { estimateTaskTime } from '../lib/timeEstimates';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
@@ -46,8 +48,39 @@ export default function ProjectDetailPage() {
   const [aiPreviewOpen, setAiPreviewOpen] = useState(false);
   const [aiRemaining, setAiRemaining] = useState(null);
   const [aiInserting, setAiInserting] = useState(false);
+  const [taskAiLoading, setTaskAiLoading] = useState(false);
+  const [taskEstimates, setTaskEstimates] = useState({});
 
   const project = useMemo(() => projects.find((item) => item.id === id), [id, projects]);
+
+  // Check if project has stale tasks (untouched for 7+ days)
+  const hasStaleUntouched = useMemo(() => {
+    if (!tasks.length) return false;
+    const pendingTasks = tasks.filter((tk) => tk.status !== 'completed' && !tk.is_auto_generated);
+    if (pendingTasks.length === 0) return false;
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return pendingTasks.every((tk) => {
+      const updated = new Date(tk.updated_at || tk.created_at);
+      return updated < sevenDaysAgo;
+    });
+  }, [tasks]);
+
+  // Load time estimates for pending tasks
+  const loadEstimates = useCallback(async () => {
+    if (!user || !tasks.length) return;
+    const pendingTasks = tasks.filter((t) => t.status !== 'completed');
+    const estimates = {};
+    for (const task of pendingTasks.slice(0, 10)) {
+      const result = await estimateTaskTime(task.title, user.id);
+      if (result.estimate) estimates[task.id] = result.estimate;
+    }
+    setTaskEstimates(estimates);
+  }, [tasks, user]);
+
+  useEffect(() => {
+    void loadEstimates();
+  }, [loadEstimates]);
 
   useEffect(() => {
     if (!projects.length) {
@@ -246,6 +279,78 @@ export default function ProjectDetailPage() {
     toast.success(t('ai.addTasks', { count: confirmedTasks.length }));
   }
 
+  async function handleSplitTask(task) {
+    if (!project || taskAiLoading) return;
+    setTaskAiLoading(true);
+    const result = await splitTask({
+      taskTitle: task.title,
+      taskDescription: task.description || '',
+      projectTitle: project.title,
+      locale,
+    });
+    setTaskAiLoading(false);
+    if (result.error) {
+      toast.error(t('ai.errorTitle'), result.rateLimited ? t('ai.rateLimited') : result.error);
+      return;
+    }
+    setAiTasks(result.tasks || []);
+    setAiRemaining(result.remaining || null);
+    setAiPreviewOpen(true);
+  }
+
+  async function handleClarifyTask(task) {
+    if (!project || taskAiLoading) return;
+    setTaskAiLoading(true);
+    const result = await clarifyTask({
+      taskTitle: task.title,
+      taskDescription: task.description || '',
+      projectTitle: project.title,
+      locale,
+    });
+    setTaskAiLoading(false);
+    if (result.error) {
+      toast.error(t('ai.errorTitle'), result.rateLimited ? t('ai.rateLimited') : result.error);
+      return;
+    }
+    // For clarify, we get one refined task - update the original
+    if (result.tasks?.length) {
+      const refined = result.tasks[0];
+      const updateResult = await updateTask(task.id, {
+        title: refined.title,
+        description: refined.description || task.description,
+      });
+      if (updateResult?.error) {
+        toast.error(t('toasts.taskSaveFailed'), updateResult.error.message);
+      } else {
+        toast.success(t('ai.taskClarified'), refined.title);
+      }
+      if (result.remaining) setAiRemaining(result.remaining);
+    }
+  }
+
+  async function handleReplanProject() {
+    if (!project || aiLoading) return;
+    setAiLoading(true);
+    const completedTaskTitles = tasks.filter((t) => t.status === 'completed').map((t) => t.title);
+    const pendingTaskTitles = tasks.filter((t) => t.status !== 'completed').map((t) => t.title);
+    const result = await replanProject({
+      title: project.title,
+      description: project.description || '',
+      locale,
+      deadline: project.deadline_date || undefined,
+      completedTasks: completedTaskTitles,
+      pendingTasks: pendingTaskTitles,
+    });
+    setAiLoading(false);
+    if (result.error) {
+      toast.error(t('ai.errorTitle'), result.rateLimited ? t('ai.rateLimited') : result.error);
+      return;
+    }
+    setAiTasks(result.tasks || []);
+    setAiRemaining(result.remaining || null);
+    setAiPreviewOpen(true);
+  }
+
   const confirmMap = {
     archive: {
       title: t('projects.confirmArchiveTitle'),
@@ -342,6 +447,19 @@ export default function ProjectDetailPage() {
         </div>
       </Card>
 
+      <DeadlinePacingAlert project={project} />
+
+      {hasStaleUntouched ? (
+        <Card className="border-amber-500/20 bg-amber-500/5">
+          <p className="text-sm text-amber-200">{t('ai.staleProjectHint')}</p>
+          <div className="mt-2">
+            <Button size="sm" onClick={handleReplanProject} loading={aiLoading}>
+              {t('ai.replanProject')}
+            </Button>
+          </div>
+        </Card>
+      ) : null}
+
       <ProjectFocusHistory sessions={focusHistory} loading={historyLoading} />
 
       <ReorderableTasks
@@ -360,6 +478,11 @@ export default function ProjectDetailPage() {
           });
         }}
         onStartTask={handleStartTask}
+        onSplit={handleSplitTask}
+        onClarify={handleClarifyTask}
+        aiLoading={taskAiLoading}
+        projectTitle={project.title}
+        taskEstimates={taskEstimates}
       />
 
       {total === 0 ? (

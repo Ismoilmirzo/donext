@@ -12,9 +12,12 @@ import { ProjectsPageSkeleton } from '../components/ui/PageSkeletons';
 import { useLocale } from '../contexts/LocaleContext';
 import { useToast } from '../contexts/ToastContext';
 import { useProjects } from '../hooks/useProjects';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { t } = useLocale();
   const toast = useToast();
   const {
@@ -41,13 +44,28 @@ export default function ProjectsPage() {
   }, [checkForStaleProjects]);
 
   async function handleCreate(payload) {
+    const { _templateTasks, ...projectPayload } = payload;
     setSaving(true);
-    const { data, error: createError } = await createProject(payload);
-    setSaving(false);
+    const { data, error: createError } = await createProject(projectPayload);
     if (createError) {
+      setSaving(false);
       toast.error(t('toasts.projectCreateFailed'), createError.message);
       return;
     }
+    // Insert template tasks if provided
+    if (_templateTasks?.length && data?.id && user) {
+      for (let i = 0; i < _templateTasks.length; i++) {
+        await supabase.from('tasks').insert({
+          user_id: user.id,
+          project_id: data.id,
+          title: _templateTasks[i].title,
+          description: _templateTasks[i].description || '',
+          sort_order: i + 1,
+          status: 'pending',
+        });
+      }
+    }
+    setSaving(false);
     setModalOpen(false);
     toast.success(t('toasts.projectCreated'), payload.title);
     navigate(`/projects/${data.id}`);

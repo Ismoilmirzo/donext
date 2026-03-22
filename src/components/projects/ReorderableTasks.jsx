@@ -1,6 +1,16 @@
 import TaskRow from './TaskRow';
 
-export default function ReorderableTasks({ tasks, onMove, onTaskClick, onStartTask }) {
+export default function ReorderableTasks({
+  tasks,
+  onMove,
+  onTaskClick,
+  onStartTask,
+  onSplit,
+  onClarify,
+  aiLoading = false,
+  projectTitle = '',
+  taskEstimates = {},
+}) {
   const pendingTasks = tasks.filter((task) => task.status !== 'completed');
   const completedTasks = tasks.filter((task) => task.status === 'completed');
   const firstPendingId = pendingTasks[0]?.id;
@@ -17,6 +27,11 @@ export default function ReorderableTasks({ tasks, onMove, onTaskClick, onStartTa
           canMoveUp={index > 0}
           canMoveDown={index < pendingTasks.length - 1}
           onStart={task.id === firstPendingId ? () => onStartTask?.(task) : undefined}
+          onSplit={onSplit}
+          onClarify={onClarify}
+          aiLoading={aiLoading}
+          projectTitle={projectTitle}
+          estimatedMinutes={taskEstimates[task.id] || null}
         />
       ))}
 
