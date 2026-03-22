@@ -53,7 +53,10 @@ export async function estimateTaskTime(taskTitle, userId) {
     .gt('total_focus_minutes', 0)
     .limit(200);
 
-  if (!completedTasks?.length) return { estimate: null, confidence: 'none', basedOn: 0 };
+  if (!completedTasks?.length) {
+    // Fallback: estimate based on task title heuristics
+    return { estimate: heuristicEstimate(taskTitle), confidence: 'low', basedOn: 0 };
+  }
 
   const targetKeywords = extractKeywords(taskTitle);
   if (!targetKeywords.length) {
@@ -83,6 +86,15 @@ export async function estimateTaskTime(taskTitle, userId) {
 
   const avgMinutes = completedTasks.reduce((s, t) => s + (t.total_focus_minutes || 0), 0) / completedTasks.length;
   return { estimate: closestBucket(avgMinutes), confidence: 'low', basedOn: completedTasks.length };
+}
+
+function heuristicEstimate(title) {
+  const words = (title || '').split(/\s+/).length;
+  const heavy = /\b(research|design|write|build|implement|create|develop|analyze|review|test)\b/i;
+  const light = /\b(fix|update|add|rename|remove|delete|check|read|list)\b/i;
+  if (heavy.test(title)) return words > 5 ? 60 : 45;
+  if (light.test(title)) return 15;
+  return words > 6 ? 45 : 30;
 }
 
 /**
