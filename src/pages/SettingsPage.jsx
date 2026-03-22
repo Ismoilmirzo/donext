@@ -165,6 +165,22 @@ export default function SettingsPage() {
       return;
     }
 
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+
+    const archiveId = payload?.archiveId || payload?.archive_id || '';
+    const successMessage = archiveId
+      ? t('settings.accountDeletedWithArchive', { archiveId })
+      : t('settings.accountDeleted');
+    setStatusMessage(successMessage);
+    toast.success(
+      t('settings.accountDeleted'),
+      archiveId ? t('settings.accountDeletedWithArchive', { archiveId }) : t('settings.deleteArchiveNote')
+    );
     await signOut();
     setDeleting(false);
   }
@@ -461,6 +477,7 @@ export default function SettingsPage() {
         }
       >
         <p className="text-sm text-slate-300">{t('settings.deletePrompt')}</p>
+        <p className="mt-2 text-xs text-slate-500">{t('settings.deleteArchiveNote')}</p>
         <div className="mt-3">
           <Input value={deleteText} onChange={(e) => setDeleteText(e.target.value)} placeholder={t('settings.deletePlaceholder')} />
         </div>

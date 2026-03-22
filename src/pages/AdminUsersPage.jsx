@@ -9,6 +9,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Modal from '../components/ui/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { useToast } from '../contexts/ToastContext';
 import { isConfiguredAdmin, isUserSuspended } from '../lib/admin';
 import { formatMinutesHuman } from '../lib/dates';
 import { getLocaleTag } from '../lib/i18n';
@@ -38,6 +39,7 @@ function DetailSection({ title, emptyLabel, children, hasItems }) {
 export default function AdminUsersPage() {
   const { user } = useAuth();
   const { locale, t } = useLocale();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -209,13 +211,19 @@ export default function AdminUsersPage() {
         setUsers((current) => current.filter((entry) => entry.id !== selectedUser.id));
         setSelectedUser(null);
         setDetail(null);
+        const archiveId = payload?.archiveId || payload?.archive_id || '';
+        const deleteMessage = archiveId
+          ? t('adminUsers.deleteCompletedWithArchive', { archiveId })
+          : t('adminUsers.deleteCompleted');
+        setStatusMessage(deleteMessage);
+        toast.success(t('adminUsers.deleteUser'), deleteMessage);
       } else if (payload?.user) {
         updateUserInState(payload.user);
+        setStatusMessage(t('adminUsers.actionCompleted'));
       }
-
-      setStatusMessage(t('adminUsers.actionCompleted'));
     } catch (actionError) {
       setDetailError(actionError.message || t('adminUsers.loadFailed'));
+      toast.error(t('adminUsers.loadFailed'), actionError.message || t('adminUsers.loadFailed'));
     } finally {
       setActionLoading('');
     }

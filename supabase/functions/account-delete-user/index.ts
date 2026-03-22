@@ -1,5 +1,6 @@
-﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { archiveUserSnapshot } from '../_shared/user-archive.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -64,6 +65,22 @@ serve(async (req) => {
     auth: { persistSession: false },
   });
 
+  let archivePath = '';
+  try {
+    const archive = await archiveUserSnapshot(adminClient, {
+      authUser: userData.user,
+      deletedVia: 'self_service',
+      deletedById: userData.user.id,
+      deletedByEmail: userData.user.email || null,
+    });
+    archivePath = archive.archivePath;
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to archive account data.' }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  }
+
   const { error: deleteError } = await adminClient.auth.admin.deleteUser(userData.user.id);
   if (deleteError) {
     return new Response(JSON.stringify({ error: deleteError.message }), {
@@ -72,15 +89,7 @@ serve(async (req) => {
     });
   }
 
-  const { error: profileDeleteError } = await adminClient.from('profiles').delete().eq('id', userData.user.id);
-  if (profileDeleteError) {
-    return new Response(JSON.stringify({ error: `Auth user deleted but profile cleanup failed: ${profileDeleteError.message}` }), {
-      status: 500,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    });
-  }
-
-  return new Response(JSON.stringify({ success: true }), {
+  return new Response(JSON.stringify({ success: true, archiveId: archivePath, archivePath }), {
     status: 200,
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   });

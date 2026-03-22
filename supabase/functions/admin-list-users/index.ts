@@ -1,5 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import {
+  archiveUserSnapshot,
+  downloadArchiveSnapshot,
+  findLatestArchivePathForEmail,
+  restoreUserSnapshot,
+} from '../_shared/user-archive.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -222,7 +228,7 @@ serve(async (req) => {
     return jsonResponse({ error: 'User not found.' }, 404);
   }
 
-  if (action !== 'detail' && requester.id === userId) {
+  if (!['detail', 'restore_archive'].includes(action) && requester.id === userId) {
     return jsonResponse({ error: 'You cannot modify your own admin account.' }, 400);
   }
 
@@ -235,6 +241,51 @@ serve(async (req) => {
     if ('error' in detail) return jsonResponse({ error: detail.error }, 500);
 
     return jsonResponse({ user: summary, detail });
+  }
+
+  if (action === 'restore_archive') {
+    const archivePath = String(body?.archivePath || '').trim();
+    const archiveEmail = String(body?.archiveEmail || '').trim().toLowerCase();
+    const force = Boolean(body?.force);
+
+    let resolvedArchivePath = archivePath;
+    try {
+      if (!resolvedArchivePath) {
+        resolvedArchivePath = await findLatestArchivePathForEmail(adminClient, archiveEmail);
+      }
+    } catch (archiveLookupError) {
+      const message = archiveLookupError instanceof Error ? archiveLookupError.message : 'Failed to locate archive.';
+      return jsonResponse({ error: message }, 500);
+    }
+
+    if (!resolvedArchivePath) {
+      return jsonResponse({ error: 'No archive was found for this user.' }, 404);
+    }
+
+    let snapshot;
+    try {
+      snapshot = await downloadArchiveSnapshot(adminClient, resolvedArchivePath);
+    } catch (archiveDownloadError) {
+      const message = archiveDownloadError instanceof Error ? archiveDownloadError.message : 'Failed to download archive.';
+      return jsonResponse({ error: message }, 500);
+    }
+
+    try {
+      const restored = await restoreUserSnapshot(adminClient, snapshot, userResponse.user, { force });
+      const stats = await fetchStats(adminClient, [userId]);
+      if ('error' in stats) return jsonResponse({ error: stats.error }, 500);
+
+      return jsonResponse({
+        message: 'User archive restored.',
+        archiveId: resolvedArchivePath,
+        archivePath: resolvedArchivePath,
+        user: buildUserSummary(userResponse.user, stats.profiles.get(userId), stats),
+        restored,
+      });
+    } catch (restoreError) {
+      const message = restoreError instanceof Error ? restoreError.message : 'Failed to restore archive.';
+      return jsonResponse({ error: message }, 500);
+    }
   }
 
   if (action === 'suspend' || action === 'unsuspend') {
@@ -255,17 +306,26 @@ serve(async (req) => {
   }
 
   if (action === 'delete') {
+    let archivePath = '';
+    try {
+      const archive = await archiveUserSnapshot(adminClient, {
+        authUser: userResponse.user,
+        deletedVia: 'admin',
+        deletedById: requester.id,
+        deletedByEmail: requester.email || null,
+      });
+      archivePath = archive.archivePath;
+    } catch (archiveError) {
+      const message = archiveError instanceof Error ? archiveError.message : 'Failed to archive user data before deletion.';
+      return jsonResponse({ error: message }, 500);
+    }
+
     const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(userId);
     if (authDeleteError) {
       return jsonResponse({ error: authDeleteError.message }, 500);
     }
 
-    const { error: profileDeleteError } = await adminClient.from('profiles').delete().eq('id', userId);
-    if (profileDeleteError) {
-      return jsonResponse({ error: `Auth user deleted but profile cleanup failed: ${profileDeleteError.message}` }, 500);
-    }
-
-    return jsonResponse({ message: 'User deleted.', deletedUserId: userId });
+    return jsonResponse({ message: 'User deleted.', deletedUserId: userId, archiveId: archivePath, archivePath });
   }
 
   return jsonResponse({ error: 'Unsupported action.' }, 400);
