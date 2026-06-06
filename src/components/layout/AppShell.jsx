@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, CheckSquare, Flame, FolderKanban, Play, Settings, Timer, Zap } from 'lucide-react';
+import { BarChart3, CheckSquare, Dumbbell, Flame, FolderKanban, Play, Settings, Timer, Zap } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import BadgeUnlockPopup from '../badges/BadgeUnlockPopup';
 import Button from '../ui/Button';
@@ -40,6 +40,7 @@ export default function AppShell() {
     { to: '/habits', label: t('nav.habits'), Icon: CheckSquare },
     { to: '/projects', label: t('nav.projects'), Icon: FolderKanban },
     { to: '/focus', label: t('nav.focus'), Icon: Zap },
+    { to: '/gym', label: t('nav.gym'), Icon: Dumbbell },
     { to: '/stats', label: t('nav.stats'), Icon: BarChart3 },
     { to: '/settings', label: t('nav.settings'), Icon: Settings },
   ];
@@ -100,7 +101,7 @@ export default function AppShell() {
     return () => {
       active = false;
     };
-  }, [location.pathname, user]);
+  }, [location.pathname, user, t]);
 
   useEffect(() => {
     const nextBadge = queue[0];
@@ -111,7 +112,7 @@ export default function AppShell() {
     if (lastBadgeToastIdRef.current === nextBadge.id) return;
     lastBadgeToastIdRef.current = nextBadge.id;
     toast.success(t('badges.unlocked'), `${nextBadge.icon} ${nextBadge.title}`);
-  }, [queue, toast]);
+  }, [queue, toast, t]);
 
   useEffect(() => {
     function onKeyDown(event) {
@@ -129,6 +130,7 @@ export default function AppShell() {
         h: '/habits',
         p: '/projects',
         f: '/focus',
+        g: '/gym',
         s: '/stats',
       }[event.key.toLowerCase()];
 
@@ -165,6 +167,10 @@ export default function AppShell() {
       '/stats': {
         title: t('hints.stats.title'),
         message: t('hints.stats.message'),
+      },
+      '/gym': {
+        title: t('hints.gym.title'),
+        message: t('hints.gym.message'),
       },
       '/settings': {
         title: t('hints.settings.title'),

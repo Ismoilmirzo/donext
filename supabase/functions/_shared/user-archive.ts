@@ -1,5 +1,5 @@
 export const ACCOUNT_ARCHIVE_BUCKET = 'deleted-account-archives';
-export const SNAPSHOT_VERSION = '1.1';
+export const SNAPSHOT_VERSION = '1.2';
 
 type ExportSpec = {
   key: string;
@@ -37,6 +37,15 @@ const RESTORE_SPECS: ExportSpec[] = [
 ];
 
 const CLEAR_SPECS = [...RESTORE_SPECS].reverse();
+const GYM_EXPORT_KEYS = [
+  'gym_exercises',
+  'gym_programs',
+  'gym_program_days',
+  'gym_program_exercises',
+  'gym_sessions',
+  'gym_set_logs',
+  'gym_prs',
+];
 
 function toArray<T>(value: T | T[] | null | undefined) {
   if (!value) return [];
@@ -55,6 +64,82 @@ function normalizeEmailForPath(email: string | null | undefined) {
 function isBucketAlreadyPresent(error: { message?: string; statusCode?: string | number } | null) {
   const message = String(error?.message || '').toLowerCase();
   return message.includes('already exists') || String(error?.statusCode || '') === '409';
+}
+
+function isMissingGymSchemaError(error: any) {
+  const code = String(error?.code || '');
+  const message = String(error?.message || error || '').toLowerCase();
+  return (
+    code === '42P01' ||
+    code === 'PGRST205' ||
+    message.includes('does not exist') ||
+    message.includes('could not find the table') ||
+    message.includes('schema cache')
+  );
+}
+
+function emptyGymEntries() {
+  return Object.fromEntries(GYM_EXPORT_KEYS.map((key) => [key, []])) as Record<string, any[]>;
+}
+
+async function fetchRows(query: any) {
+  const response = await query;
+  if (response.error) throw response.error;
+  return response.data || [];
+}
+
+function idsFrom(rows: any[]) {
+  return rows.map((row) => row?.id).filter(Boolean);
+}
+
+async function buildGymExportEntries(adminClient: any, userId: string) {
+  const empty = emptyGymEntries();
+
+  try {
+    const gymExercises = await fetchRows(
+      adminClient.from('gym_exercises').select('*').eq('user_id', userId).order('created_at')
+    );
+    const gymPrograms = await fetchRows(
+      adminClient.from('gym_programs').select('*').eq('user_id', userId).order('created_at')
+    );
+    const programIds = idsFrom(gymPrograms);
+    const gymProgramDays = programIds.length
+      ? await fetchRows(adminClient.from('gym_program_days').select('*').in('program_id', programIds).order('program_id').order('day_order'))
+      : [];
+    const programDayIds = idsFrom(gymProgramDays);
+    const gymProgramExercises = programDayIds.length
+      ? await fetchRows(
+          adminClient
+            .from('gym_program_exercises')
+            .select('*')
+            .in('program_day_id', programDayIds)
+            .order('program_day_id')
+            .order('slot_order')
+        )
+      : [];
+    const gymSessions = await fetchRows(
+      adminClient.from('gym_sessions').select('*').eq('user_id', userId).order('performed_at')
+    );
+    const sessionIds = idsFrom(gymSessions);
+    const gymSetLogs = sessionIds.length
+      ? await fetchRows(adminClient.from('gym_set_logs').select('*').in('session_id', sessionIds).order('session_id').order('set_number'))
+      : [];
+    const gymPrs = await fetchRows(adminClient.from('gym_prs').select('*').eq('user_id', userId).order('achieved_at'));
+
+    return {
+      ...empty,
+      gym_exercises: gymExercises,
+      gym_programs: gymPrograms,
+      gym_program_days: gymProgramDays,
+      gym_program_exercises: gymProgramExercises,
+      gym_sessions: gymSessions,
+      gym_set_logs: gymSetLogs,
+      gym_prs: gymPrs,
+    };
+  } catch (error) {
+    if (isMissingGymSchemaError(error)) return empty;
+    throw error;
+  }
 }
 
 export function formatDateStamp(date = new Date()) {
@@ -109,9 +194,11 @@ export async function buildUserSnapshot(adminClient: any, authUser: { id: string
   );
 
   const snapshotEntries = Object.fromEntries(loadedEntries);
+  const gymEntries = await buildGymExportEntries(adminClient, userId);
   const profile = profileRes.data || null;
   const focusSessions = toArray(snapshotEntries.focus_sessions);
   const taskSessions = toArray(snapshotEntries.task_sessions);
+  const gymSetLogs = toArray(gymEntries.gym_set_logs);
   const telegramAccount =
     snapshotEntries.telegram_account && !Array.isArray(snapshotEntries.telegram_account) ? snapshotEntries.telegram_account : null;
 
@@ -137,6 +224,7 @@ export async function buildUserSnapshot(adminClient: any, authUser: { id: string
         : null,
     },
     ...snapshotEntries,
+    ...gymEntries,
     summary: {
       total_habits: toArray(snapshotEntries.habits).length,
       total_habit_logs: toArray(snapshotEntries.habit_logs).length,
@@ -151,6 +239,16 @@ export async function buildUserSnapshot(adminClient: any, authUser: { id: string
       total_badges_unlocked: toArray(snapshotEntries.badges).length,
       total_weekly_goals: toArray(snapshotEntries.weekly_goals).length,
       total_streak_freezes: toArray(snapshotEntries.streak_freezes).length,
+      total_custom_gym_exercises: toArray(gymEntries.gym_exercises).length,
+      total_gym_programs: toArray(gymEntries.gym_programs).length,
+      total_gym_sessions: toArray(gymEntries.gym_sessions).length,
+      total_gym_set_logs: gymSetLogs.length,
+      total_gym_prs: toArray(gymEntries.gym_prs).length,
+      total_gym_volume: gymSetLogs.reduce(
+        (sum: number, set: { weight_kg?: number | null; reps?: number | null; is_warmup?: boolean | null }) =>
+          sum + (set.is_warmup ? 0 : Number(set.weight_kg || 0) * Number(set.reps || 0)),
+        0
+      ),
     },
   };
 }
@@ -238,10 +336,17 @@ export async function getExistingUserDataCounts(adminClient: any, userId: string
     counts[spec.key] = response.count || 0;
   }
 
+  const gymEntries = await buildGymExportEntries(adminClient, userId);
+  for (const key of GYM_EXPORT_KEYS) {
+    counts[key] = toArray(gymEntries[key]).length;
+  }
+
   return counts;
 }
 
 async function clearUserOwnedData(adminClient: any, userId: string) {
+  await clearGymOwnedData(adminClient, userId);
+
   for (const spec of CLEAR_SPECS) {
     const deleteRes = await adminClient.from(spec.table).delete().eq(spec.filterField, userId);
     if (deleteRes.error) throw deleteRes.error;
@@ -259,6 +364,76 @@ async function insertRows(adminClient: any, table: string, rows: Array<Record<st
   if (!rows.length) return;
   const insertRes = await adminClient.from(table).insert(rows);
   if (insertRes.error) throw insertRes.error;
+}
+
+async function deleteByUser(adminClient: any, table: string, userId: string) {
+  const deleteRes = await adminClient.from(table).delete().eq('user_id', userId);
+  if (deleteRes.error) throw deleteRes.error;
+}
+
+async function deleteByIds(adminClient: any, table: string, field: string, ids: string[]) {
+  if (!ids.length) return;
+  const deleteRes = await adminClient.from(table).delete().in(field, ids);
+  if (deleteRes.error) throw deleteRes.error;
+}
+
+async function clearGymOwnedData(adminClient: any, userId: string) {
+  try {
+    const gymEntries = await buildGymExportEntries(adminClient, userId);
+    const programIds = idsFrom(toArray(gymEntries.gym_programs));
+    const programDayIds = idsFrom(toArray(gymEntries.gym_program_days));
+    const sessionIds = idsFrom(toArray(gymEntries.gym_sessions));
+
+    await deleteByUser(adminClient, 'gym_prs', userId);
+    await deleteByIds(adminClient, 'gym_set_logs', 'session_id', sessionIds);
+    await deleteByUser(adminClient, 'gym_sessions', userId);
+    await deleteByIds(adminClient, 'gym_program_exercises', 'program_day_id', programDayIds);
+    await deleteByIds(adminClient, 'gym_program_days', 'program_id', programIds);
+    await deleteByUser(adminClient, 'gym_programs', userId);
+    await deleteByUser(adminClient, 'gym_exercises', userId);
+  } catch (error) {
+    if (isMissingGymSchemaError(error)) return;
+    throw error;
+  }
+}
+
+function snapshotHasGymData(snapshot: Record<string, any>) {
+  return GYM_EXPORT_KEYS.some((key) => toArray(snapshot[key]).length > 0);
+}
+
+async function restoreGymSnapshot(adminClient: any, snapshot: Record<string, any>, targetUserId: string) {
+  if (!snapshotHasGymData(snapshot)) return;
+
+  try {
+    await insertRows(
+      adminClient,
+      'gym_exercises',
+      toArray(snapshot.gym_exercises).map((row: Record<string, unknown>) => rewriteOwnerField(row, 'user_id', targetUserId))
+    );
+    await insertRows(
+      adminClient,
+      'gym_programs',
+      toArray(snapshot.gym_programs).map((row: Record<string, unknown>) => rewriteOwnerField(row, 'user_id', targetUserId))
+    );
+    await insertRows(adminClient, 'gym_program_days', toArray(snapshot.gym_program_days));
+    await insertRows(adminClient, 'gym_program_exercises', toArray(snapshot.gym_program_exercises));
+    await insertRows(
+      adminClient,
+      'gym_sessions',
+      toArray(snapshot.gym_sessions).map((row: Record<string, unknown>) => rewriteOwnerField(row, 'user_id', targetUserId))
+    );
+    await insertRows(adminClient, 'gym_set_logs', toArray(snapshot.gym_set_logs));
+    await insertRows(
+      adminClient,
+      'gym_prs',
+      toArray(snapshot.gym_prs).map((row: Record<string, unknown>) => rewriteOwnerField(row, 'user_id', targetUserId))
+    );
+  } catch (error) {
+    if (isMissingGymSchemaError(error)) {
+      throw new Error('Gym data is present in the archive, but the gym database tables are not installed.');
+    }
+    throw error;
+  }
 }
 
 export async function restoreUserSnapshot(
@@ -304,9 +479,13 @@ export async function restoreUserSnapshot(
     const rewrittenRows = rawRows.map((row: Record<string, unknown>) => rewriteOwnerField(row, spec.filterField, targetUserId));
     await insertRows(adminClient, spec.table, rewrittenRows);
   }
+  await restoreGymSnapshot(adminClient, snapshot, targetUserId);
 
   return {
     restored_to_user_id: targetUserId,
-    counts: Object.fromEntries(RESTORE_SPECS.map((spec) => [spec.key, toArray(snapshot[spec.key]).length])),
+    counts: {
+      ...Object.fromEntries(RESTORE_SPECS.map((spec) => [spec.key, toArray(snapshot[spec.key]).length])),
+      ...Object.fromEntries(GYM_EXPORT_KEYS.map((key) => [key, toArray(snapshot[key]).length])),
+    },
   };
 }

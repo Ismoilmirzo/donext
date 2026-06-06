@@ -1,0 +1,143 @@
+{
+  "_meta": {
+    "description": "Specialization rules applied on top of base_program.json by the generator. Picking a muscle ADDS direct sets (is_specialization=true) and REDUCES sets elsewhere to protect total recovery. weekly_cap_sets is the MRV-informed ceiling; the generator must refuse to push a muscle's total weekly direct sets above this.",
+    "volume_landmarks_reference": {
+      "_comment": "Weekly DIRECT working sets per muscle, consensus RP/Israetel + Schoenfeld meta-analyses. [MEV, MAV-range, MRV]. Used to set add amounts and caps. Side delts and biceps tolerate high volume; quads/hams have lower ceilings due to systemic fatigue.",
+      "chest":          { "MEV": 8,  "MAV": [12, 20], "MRV": 22 },
+      "back":           { "MEV": 10, "MAV": [14, 22], "MRV": 25 },
+      "shoulders_side": { "MEV": 8,  "MAV": [16, 22], "MRV": 26 },
+      "shoulders_rear": { "MEV": 6,  "MAV": [12, 18], "MRV": 22 },
+      "biceps":         { "MEV": 8,  "MAV": [14, 20], "MRV": 26 },
+      "triceps":        { "MEV": 6,  "MAV": [10, 16], "MRV": 18 },
+      "quads":          { "MEV": 8,  "MAV": [12, 18], "MRV": 20 },
+      "hamstrings":     { "MEV": 6,  "MAV": [10, 16], "MRV": 20 },
+      "calves":         { "MEV": 8,  "MAV": [12, 16], "MRV": 20 },
+      "abs":            { "MEV": 0,  "MAV": [10, 16], "MRV": 25 }
+    },
+    "recommended_block_weeks": 8,
+    "reassess_prompt": "After the block: keep this muscle, switch to another, or return to balanced? Lagging muscles benefit from repeating; if it has caught up, rotate.",
+    "generator_contract": "Idempotent. base -> specialize -> reset -> re-specialize must never duplicate slots or exceed weekly_cap_sets. 'add' inserts new slots (is_specialization=true) on the named day. 'reduce' lowers an existing slot's set count to sets_to (never below 1; if the slot is gone, skip). 'day' refers to day_order in base_program."
+  },
+
+  "rules": {
+    "biceps": {
+      "rationale": "Biceps get ~3 direct sets in base + indirect from all pulling. Specializing pushes direct work to ~10/week across both upper days. Trim chest-supported row (back already gets heavy pulldown + pull-up + barbell row) to protect recovery and elbow load.",
+      "add": [
+        { "day": 1, "exercise_key": "incline_db_curl", "sets": 3, "rep_low": 8,  "rep_high": 12 },
+        { "day": 1, "exercise_key": "hammer_curl",     "sets": 2, "rep_low": 10, "rep_high": 12 },
+        { "day": 3, "exercise_key": "cable_curl",      "sets": 2, "rep_low": 10, "rep_high": 12 }
+      ],
+      "reduce": [
+        { "day": 1, "exercise_key": "chest_supported_row", "sets_to": 2 }
+      ],
+      "weekly_cap_sets": 22
+    },
+
+    "triceps": {
+      "rationale": "Triceps get ~3 direct + heavy indirect from all pressing. Add overhead (long-head stretch) on Day 1 and skull crusher on Day 3, reaching ~9 direct/week. Trim a lateral-raise set on the heavier day; side delts are already well served.",
+      "add": [
+        { "day": 1, "exercise_key": "overhead_cable_ext", "sets": 3, "rep_low": 10, "rep_high": 12 },
+        { "day": 3, "exercise_key": "skullcrusher",       "sets": 3, "rep_low": 8,  "rep_high": 12 }
+      ],
+      "reduce": [
+        { "day": 3, "exercise_key": "db_lateral_raise", "sets_to": 2 }
+      ],
+      "weekly_cap_sets": 18
+    },
+
+    "chest": {
+      "rationale": "Base chest is ~9 direct. Add a fly (isolation, stretch-biased) on Day 1 and an extra incline/flat press emphasis on Day 3, reaching ~14-15/week. Trim one back row set since pull volume is high and we want recovery budget on chest.",
+      "add": [
+        { "day": 1, "exercise_key": "pec_deck",   "sets": 3, "rep_low": 10, "rep_high": 15 },
+        { "day": 3, "exercise_key": "flat_db_press", "sets": 3, "rep_low": 8, "rep_high": 12 }
+      ],
+      "reduce": [
+        { "day": 3, "exercise_key": "barbell_row", "sets_to": 2 }
+      ],
+      "weekly_cap_sets": 20
+    },
+
+    "back": {
+      "rationale": "Base back is ~9 direct. Add a single-arm row on Day 1 and a straight-arm pulldown (lat isolation) on Day 3, reaching ~14/week. Trim one chest pressing set on Day 3 to balance fatigue.",
+      "add": [
+        { "day": 1, "exercise_key": "single_arm_db_row",     "sets": 3, "rep_low": 8,  "rep_high": 12 },
+        { "day": 3, "exercise_key": "straight_arm_pulldown", "sets": 2, "rep_low": 10, "rep_high": 15 }
+      ],
+      "reduce": [
+        { "day": 3, "exercise_key": "incline_db_press", "sets_to": 2 }
+      ],
+      "weekly_cap_sets": 24
+    },
+
+    "shoulders_side": {
+      "rationale": "Side delts tolerate very high volume and barely add systemic fatigue. Base is ~7. Add cable laterals both days for constant-tension volume, reaching ~16-18/week with minimal recovery cost — no reduction needed.",
+      "add": [
+        { "day": 1, "exercise_key": "cable_lateral_raise", "sets": 3, "rep_low": 12, "rep_high": 18 },
+        { "day": 3, "exercise_key": "cable_lateral_raise", "sets": 3, "rep_low": 12, "rep_high": 18 }
+      ],
+      "reduce": [],
+      "weekly_cap_sets": 26
+    },
+
+    "shoulders_rear": {
+      "rationale": "Rear delts are usually underdone and recover fast. Base is ~3 (one fly on Day 3). Add reverse pec deck on Day 1 and face pulls on Day 3, reaching ~11-12/week. No reduction; low fatigue cost.",
+      "add": [
+        { "day": 1, "exercise_key": "reverse_pec_deck", "sets": 3, "rep_low": 12, "rep_high": 15 },
+        { "day": 3, "exercise_key": "face_pull",        "sets": 3, "rep_low": 12, "rep_high": 20 }
+      ],
+      "reduce": [],
+      "weekly_cap_sets": 22
+    },
+
+    "quads": {
+      "rationale": "Legs are 1x/week in the base (upper-priority). Quad specialization adds a second stimulus: hack squat + leg extension on the lower day, and a unilateral quad move can be added on Day 1 as accessory. Quads fatigue systemically, so cap is conservative.",
+      "add": [
+        { "day": 2, "exercise_key": "hack_squat",     "sets": 3, "rep_low": 8,  "rep_high": 12 },
+        { "day": 2, "exercise_key": "leg_extension",  "sets": 3, "rep_low": 12, "rep_high": 15 }
+      ],
+      "reduce": [
+        { "day": 2, "exercise_key": "leg_press", "sets_to": 1 }
+      ],
+      "weekly_cap_sets": 20
+    },
+
+    "hamstrings": {
+      "rationale": "Base hams ~6 (RDL + seated curl). Add a lying leg curl on the lower day for a second curl angle, reaching ~9-10/week. RDL already covers the hip-hinge stretch component.",
+      "add": [
+        { "day": 2, "exercise_key": "lying_leg_curl", "sets": 3, "rep_low": 10, "rep_high": 12 }
+      ],
+      "reduce": [],
+      "weekly_cap_sets": 18
+    },
+
+    "calves": {
+      "rationale": "Base calves ~3. Notoriously stubborn; respond to frequency and full-stretch reps. Add seated calf raise (soleus bias) on the lower day and standing on an upper day for 2x frequency, reaching ~9/week.",
+      "add": [
+        { "day": 2, "exercise_key": "seated_calf_raise",   "sets": 3, "rep_low": 12, "rep_high": 20 },
+        { "day": 1, "exercise_key": "standing_calf_raise",  "sets": 3, "rep_low": 10, "rep_high": 15 }
+      ],
+      "reduce": [],
+      "weekly_cap_sets": 18
+    },
+
+    "abs": {
+      "rationale": "Base abs ~3 (hanging leg raise on lower day). Add cable crunch (loaded spinal flexion) on each upper day for frequency, reaching ~9/week. Low systemic cost.",
+      "add": [
+        { "day": 1, "exercise_key": "cable_crunch", "sets": 3, "rep_low": 10, "rep_high": 15 },
+        { "day": 3, "exercise_key": "cable_crunch", "sets": 3, "rep_low": 10, "rep_high": 15 }
+      ],
+      "reduce": [],
+      "weekly_cap_sets": 20
+    },
+
+    "forearms": {
+      "rationale": "Not in the volume-landmark core table (grows from grip work during all pulling). For users who want explicit forearm size, add wrist curls + reverse wrist curls on Day 3. High reps. No reduction.",
+      "add": [
+        { "day": 3, "exercise_key": "wrist_curl",          "sets": 3, "rep_low": 12, "rep_high": 15 },
+        { "day": 3, "exercise_key": "reverse_wrist_curl",  "sets": 2, "rep_low": 12, "rep_high": 20 }
+      ],
+      "reduce": [],
+      "weekly_cap_sets": 16
+    }
+  }
+}

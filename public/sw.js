@@ -53,8 +53,12 @@ self.addEventListener('fetch', (event) => {
   const isAssetRequest =
     requestUrl.pathname.startsWith(`${scopeUrl.pathname}assets/`)
     || APP_SHELL.includes(requestUrl.toString());
+  const isGymDataRequest =
+    requestUrl.pathname.includes('/src/data/gym/')
+    || requestUrl.pathname.includes('/data/gym/')
+    || requestUrl.pathname.includes('/gym/exercise_catalog.json');
 
-  if (!isAssetRequest) return;
+  if (!isAssetRequest && !isGymDataRequest) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

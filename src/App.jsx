@@ -14,6 +14,13 @@ import { isTelegramMiniApp } from './lib/telegram';
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const FocusPage = lazy(() => import('./pages/FocusPage'));
+const GymExercisesPage = lazy(() => import('./pages/GymExercisesPage'));
+const GymHistoryPage = lazy(() => import('./pages/GymHistoryPage'));
+const GymHomePage = lazy(() => import('./pages/GymHomePage'));
+const GymLogPage = lazy(() => import('./pages/GymLogPage'));
+const GymOnboardingPage = lazy(() => import('./pages/GymOnboardingPage'));
+const GymProgramPage = lazy(() => import('./pages/GymProgramPage'));
+const GymProgressPage = lazy(() => import('./pages/GymProgressPage'));
 const HabitsPage = lazy(() => import('./pages/HabitsPage'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
@@ -81,6 +88,13 @@ function AppRoutes() {
             <Route path="/projects" element={withRouteFallback(<ProjectsPage />, 'projects')} />
             <Route path="/projects/:id" element={withRouteFallback(<ProjectDetailPage />, 'projects')} />
             <Route path="/focus" element={withRouteFallback(<FocusPage />, 'focus')} />
+            <Route path="/gym" element={withRouteFallback(<GymHomePage />, 'focus')} />
+            <Route path="/gym/onboarding" element={withRouteFallback(<GymOnboardingPage />, 'focus')} />
+            <Route path="/gym/program" element={withRouteFallback(<GymProgramPage />, 'focus')} />
+            <Route path="/gym/log/:sessionId" element={withRouteFallback(<GymLogPage />, 'focus')} />
+            <Route path="/gym/history" element={withRouteFallback(<GymHistoryPage />, 'focus')} />
+            <Route path="/gym/progress" element={withRouteFallback(<GymProgressPage />, 'focus')} />
+            <Route path="/gym/exercises" element={withRouteFallback(<GymExercisesPage />, 'focus')} />
             <Route path="/stats" element={withRouteFallback(<StatsPage />, 'stats')} />
             <Route path="/settings" element={withRouteFallback(<SettingsPage />, 'settings')} />
           </Route>

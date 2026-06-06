@@ -24,6 +24,15 @@ function formatDuration(minutes) {
   return `${hours}h ${remainingMinutes}m`;
 }
 
+function formatCompactNumber(value) {
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.max(0, Math.round(Number(value) || 0)));
+}
+
+function formatTopLift(lift) {
+  if (!lift) return '';
+  return `${lift.exerciseName}: ${formatCompactNumber(lift.weightKg)}kg x ${lift.reps}`;
+}
+
 function truncateProjectName(value, maxLength = 34) {
   const text = String(value || '').trim();
   if (text.length <= maxLength) return text;
@@ -116,9 +125,11 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
     ? stats.dailyFocusMinutes.slice(0, 7)
     : Array(7).fill(0);
   const maxDailyMinutes = Math.max(...dailyFocusMinutes, 1);
-  const topProjects = (stats.projectBreakdown || []).slice(0, 3);
+  const hasGymData = Boolean(stats.gym?.hasData);
+  const topProjects = (stats.projectBreakdown || []).slice(0, hasGymData ? 2 : 3);
   const totalProjectMinutes = Math.max(0, Number(stats.focusMinutes) || 0);
   const todayIndex = Number.isFinite(stats.todayIndex) ? stats.todayIndex : 6;
+  const topLift = hasGymData ? formatTopLift(stats.gym?.topLift) : '';
 
   return (
     <div
@@ -280,10 +291,10 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
         </div>
 
         {topProjects.length > 0 ? (
-          <div style={{ marginTop: 22 }}>
+          <div style={{ marginTop: hasGymData ? 18 : 22 }}>
             <div
               style={{
-                marginBottom: 12,
+                marginBottom: hasGymData ? 10 : 12,
                 fontSize: 11,
                 fontWeight: 600,
                 letterSpacing: '0.15em',
@@ -293,7 +304,7 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
             >
               {translate('stats.reportProjectsHeader')}
             </div>
-            <div style={{ display: 'grid', gap: 14 }}>
+            <div style={{ display: 'grid', gap: hasGymData ? 10 : 14 }}>
               {topProjects.map((project, index) => {
                 const [baseColor, lighterColor] = getGradientColors(project.color);
                 const widthPercent = totalProjectMinutes > 0 ? (project.minutes / totalProjectMinutes) * 100 : 0;
@@ -306,7 +317,7 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
                         gridTemplateColumns: 'minmax(0, 1fr) auto',
                         alignItems: 'center',
                         gap: 12,
-                        marginBottom: 8,
+                        marginBottom: 7,
                       }}
                     >
                       <span
@@ -357,6 +368,46 @@ const WeeklyReportCard = forwardRef(function WeeklyReportCard({ stats, t }, ref)
                 );
               })}
             </div>
+          </div>
+        ) : null}
+
+        {hasGymData ? (
+          <div style={{ marginTop: 18 }}>
+            <div
+              style={{
+                marginBottom: 10,
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                color: '#8393ac',
+              }}
+            >
+              {translate('stats.reportGymHeader')}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+              <StatCell label={translate('stats.reportGymSessions')}>{stats.gym.sessions || 0}</StatCell>
+              <StatCell label={translate('stats.reportGymVolume')}>
+                <span style={{ fontSize: 19 }}>{formatCompactNumber(stats.gym.totalVolumeKg || 0)}kg</span>
+              </StatCell>
+              <StatCell label={translate('stats.reportGymPrs')} highlight>
+                {stats.gym.prCount || 0}
+              </StatCell>
+            </div>
+            {topLift ? (
+              <div
+                style={{
+                  marginTop: 9,
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                  fontSize: 12,
+                  color: '#a4b2c7',
+                }}
+              >
+                {translate('stats.reportGymTopLift')}: {topLift}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
