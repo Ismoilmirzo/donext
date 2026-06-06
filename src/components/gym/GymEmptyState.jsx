@@ -2,12 +2,14 @@ import { Link } from 'react-router-dom';
 import { Database, Dumbbell, RefreshCw } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
+import { useLocale } from '../../contexts/LocaleContext';
 
 export default function GymEmptyState({ error = '', schemaMissing = false, onRetry }) {
+  const { t } = useLocale();
   const Icon = schemaMissing ? Database : Dumbbell;
-  const title = schemaMissing ? 'Gym setup is waiting on the database' : 'No active gym program';
+  const title = schemaMissing ? t('gym.databaseNotReadyTitle') : t('gym.noActiveProgram');
   const message = schemaMissing
-    ? 'The gym app is deployed, but Supabase does not have the gym tables yet. Run the 014_gym_module_v2.sql migration, then retry.'
+    ? t('gym.databaseNotReadyMessage')
     : error;
 
   return (
@@ -25,20 +27,20 @@ export default function GymEmptyState({ error = '', schemaMissing = false, onRet
       {message ? <p className="text-sm text-amber-200">{message}</p> : null}
       {schemaMissing ? (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-          Migration file: <span className="font-medium">supabase/migrations/014_gym_module_v2.sql</span>
+          <span className="font-medium">{t('gym.databaseMigrationFile')}</span>
         </div>
       ) : null}
 
       <div className="flex flex-wrap gap-2">
         {!schemaMissing ? (
           <Link to="/gym/onboarding" className="dn-button dn-button-primary inline-flex px-4 py-2.5 text-sm">
-            Create Program
+            {t('gym.createProgram')}
           </Link>
         ) : null}
         {schemaMissing && onRetry ? (
           <Button type="button" variant="secondary" onClick={onRetry} className="inline-flex items-center gap-2">
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            Retry
+            {t('gym.retry')}
           </Button>
         ) : null}
       </div>

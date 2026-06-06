@@ -135,6 +135,7 @@ const useGymJs = fs.readFileSync(path.join(root, 'src/hooks/useGym.js'), 'utf8')
 const buttonJsx = fs.readFileSync(path.join(root, 'src/components/ui/Button.jsx'), 'utf8');
 const gymEmptyStateJsx = fs.readFileSync(path.join(root, 'src/components/gym/GymEmptyState.jsx'), 'utf8');
 const gymNavJsx = fs.readFileSync(path.join(root, 'src/components/gym/GymNav.jsx'), 'utf8');
+const gymI18nJs = fs.readFileSync(path.join(root, 'src/gym/lib/gymI18n.js'), 'utf8');
 const gymMetricsJs = fs.readFileSync(path.join(root, 'src/gym/lib/gymMetrics.js'), 'utf8');
 const offlineQueueJs = fs.readFileSync(path.join(root, 'src/gym/lib/offlineQueue.js'), 'utf8');
 const gymLogPageJsx = fs.readFileSync(path.join(root, 'src/pages/GymLogPage.jsx'), 'utf8');
@@ -214,9 +215,9 @@ if (useGymJs.includes(".from('gym_sessions')\n          .update({ duration_min")
   'isWorkSetLogged',
   'getExerciseSetProgress',
   'workoutProgress',
-  'Saved',
-  'Unsaved',
-  'Finish Workout',
+  "t('gym.saved')",
+  "t('gym.unsaved')",
+  "t('gym.finishWorkout')",
   'min-h-11',
   'placeholder={lastDraft?.weight',
   'upsertOptimisticSetLog',
@@ -247,16 +248,17 @@ if (useGymJs.includes(".from('gym_sessions')\n          .update({ duration_min")
 [
   'ReferenceArea',
   'ReferenceLine',
-  'Weekly Hard Sets',
+  "t('gym.weeklyHardSets')",
   'volume_landmarks_reference',
   'stackId="sets"',
   'movingAverage7',
   'topWeightKg',
-  'Weekly Consistency',
+  "t('gym.weeklyConsistency')",
   'currentStreak',
   'longestStreak',
   'record.type',
   'getRecordMetricLabel',
+  'formatGymPrType',
 ].forEach((needle) => {
   if (!gymProgressPageJsx.includes(needle)) {
     throw new Error(`Gym progress page is missing v2 analytics support: ${needle}`);
@@ -266,10 +268,10 @@ if (useGymJs.includes(".from('gym_sessions')\n          .update({ duration_min")
 [
   'getTrainingWeekRows',
   'weeksSinceStart % deloadWeeks === 0',
-  'Block Reassessment',
-  'Repeat Block',
-  'Switch Focus',
-  'Return Balanced',
+  "t('gym.blockReassessment')",
+  "t('gym.repeatBlock')",
+  "t('gym.switchFocus')",
+  "t('gym.returnBalanced')",
 ].forEach((needle) => {
   if (!gymHomePageJsx.includes(needle)) {
     throw new Error(`Gym home page is missing v2 home/reassessment support: ${needle}`);
@@ -279,9 +281,9 @@ if (useGymJs.includes(".from('gym_sessions')\n          .update({ duration_min")
 [
   'calculateWeeklySessionGoal',
   'getDayTypeDotClass',
-  'Current streak',
+  "t('gym.currentStreak')",
   "filter.startsWith('day:')",
-  'Bodyweight',
+  "t('gym.bodyweight')",
   'selectedSession.notes',
 ].forEach((needle) => {
   if (!gymHistoryPageJsx.includes(needle)) {
@@ -300,9 +302,9 @@ if (!gymExercisesPageJsx.includes('schemaMissing || (error && !catalog.length)')
   'role="alert"',
   'getRepRangeLabel',
   'getSecondaryMusclesLabel',
-  'Primary:',
-  'Secondary:',
-  'Reps:',
+  "t('gym.primary'",
+  "t('gym.secondary'",
+  "t('gym.repsRange'",
 ].forEach((needle) => {
   if (!gymExercisesPageJsx.includes(needle)) {
     throw new Error(`Gym exercise library is missing row details from the v2 spec: ${needle}`);
@@ -318,24 +320,48 @@ if (!gymExercisesPageJsx.includes('schemaMissing || (error && !catalog.length)')
 });
 
 [
-  'Gym setup is waiting on the database',
+  'databaseNotReadyTitle',
   '014_gym_module_v2.sql',
 ].forEach((needle) => {
-  if (!gymEmptyStateJsx.includes(needle) || !gymOnboardingPageJsx.includes(needle)) {
+  if ((!gymEmptyStateJsx.includes(needle) && !i18nJs.includes(needle)) || (!gymOnboardingPageJsx.includes(needle) && !i18nJs.includes(needle))) {
     throw new Error(`Gym migration state must stay actionable for users/admins: ${needle}`);
   }
 });
 
 [
   "import Modal from '../components/ui/Modal'",
-  'Change Focus',
-  'title="Change focus"',
-  'Specializing:',
-  "slot.notes || 'Added for specialization'",
-  'Confirm',
+  "t('gym.changeFocus')",
+  'title={t',
+  'specializingLine',
+  'formatGymNote',
+  "t('gym.confirm')",
 ].forEach((needle) => {
   if (!gymProgramPageJsx.includes(needle)) {
     throw new Error(`Gym program page is missing the specialization modal flow: ${needle}`);
+  }
+});
+
+[
+  'formatGymDayLabel',
+  'formatGymWeekdayLabel',
+  'formatGymMuscleLabel',
+  'formatGymPrType',
+].forEach((needle) => {
+  if (!gymI18nJs.includes(needle)) {
+    throw new Error(`Gym i18n helpers are missing: ${needle}`);
+  }
+});
+
+[
+  'navToday',
+  'databaseNotReadyTitle',
+  'finishWorkout',
+  'weeklyConsistency',
+  'Mashqni tugatish',
+  'Zal sozlamasi',
+].forEach((needle) => {
+  if (!i18nJs.includes(needle)) {
+    throw new Error(`Gym localized copy is missing i18n key/content: ${needle}`);
   }
 });
 

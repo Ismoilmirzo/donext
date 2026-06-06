@@ -16,6 +16,7 @@ import { Activity, Dumbbell, Flame, LineChart as LineChartIcon, Scale, Trophy } 
 import GymEmptyState from '../components/gym/GymEmptyState';
 import GymNav from '../components/gym/GymNav';
 import Card from '../components/ui/Card';
+import { useLocale } from '../contexts/LocaleContext';
 import {
   calculateBodyweightTrend,
   calculateCurrentWeekMuscleSets,
@@ -24,15 +25,16 @@ import {
   calculateWeeklySessionGoal,
   detectPersonalRecords,
 } from '../gym/lib/gymMetrics';
-import { formatGymMuscleName, GYM_SPECIALIZATION_RULES } from '../gym/lib/gymProgramData';
+import { formatGymMuscleLabel, formatGymPrType } from '../gym/lib/gymI18n';
+import { GYM_SPECIALIZATION_RULES } from '../gym/lib/gymProgramData';
 import { useGym } from '../hooks/useGym';
 
 const TABS = [
-  { id: 'strength', label: 'Strength', icon: Dumbbell },
-  { id: 'volume', label: 'Volume', icon: Flame },
-  { id: 'bodyweight', label: 'Bodyweight', icon: Scale },
-  { id: 'consistency', label: 'Consistency', icon: Activity },
-  { id: 'prs', label: 'PRs', icon: Trophy },
+  { id: 'strength', labelKey: 'gym.strength', icon: Dumbbell },
+  { id: 'volume', labelKey: 'gym.volume', icon: Flame },
+  { id: 'bodyweight', labelKey: 'gym.bodyweight', icon: Scale },
+  { id: 'consistency', labelKey: 'gym.consistency', icon: Activity },
+  { id: 'prs', labelKey: 'gym.prs', icon: Trophy },
 ];
 
 function getRecordMetricLabel(record) {
@@ -42,6 +44,7 @@ function getRecordMetricLabel(record) {
 }
 
 export default function GymProgressPage() {
+  const { t } = useLocale();
   const { activeProgram, catalog, error, loading, prs, retryGymSchema, schemaMissing, sessions, setLogs } = useGym();
   const [tab, setTab] = useState('strength');
   const [exerciseId, setExerciseId] = useState('');
@@ -116,8 +119,8 @@ export default function GymProgressPage() {
 
       <Card className="space-y-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">Progress</p>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-50">Gym Analytics</h1>
+          <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">{t('gym.progressEyebrow')}</p>
+          <h1 className="mt-2 text-2xl font-semibold text-slate-50">{t('gym.gymAnalytics')}</h1>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -135,7 +138,7 @@ export default function GymProgressPage() {
                 }`}
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />
-                {item.label}
+                {t(item.labelKey)}
               </button>
             );
           })}
@@ -147,7 +150,7 @@ export default function GymProgressPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <LineChartIcon className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-              Estimated 1RM
+              {t('gym.estimatedOneRm')}
             </div>
             <select
               value={selectedExerciseId}
@@ -181,7 +184,7 @@ export default function GymProgressPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <Flame className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-              Weekly Hard Sets
+              {t('gym.weeklyHardSets')}
             </div>
             <select
               value={selectedVolumeMuscle}
@@ -190,7 +193,7 @@ export default function GymProgressPage() {
             >
               {volumeMuscles.map((muscle) => (
                 <option key={muscle} value={muscle}>
-                  {formatGymMuscleName(muscle)}
+                  {formatGymMuscleLabel(t, muscle)}
                 </option>
               ))}
             </select>
@@ -202,7 +205,7 @@ export default function GymProgressPage() {
                 <XAxis dataKey="label" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" />
                 <Tooltip
-                  formatter={(value) => [`${value} sets`, formatGymMuscleName(selectedVolumeMuscle)]}
+                  formatter={(value) => [t('gym.setsUnit', { count: value }), formatGymMuscleLabel(t, selectedVolumeMuscle)]}
                   contentStyle={{ background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0' }}
                 />
                 {volumeLandmark?.MAV ? (
@@ -245,8 +248,8 @@ export default function GymProgressPage() {
                   }`}
                 >
                   <div className="flex justify-between gap-3">
-                    <span>{formatGymMuscleName(row.muscle)}</span>
-                    <span>{row.sets} sets</span>
+                    <span>{formatGymMuscleLabel(t, row.muscle)}</span>
+                    <span>{t('gym.setsUnit', { count: row.sets })}</span>
                   </div>
                   {landmark ? (
                     <p className="mt-1 text-xs text-slate-500">
@@ -264,7 +267,7 @@ export default function GymProgressPage() {
         <Card className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
             <Scale className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-            Bodyweight
+            {t('gym.bodyweight')}
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -285,20 +288,20 @@ export default function GymProgressPage() {
         <Card className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
             <Activity className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-            Weekly Consistency
+            {t('gym.weeklyConsistency')}
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-slate-700 bg-slate-900/45 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Goal</p>
-              <p className="mt-1 text-lg font-semibold text-slate-50">{consistency.goal}/week</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">{t('gym.goal')}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-50">{t('gym.perWeek', { count: consistency.goal })}</p>
             </div>
             <div className="rounded-xl border border-slate-700 bg-slate-900/45 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Current streak</p>
-              <p className="mt-1 text-lg font-semibold text-slate-50">{consistency.currentStreak} weeks</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">{t('gym.currentStreak')}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-50">{t('gym.currentWeekStreak', { count: consistency.currentStreak })}</p>
             </div>
             <div className="rounded-xl border border-slate-700 bg-slate-900/45 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Longest streak</p>
-              <p className="mt-1 text-lg font-semibold text-slate-50">{consistency.longestStreak} weeks</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">{t('gym.longestStreak')}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-50">{t('gym.currentWeekStreak', { count: consistency.longestStreak })}</p>
             </div>
           </div>
           <div className="h-72">
@@ -320,7 +323,7 @@ export default function GymProgressPage() {
         <Card className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
             <Trophy className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-            PR Feed
+            {t('gym.prFeed')}
           </div>
           {records.length ? (
             records.map((record) => (
@@ -329,7 +332,7 @@ export default function GymProgressPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-slate-100">{record.exerciseName}</span>
                     <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-200">
-                      {record.type || 'Best e1RM'}
+                      {formatGymPrType(t, record.type)}
                     </span>
                   </div>
                   <span className="text-emerald-200">{getRecordMetricLabel(record)}</span>
@@ -341,7 +344,7 @@ export default function GymProgressPage() {
               </div>
             ))
           ) : (
-            <p className="text-sm text-slate-400">No PRs yet.</p>
+            <p className="text-sm text-slate-400">{t('gym.noPrsYet')}</p>
           )}
         </Card>
       ) : null}

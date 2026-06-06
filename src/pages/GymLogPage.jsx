@@ -4,7 +4,9 @@ import { Bell, ChevronDown, ChevronRight, Minus, Plus, RotateCcw, Save, Timer, T
 import GymNav from '../components/gym/GymNav';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import { useLocale } from '../contexts/LocaleContext';
 import { useToast } from '../contexts/ToastContext';
+import { formatGymDayLabel } from '../gym/lib/gymI18n';
 import { convertWeight, calculateSessionVolume, toKg } from '../gym/lib/gymMetrics';
 import { useGym } from '../hooks/useGym';
 
@@ -91,6 +93,7 @@ export default function GymLogPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const { t } = useLocale();
   const {
     activeProgram,
     deleteSetLog,
@@ -142,7 +145,7 @@ export default function GymLogPage() {
         setSession(data);
         setBodyweightDisplay(data?.bodyweight_kg ? String(convertWeight(data.bodyweight_kg, unit)) : getLastBodyweightDisplay(sessions, unit));
       } catch (error) {
-        toast.error('Session could not be loaded', error.message || 'Try again.');
+        toast.error(t('gym.sessionLoadFailed'), error.message || t('gym.tryAgain'));
       } finally {
         if (!cancelled) setSessionLoading(false);
       }
@@ -151,7 +154,7 @@ export default function GymLogPage() {
     return () => {
       cancelled = true;
     };
-  }, [getSession, sessionId, sessions, toast, unit]);
+  }, [getSession, sessionId, sessions, t, toast, unit]);
 
   useEffect(() => {
     if (!session) return;
@@ -180,12 +183,12 @@ export default function GymLogPage() {
   useEffect(() => {
     if (restSeconds > 0 || !restWasRunning) return;
     if (restAlertsEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      new Notification('Rest complete', { body: 'Start the next set.' });
+      new Notification(t('gym.restComplete'), { body: t('gym.startNextSet') });
     } else {
-      toast.info('Rest complete');
+      toast.info(t('gym.restComplete'));
     }
     setRestWasRunning(false);
-  }, [restAlertsEnabled, restSeconds, restWasRunning, toast]);
+  }, [restAlertsEnabled, restSeconds, restWasRunning, t, toast]);
 
   function updateDraft(exerciseId, setNumber, patch) {
     const key = getSetKey(exerciseId, setNumber);
@@ -242,13 +245,13 @@ export default function GymLogPage() {
     try {
       const result = await logSet(payload);
       if (result?.queued) {
-        toast.info('Set queued offline');
+        toast.info(t('gym.setQueuedOffline'));
       } else {
         await reloadSession();
       }
     } catch (error) {
       void reloadSession().catch(() => undefined);
-      toast.error('Set was not saved', error.message || 'Try again.');
+      toast.error(t('gym.setSaveFailed'), error.message || t('gym.tryAgain'));
     } finally {
       setSavingKey('');
     }
@@ -273,22 +276,22 @@ export default function GymLogPage() {
 
   async function enableRestAlerts() {
     if (typeof Notification === 'undefined') {
-      toast.info('Browser notifications are not available');
+      toast.info(t('gym.restAlertsUnavailable'));
       return;
     }
     if (Notification.permission === 'granted') {
       setRestAlertsEnabled(true);
-      toast.success('Rest alerts enabled');
+      toast.success(t('gym.restAlertsEnabled'));
       return;
     }
     if (Notification.permission === 'denied') {
-      toast.info('Notifications are blocked in this browser');
+      toast.info(t('gym.notificationsBlocked'));
       return;
     }
     const permission = await Notification.requestPermission();
     const enabled = permission === 'granted';
     setRestAlertsEnabled(enabled);
-    if (enabled) toast.success('Rest alerts enabled');
+    if (enabled) toast.success(t('gym.restAlertsEnabled'));
   }
 
   function adjustRestTimer(deltaSeconds) {
@@ -308,14 +311,14 @@ export default function GymLogPage() {
       });
       await reloadSession();
     } catch (error) {
-      toast.error('Set was not dropped', error.message || 'Try again.');
+      toast.error(t('gym.setDropFailed'), error.message || t('gym.tryAgain'));
     }
   }
 
   function prefillLast(slot) {
     const previousLogs = findLastLogs(sessions, sessionId, slot.exercise_id);
     if (!previousLogs.length) {
-      toast.info('No previous sets for this exercise');
+      toast.info(t('gym.noPreviousSets'));
       return;
     }
     previousLogs.slice(0, slot.sets).forEach((set, index) => {
@@ -333,7 +336,7 @@ export default function GymLogPage() {
       await updateSessionBodyweight(sessionId, bodyweightDisplay === '' ? null : toKg(bodyweightDisplay, unit));
       await reloadSession();
     } catch (error) {
-      toast.error('Bodyweight was not saved', error.message || 'Try again.');
+      toast.error(t('gym.bodyweightSaveFailed'), error.message || t('gym.tryAgain'));
     }
   }
 
@@ -345,19 +348,19 @@ export default function GymLogPage() {
       const volume = calculateSessionVolume(refreshed?.gym_set_logs || []);
       const previousSession = getPreviousMatchingSession(sessions, refreshed);
       const previousVolume = calculateSessionVolume(previousSession?.gym_set_logs || []);
-      const exerciseNameById = new Map(slots.map((slot) => [slot.exercise_id, slot.exercise?.name || 'Exercise']));
+      const exerciseNameById = new Map(slots.map((slot) => [slot.exercise_id, slot.exercise?.name || t('gym.exerciseFallback')]));
       setSummary({
         durationMin,
         volume,
         volumeDelta: previousSession ? volume - previousVolume : null,
         prDeltas: (finishResult?.prDeltas || []).map((record) => ({
           ...record,
-          exerciseName: exerciseNameById.get(record.exerciseId) || 'Exercise',
+          exerciseName: exerciseNameById.get(record.exerciseId) || t('gym.exerciseFallback'),
         })),
         sets: (refreshed?.gym_set_logs || []).filter((set) => !set.is_warmup && set.reps).length,
       });
     } catch (error) {
-      toast.error('Workout was not finished', error.message || 'Try again.');
+      toast.error(t('gym.finishFailed'), error.message || t('gym.tryAgain'));
     }
   }
 
@@ -375,8 +378,8 @@ export default function GymLogPage() {
       <div className="space-y-4">
         <GymNav />
         <Card className="space-y-4">
-          <h1 className="text-xl font-semibold text-slate-50">Session not found</h1>
-          <Button onClick={() => navigate('/gym')}>Back to Gym</Button>
+          <h1 className="text-xl font-semibold text-slate-50">{t('gym.sessionNotFound')}</h1>
+          <Button onClick={() => navigate('/gym')}>{t('gym.backToGym')}</Button>
         </Card>
       </div>
     );
@@ -389,15 +392,17 @@ export default function GymLogPage() {
       <Card className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">Workout Log</p>
-            <h1 className="mt-2 text-2xl font-semibold text-slate-50">{session.program_day?.label || 'Workout'}</h1>
+            <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">{t('gym.logEyebrow')}</p>
+            <h1 className="mt-2 text-2xl font-semibold text-slate-50">
+              {formatGymDayLabel(t, session.program_day?.label) || t('gym.workoutFallback')}
+            </h1>
             <p className="mt-2 text-sm text-slate-400">
-              {session.performed_at} - {outboxCount} queued sets
+              {t('gym.queuedSetsLine', { date: session.performed_at, count: outboxCount })}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <label className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/45 px-3 py-2 text-sm text-slate-300">
-              Bodyweight
+              {t('gym.bodyweight')}
               <input
                 value={bodyweightDisplay}
                 onBlur={saveBodyweight}
@@ -410,7 +415,7 @@ export default function GymLogPage() {
             <div className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/45 px-2 py-1 text-sm text-slate-300">
               <button
                 type="button"
-                aria-label="Reduce rest timer by 15 seconds"
+                aria-label={t('gym.reduceRestTimer')}
                 onClick={() => adjustRestTimer(-15)}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100"
               >
@@ -420,7 +425,7 @@ export default function GymLogPage() {
               {Math.floor(restSeconds / 60)}:{String(restSeconds % 60).padStart(2, '0')}
               <button
                 type="button"
-                aria-label="Add 15 seconds to rest timer"
+                aria-label={t('gym.addRestTimer')}
                 onClick={() => adjustRestTimer(15)}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100"
               >
@@ -429,14 +434,14 @@ export default function GymLogPage() {
             </div>
             {restSeconds > 0 ? (
               <Button variant="ghost" size="sm" onClick={() => setRestSeconds(0)}>
-                Skip
+                {t('gym.skip')}
               </Button>
             ) : null}
             <Button variant="secondary" size="sm" onClick={enableRestAlerts} className="inline-flex items-center gap-2">
               <Bell className="h-4 w-4" aria-hidden="true" />
-              {restAlertsEnabled ? 'Alerts On' : 'Alerts'}
+              {restAlertsEnabled ? t('gym.alertsOn') : t('gym.alerts')}
             </Button>
-            <Button onClick={handleFinish}>Finish</Button>
+            <Button onClick={handleFinish}>{t('gym.finish')}</Button>
           </div>
         </div>
       </Card>
@@ -445,31 +450,32 @@ export default function GymLogPage() {
         <Card className="space-y-3 border-emerald-500/30 bg-emerald-500/10">
           <div className="flex items-center gap-2 text-sm font-semibold text-emerald-100">
             <Trophy className="h-4 w-4" aria-hidden="true" />
-            Workout Summary
+            {t('gym.workoutSummary')}
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-emerald-500/20 bg-slate-950/40 p-3">
-              <p className="text-xs uppercase tracking-wide text-emerald-200/70">Duration</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-200/70">{t('gym.duration')}</p>
               <p className="mt-1 text-lg font-semibold text-emerald-50">{summary.durationMin} min</p>
             </div>
             <div className="rounded-xl border border-emerald-500/20 bg-slate-950/40 p-3">
-              <p className="text-xs uppercase tracking-wide text-emerald-200/70">Work Sets</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-200/70">{t('gym.workSets')}</p>
               <p className="mt-1 text-lg font-semibold text-emerald-50">{summary.sets}</p>
             </div>
             <div className="rounded-xl border border-emerald-500/20 bg-slate-950/40 p-3">
-              <p className="text-xs uppercase tracking-wide text-emerald-200/70">Volume</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-200/70">{t('gym.volume')}</p>
               <p className="mt-1 text-lg font-semibold text-emerald-50">{Math.round(summary.volume)} kg</p>
               {summary.volumeDelta != null ? (
                 <p className={`mt-1 text-xs ${summary.volumeDelta >= 0 ? 'text-emerald-200' : 'text-amber-200'}`}>
-                  {summary.volumeDelta >= 0 ? '+' : ''}
-                  {Math.round(summary.volumeDelta)} kg vs last time
+                  {t('gym.volumeVsLast', { value: `${summary.volumeDelta >= 0 ? '+' : ''}${Math.round(summary.volumeDelta)}` })}
                 </p>
               ) : null}
             </div>
           </div>
           {summary.prDeltas?.length ? (
             <div className="space-y-2 rounded-xl border border-emerald-500/20 bg-slate-950/40 px-3 py-2 text-sm text-emerald-100">
-              <p className="font-semibold">{summary.prDeltas.length} PR{summary.prDeltas.length === 1 ? '' : 's'} hit</p>
+              <p className="font-semibold">
+                {summary.prDeltas.length === 1 ? t('gym.prHit') : t('gym.prsHit', { count: summary.prDeltas.length })}
+              </p>
               {summary.prDeltas.map((record) => (
                 <p key={`${record.exerciseId}-${record.estimated1rm}`} className="text-emerald-100/85">
                   {record.exerciseName}: {record.weightKg} kg x {record.reps} ({record.estimated1rm} kg e1RM)
@@ -478,7 +484,7 @@ export default function GymLogPage() {
             </div>
           ) : null}
           <Link to="/gym/history" className="dn-button dn-button-secondary inline-flex px-4 py-2.5 text-sm">
-            View History
+            {t('gym.viewHistory')}
           </Link>
         </Card>
       ) : null}
@@ -507,19 +513,19 @@ export default function GymLogPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
-                    <h2 className="font-semibold text-slate-50">{slot.exercise?.name || 'Exercise'}</h2>
+                    <h2 className="font-semibold text-slate-50">{slot.exercise?.name || t('gym.exerciseFallback')}</h2>
                   </div>
                   <p className="mt-1 text-sm text-slate-400">
-                    {slot.target_sets} sets x {slot.target_rep_low}-{slot.target_rep_high} reps
+                    {t('gym.targetSetLine', { sets: slot.target_sets, low: slot.target_rep_low, high: slot.target_rep_high })}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-300">
-                    {exerciseProgress.logged}/{exerciseProgress.target} logged
+                    {t('gym.loggedCount', { logged: exerciseProgress.logged, target: exerciseProgress.target })}
                   </span>
                   {slot.is_specialization ? (
                     <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-200">
-                      Specialization
+                      {t('gym.specializationTitle')}
                     </span>
                   ) : null}
                 </div>
@@ -536,7 +542,7 @@ export default function GymLogPage() {
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="secondary" onClick={() => prefillLast(slot)} className="inline-flex items-center gap-2">
                       <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                      Last Time
+                      {t('gym.lastTimeAction')}
                     </Button>
                     <Button
                       size="sm"
@@ -545,7 +551,7 @@ export default function GymLogPage() {
                       className="inline-flex items-center gap-2"
                     >
                       <Plus className="h-4 w-4" aria-hidden="true" />
-                      Add Set
+                      {t('gym.addSet')}
                     </Button>
                   </div>
 
@@ -568,15 +574,15 @@ export default function GymLogPage() {
                           <div className="flex flex-col justify-center gap-1 text-sm font-semibold text-slate-300">
                             <span>#{setNumber}</span>
                             <span className={`text-[11px] font-medium ${isSaved ? 'text-emerald-200' : hasDraft ? 'text-amber-200' : 'text-slate-500'}`}>
-                              {isSaved ? 'Saved' : hasDraft ? 'Unsaved' : 'Empty'}
+                              {isSaved ? t('gym.saved') : hasDraft ? t('gym.unsaved') : t('gym.empty')}
                             </span>
                           </div>
                           <label className="space-y-1 text-xs text-slate-400">
-                            Weight ({unit})
+                            {t('gym.weightUnit', { unit })}
                             <div className="flex">
                               <button
                                 type="button"
-                                aria-label={`Decrease set ${setNumber} weight`}
+                                aria-label={t('gym.decreaseSetWeight', { set: setNumber })}
                                 onClick={() => adjustDraft(exerciseId, setNumber, 'weight', -getWeightStep(slot, unit))}
                                 className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-l-lg border border-slate-700 text-slate-300 hover:bg-slate-800"
                               >
@@ -592,7 +598,7 @@ export default function GymLogPage() {
                               />
                               <button
                                 type="button"
-                                aria-label={`Increase set ${setNumber} weight`}
+                                aria-label={t('gym.increaseSetWeight', { set: setNumber })}
                                 onClick={() => adjustDraft(exerciseId, setNumber, 'weight', getWeightStep(slot, unit))}
                                 className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-r-lg border border-slate-700 text-slate-300 hover:bg-slate-800"
                               >
@@ -601,7 +607,7 @@ export default function GymLogPage() {
                             </div>
                           </label>
                           <label className="space-y-1 text-xs text-slate-400">
-                            Reps
+                            {t('gym.reps')}
                             <input
                               value={draft.reps}
                               placeholder={lastDraft?.reps || ''}
@@ -612,7 +618,7 @@ export default function GymLogPage() {
                             />
                           </label>
                           <div className="space-y-1 text-xs text-slate-400">
-                            RIR
+                            {t('gym.rir')}
                             <div className="grid grid-cols-4 gap-1">
                               {RIR_OPTIONS.map((option) => (
                                 <button
@@ -629,7 +635,7 @@ export default function GymLogPage() {
                                 </button>
                               ))}
                             </div>
-                            {lastDraft?.rir ? <p className="text-[11px] text-slate-500">Last {lastDraft.rir}</p> : null}
+                            {lastDraft?.rir ? <p className="text-[11px] text-slate-500">{t('gym.last')} {lastDraft.rir}</p> : null}
                           </div>
                           <label className="flex min-h-11 items-center gap-2 text-xs text-slate-400">
                             <input
@@ -637,7 +643,7 @@ export default function GymLogPage() {
                               checked={draft.isWarmup}
                               onChange={(event) => updateDraft(exerciseId, setNumber, { isWarmup: event.target.checked })}
                             />
-                            Warmup
+                            {t('gym.warmup')}
                           </label>
                           <div className="flex items-end">
                             <Button
@@ -646,18 +652,18 @@ export default function GymLogPage() {
                               disabled={!lastLog}
                               onClick={() => acceptLastSet(slot, setNumber, lastLog)}
                             >
-                              Last
+                              {t('gym.last')}
                             </Button>
                           </div>
                           <div className="flex items-end">
                             <Button size="sm" loading={savingKey === key} onClick={() => saveSet(slot, setNumber)} className="inline-flex items-center gap-2">
                               <Save className="h-4 w-4" aria-hidden="true" />
-                              Save
+                              {t('gym.save')}
                             </Button>
                           </div>
                           <div className="flex items-end">
                             <Button size="sm" variant="ghost" onClick={() => dropSet(slot, setNumber)}>
-                              Drop
+                              {t('gym.drop')}
                             </Button>
                           </div>
                         </div>
@@ -675,11 +681,11 @@ export default function GymLogPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-50">
-              {workoutProgress.logged}/{workoutProgress.target} work sets logged
+              {t('gym.workSetsLoggedLine', { logged: workoutProgress.logged, target: workoutProgress.target })}
             </p>
-            <p className="text-xs text-slate-400">{outboxCount} queued sets - finish when the real workout is done.</p>
+            <p className="text-xs text-slate-400">{t('gym.queuedFinishHint', { count: outboxCount })}</p>
           </div>
-          <Button onClick={handleFinish}>Finish Workout</Button>
+          <Button onClick={handleFinish}>{t('gym.finishWorkout')}</Button>
         </div>
       </Card>
     </div>

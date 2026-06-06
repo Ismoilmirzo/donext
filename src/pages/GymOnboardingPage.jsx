@@ -4,15 +4,15 @@ import { CalendarDays, Check, Database, Dumbbell, RefreshCw, Ruler, Target } fro
 import GymNav from '../components/gym/GymNav';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import { useLocale } from '../contexts/LocaleContext';
 import { useToast } from '../contexts/ToastContext';
 import {
-  formatGymMuscleName,
   generateDefaultGymProgram,
   getGeneratedProgramPreview,
   getSpecializationMuscles,
   GYM_SPECIALIZATION_RULES,
 } from '../gym/lib/gymProgramData';
-import { formatWeekday } from '../gym/lib/gymMetrics';
+import { formatGymDayLabel, formatGymMuscleLabel, formatGymWeekdayLabel } from '../gym/lib/gymI18n';
 import { useGym } from '../hooks/useGym';
 
 const WEEKDAY_OPTIONS = [1, 2, 3, 4, 5, 6, 0];
@@ -20,6 +20,7 @@ const WEEKDAY_OPTIONS = [1, 2, 3, 4, 5, 6, 0];
 export default function GymOnboardingPage() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { t } = useLocale();
   const { createProgram, retryGymSchema, schemaMissing } = useGym();
   const [specializationMuscle, setSpecializationMuscle] = useState('');
   const [unitPreference, setUnitPreference] = useState('kg');
@@ -37,10 +38,10 @@ export default function GymOnboardingPage() {
         unitPreference,
         weekdayByDayOrder,
       });
-      toast.success('Gym program created');
+      toast.success(t('gym.programCreated'));
       navigate('/gym');
     } catch (error) {
-      toast.error('Program creation failed', error.message || 'Check the gym migration and try again.');
+      toast.error(t('gym.programCreateFailed'), error.message || t('gym.checkMigrationTryAgain'));
     } finally {
       setSaving(false);
     }
@@ -56,15 +57,15 @@ export default function GymOnboardingPage() {
             <div className="flex items-start gap-2 text-sm text-amber-100">
               <Database className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <div>
-                <p className="font-semibold">Gym setup is waiting on the database.</p>
+                <p className="font-semibold">{t('gym.onboardingMigrationTitle')}</p>
                 <p className="mt-1 text-amber-100/85">
-                  Run supabase/migrations/014_gym_module_v2.sql in Supabase, then retry.
+                  {t('gym.onboardingMigrationBody')}
                 </p>
               </div>
             </div>
             <Button type="button" size="sm" variant="secondary" onClick={retryGymSchema} className="inline-flex items-center gap-2">
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Retry
+              {t('gym.retry')}
             </Button>
           </div>
         </Card>
@@ -76,17 +77,17 @@ export default function GymOnboardingPage() {
             <Dumbbell className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">Gym Setup</p>
-            <h1 className="text-2xl font-semibold text-slate-50">3-Day Upper / Lower / Upper</h1>
+            <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">{t('gym.onboardingEyebrow')}</p>
+            <h1 className="text-2xl font-semibold text-slate-50">{t('gym.onboardingTitle')}</h1>
           </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
           {program.days.map((day) => (
             <div key={day.day_order} className="rounded-xl border border-slate-700 bg-slate-900/45 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Day {day.day_order}</p>
-              <h2 className="mt-1 font-semibold text-slate-50">{day.label}</h2>
-              <p className="mt-2 text-sm text-slate-400">{day.slots.length} exercises</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">{t('gym.dayLabel', { day: day.day_order })}</p>
+              <h2 className="mt-1 font-semibold text-slate-50">{formatGymDayLabel(t, day.label)}</h2>
+              <p className="mt-2 text-sm text-slate-400">{t('gym.dayExerciseCount', { count: day.slots.length })}</p>
             </div>
           ))}
         </div>
@@ -95,7 +96,7 @@ export default function GymOnboardingPage() {
       <Card className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
           <Target className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-          Specialization
+          {t('gym.specializationTitle')}
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <button
@@ -107,7 +108,7 @@ export default function GymOnboardingPage() {
                 : 'border-slate-700 bg-slate-900/45 text-slate-300'
             }`}
           >
-            Balanced
+            {t('gym.balanced')}
           </button>
           {specializationMuscles.map((muscle) => (
             <button
@@ -120,25 +121,27 @@ export default function GymOnboardingPage() {
                   : 'border-slate-700 bg-slate-900/45 text-slate-300'
               }`}
             >
-              {formatGymMuscleName(muscle)}
+              {formatGymMuscleLabel(t, muscle)}
             </button>
           ))}
         </div>
 
         <div className="rounded-xl border border-slate-700 bg-slate-900/45 p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Generated Changes</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">{t('gym.generatedChanges')}</p>
           <div className="mt-3 space-y-2">
             {preview.changedSlots.length ? (
               preview.changedSlots.map((slot) => (
                 <div key={`${slot.dayLabel}-${slot.exerciseKey}`} className="flex flex-wrap justify-between gap-2 text-sm">
-                  <span className="text-slate-300">{slot.dayLabel} - {slot.exerciseName}</span>
+                  <span className="text-slate-300">{formatGymDayLabel(t, slot.dayLabel)} - {slot.exerciseName}</span>
                   <span className={slot.isSpecialization ? 'text-emerald-200' : 'text-amber-200'}>
-                    {slot.isSpecialization ? `+${slot.sets} sets` : `${slot.baseSets} -> ${slot.sets} sets`}
+                    {slot.isSpecialization
+                      ? t('gym.plusSets', { sets: slot.sets })
+                      : t('gym.setChange', { from: slot.baseSets, to: slot.sets })}
                   </span>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-slate-400">Balanced base program.</p>
+              <p className="text-sm text-slate-400">{t('gym.balancedBaseProgram')}</p>
             )}
           </div>
         </div>
@@ -149,12 +152,12 @@ export default function GymOnboardingPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <CalendarDays className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-              Weekdays
+              {t('gym.weekdaysTitle')}
             </div>
             <div className="space-y-3">
               {program.days.map((day) => (
                 <label key={day.day_order} className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_12rem]">
-                  <span className="text-sm text-slate-300">{day.label}</span>
+                  <span className="text-sm text-slate-300">{formatGymDayLabel(t, day.label)}</span>
                   <select
                     value={weekdayByDayOrder[day.day_order]}
                     onChange={(event) =>
@@ -164,7 +167,7 @@ export default function GymOnboardingPage() {
                   >
                     {WEEKDAY_OPTIONS.map((weekday) => (
                       <option key={weekday} value={weekday}>
-                        {formatWeekday(weekday)}
+                        {formatGymWeekdayLabel(t, weekday)}
                       </option>
                     ))}
                   </select>
@@ -176,7 +179,7 @@ export default function GymOnboardingPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
               <Ruler className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-              Unit
+              {t('gym.unitTitle')}
             </div>
             <div className="grid grid-cols-2 gap-2">
               {['kg', 'lb'].map((unit) => (
@@ -199,7 +202,7 @@ export default function GymOnboardingPage() {
 
         <Button disabled={schemaMissing} loading={saving} onClick={handleCreate} className="inline-flex items-center gap-2">
           <Check className="h-4 w-4" aria-hidden="true" />
-          Create Program
+          {t('gym.createProgram')}
         </Button>
       </Card>
     </div>

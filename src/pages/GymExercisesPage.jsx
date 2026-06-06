@@ -4,38 +4,39 @@ import GymEmptyState from '../components/gym/GymEmptyState';
 import GymNav from '../components/gym/GymNav';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import { useLocale } from '../contexts/LocaleContext';
 import { useToast } from '../contexts/ToastContext';
-import { formatGymMuscleName } from '../gym/lib/gymProgramData';
+import { formatGymAttributeLabel, formatGymMuscleLabel } from '../gym/lib/gymI18n';
 import { useGym } from '../hooks/useGym';
 
 function uniqueValues(rows, key) {
   return [...new Set(rows.map((row) => row[key]).filter(Boolean))].sort();
 }
 
-function getRepRangeLabel(exercise) {
+function getRepRangeLabel(t, exercise) {
   const low = Number(exercise.default_rep_low || 0);
   const high = Number(exercise.default_rep_high || 0);
   if (low && high && low !== high) return `${low}-${high} reps`;
   if (low || high) return `${low || high} reps`;
-  return 'Reps not set';
+  return t('gym.repsNotSet');
 }
 
-function getSecondaryMusclesLabel(exercise) {
+function getSecondaryMusclesLabel(t, exercise) {
   const secondary = Array.isArray(exercise.secondary_muscles) ? exercise.secondary_muscles : [];
-  if (!secondary.length) return 'No secondary muscles';
-  return secondary.map(formatGymMuscleName).join(', ');
+  if (!secondary.length) return t('gym.noSecondaryMuscles');
+  return secondary.map((muscle) => formatGymMuscleLabel(t, muscle)).join(', ');
 }
 
-function validateExerciseForm(form) {
+function validateExerciseForm(form, t) {
   const low = Number(form.default_rep_low);
   const high = Number(form.default_rep_high);
   const rest = Number(form.rest_seconds);
-  if (!form.name.trim()) return 'Name is required.';
-  if (!form.primary_muscle) return 'Choose a primary muscle so this exercise can appear in swaps and specializations.';
-  if (!Number.isFinite(low) || low < 1) return 'Low reps must be at least 1.';
-  if (!Number.isFinite(high) || high < 1) return 'High reps must be at least 1.';
-  if (low > high) return 'Low reps cannot be higher than high reps.';
-  if (!Number.isFinite(rest) || rest < 15) return 'Rest should be at least 15 seconds.';
+  if (!form.name.trim()) return t('gym.validationNameRequired');
+  if (!form.primary_muscle) return t('gym.validationPrimaryMuscle');
+  if (!Number.isFinite(low) || low < 1) return t('gym.validationLowRep');
+  if (!Number.isFinite(high) || high < 1) return t('gym.validationHighRep');
+  if (low > high) return t('gym.validationRepOrder');
+  if (!Number.isFinite(rest) || rest < 15) return t('gym.validationRest');
   return '';
 }
 
@@ -54,6 +55,7 @@ const EMPTY_FORM = {
 
 export default function GymExercisesPage() {
   const toast = useToast();
+  const { t } = useLocale();
   const { addCustomExercise, catalog, error, loading, retryGymSchema, schemaMissing } = useGym();
   const [query, setQuery] = useState('');
   const [muscle, setMuscle] = useState('');
@@ -84,13 +86,13 @@ export default function GymExercisesPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
     setFormError((prev) => {
       if (!prev) return '';
-      return validateExerciseForm({ ...form, [field]: value });
+      return validateExerciseForm({ ...form, [field]: value }, t);
     });
   }
 
   async function handleAddExercise(event) {
     event.preventDefault();
-    const validationError = validateExerciseForm(form);
+    const validationError = validateExerciseForm(form, t);
     if (validationError) {
       setFormError(validationError);
       return;
@@ -106,9 +108,9 @@ export default function GymExercisesPage() {
       });
       setForm(EMPTY_FORM);
       setFormError('');
-      toast.success('Exercise added');
+      toast.success(t('gym.exerciseAdded'));
     } catch (error) {
-      toast.error('Exercise was not added', error.message || 'Try again.');
+      toast.error(t('gym.exerciseAddFailed'), error.message || t('gym.tryAgain'));
     } finally {
       setSaving(false);
     }
@@ -138,8 +140,8 @@ export default function GymExercisesPage() {
 
       <Card className="space-y-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">Exercises</p>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-50">Exercise Library</h1>
+          <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">{t('gym.exercisesEyebrow')}</p>
+          <h1 className="mt-2 text-2xl font-semibold text-slate-50">{t('gym.exerciseLibrary')}</h1>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[minmax(12rem,1fr)_12rem_12rem_12rem]">
@@ -148,7 +150,7 @@ export default function GymExercisesPage() {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search"
+              placeholder={t('gym.search')}
               className="min-w-0 flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
             />
           </label>
@@ -157,10 +159,10 @@ export default function GymExercisesPage() {
             onChange={(event) => setMuscle(event.target.value)}
             className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
           >
-            <option value="">All muscles</option>
+            <option value="">{t('gym.allMuscles')}</option>
             {muscles.map((value) => (
               <option key={value} value={value}>
-                {formatGymMuscleName(value)}
+                {formatGymMuscleLabel(t, value)}
               </option>
             ))}
           </select>
@@ -169,10 +171,10 @@ export default function GymExercisesPage() {
             onChange={(event) => setEquipment(event.target.value)}
             className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
           >
-            <option value="">All equipment</option>
+            <option value="">{t('gym.allEquipment')}</option>
             {equipmentOptions.map((value) => (
               <option key={value} value={value}>
-                {formatGymMuscleName(value)}
+                {formatGymAttributeLabel(t, value)}
               </option>
             ))}
           </select>
@@ -181,10 +183,10 @@ export default function GymExercisesPage() {
             onChange={(event) => setMovementType(event.target.value)}
             className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
           >
-            <option value="">All types</option>
+            <option value="">{t('gym.allTypes')}</option>
             {movementTypes.map((value) => (
               <option key={value} value={value}>
-                {formatGymMuscleName(value)}
+                {formatGymAttributeLabel(t, value)}
               </option>
             ))}
           </select>
@@ -201,29 +203,29 @@ export default function GymExercisesPage() {
                     <BookOpen className="h-4 w-4 text-emerald-300" aria-hidden="true" />
                     <h2 className="font-semibold text-slate-50">{exercise.name}</h2>
                   </div>
-                  <p className="mt-1 text-sm text-slate-400">{exercise.execution_cue || 'No cue saved.'}</p>
+                  <p className="mt-1 text-sm text-slate-400">{exercise.execution_cue || t('gym.noCueSaved')}</p>
                 </div>
                 {exercise.user_id ? (
                   <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-xs text-sky-200">
-                    Custom
+                    {t('gym.custom')}
                   </span>
                 ) : null}
               </div>
               <div className="grid gap-2 text-xs sm:grid-cols-2">
                 <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-emerald-200">
-                  Primary: {formatGymMuscleName(exercise.primary_muscle)}
+                  {t('gym.primary', { value: formatGymMuscleLabel(t, exercise.primary_muscle) })}
                 </span>
                 <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-slate-300">
-                  Secondary: {getSecondaryMusclesLabel(exercise)}
+                  {t('gym.secondary', { value: getSecondaryMusclesLabel(t, exercise) })}
                 </span>
                 <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-slate-300">
-                  Reps: {getRepRangeLabel(exercise)}
+                  {t('gym.repsRange', { value: getRepRangeLabel(t, exercise) })}
                 </span>
                 <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-slate-300">
-                  {formatGymMuscleName(exercise.equipment)}
+                  {formatGymAttributeLabel(t, exercise.equipment)}
                 </span>
                 <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-slate-300 sm:col-span-2">
-                  {formatGymMuscleName(exercise.movement_type)}
+                  {formatGymAttributeLabel(t, exercise.movement_type)}
                 </span>
               </div>
             </Card>
@@ -233,7 +235,7 @@ export default function GymExercisesPage() {
         <Card className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
             <Plus className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-            Custom Exercise
+            {t('gym.customExercise')}
           </div>
           {formError ? (
             <p role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
@@ -242,7 +244,7 @@ export default function GymExercisesPage() {
           ) : null}
           <form onSubmit={handleAddExercise} className="space-y-3">
             <label className="space-y-1 text-xs text-slate-400">
-              Name
+              {t('gym.name')}
               <input
                 required
                 value={form.name}
@@ -252,7 +254,7 @@ export default function GymExercisesPage() {
             </label>
             <div className="grid grid-cols-2 gap-2">
               <label className="space-y-1 text-xs text-slate-400">
-                Muscle
+                {t('gym.muscle')}
                 <select
                   value={form.primary_muscle}
                   onChange={(event) => updateForm('primary_muscle', event.target.value)}
@@ -260,13 +262,13 @@ export default function GymExercisesPage() {
                 >
                   {muscles.map((value) => (
                     <option key={value} value={value}>
-                      {formatGymMuscleName(value)}
+                      {formatGymMuscleLabel(t, value)}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="space-y-1 text-xs text-slate-400">
-                Type
+                {t('gym.type')}
                 <select
                   value={form.movement_type}
                   onChange={(event) => updateForm('movement_type', event.target.value)}
@@ -274,14 +276,14 @@ export default function GymExercisesPage() {
                 >
                   {movementTypes.map((value) => (
                     <option key={value} value={value}>
-                      {formatGymMuscleName(value)}
+                      {formatGymAttributeLabel(t, value)}
                     </option>
                   ))}
                 </select>
               </label>
             </div>
             <label className="space-y-1 text-xs text-slate-400">
-              Equipment
+              {t('gym.equipment')}
               <select
                 value={form.equipment}
                 onChange={(event) => updateForm('equipment', event.target.value)}
@@ -289,13 +291,13 @@ export default function GymExercisesPage() {
               >
                 {equipmentOptions.map((value) => (
                   <option key={value} value={value}>
-                    {formatGymMuscleName(value)}
+                    {formatGymAttributeLabel(t, value)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="space-y-1 text-xs text-slate-400">
-              Secondary muscles
+              {t('gym.secondaryMuscles')}
               <input
                 value={form.secondary_muscles}
                 onChange={(event) => updateForm('secondary_muscles', event.target.value)}
@@ -305,7 +307,7 @@ export default function GymExercisesPage() {
             </label>
             <div className="grid grid-cols-3 gap-2">
               <label className="space-y-1 text-xs text-slate-400">
-                Low
+                {t('gym.lowLabel')}
                 <input
                   type="number"
                   value={form.default_rep_low}
@@ -314,7 +316,7 @@ export default function GymExercisesPage() {
                 />
               </label>
               <label className="space-y-1 text-xs text-slate-400">
-                High
+                {t('gym.highLabel')}
                 <input
                   type="number"
                   value={form.default_rep_high}
@@ -323,7 +325,7 @@ export default function GymExercisesPage() {
                 />
               </label>
               <label className="space-y-1 text-xs text-slate-400">
-                Rest
+                {t('gym.rest')}
                 <input
                   type="number"
                   value={form.rest_seconds}
@@ -333,7 +335,7 @@ export default function GymExercisesPage() {
               </label>
             </div>
             <label className="space-y-1 text-xs text-slate-400">
-              Cue
+              {t('gym.cue')}
               <textarea
                 value={form.execution_cue}
                 onChange={(event) => updateForm('execution_cue', event.target.value)}
@@ -347,11 +349,11 @@ export default function GymExercisesPage() {
                 checked={form.is_unilateral}
                 onChange={(event) => updateForm('is_unilateral', event.target.checked)}
               />
-              Unilateral
+              {t('gym.unilateral')}
             </label>
             <Button type="submit" loading={saving} className="inline-flex items-center gap-2">
               <Filter className="h-4 w-4" aria-hidden="true" />
-              Add Exercise
+              {t('gym.addExercise')}
             </Button>
           </form>
         </Card>

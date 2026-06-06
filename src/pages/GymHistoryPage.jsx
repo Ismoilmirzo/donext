@@ -5,7 +5,9 @@ import GymEmptyState from '../components/gym/GymEmptyState';
 import GymNav from '../components/gym/GymNav';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
-import { calculateSessionVolume, calculateWeeklySessionGoal, formatWeekday, toDateKey } from '../gym/lib/gymMetrics';
+import { useLocale } from '../contexts/LocaleContext';
+import { formatGymDayLabel, formatGymWeekdayLabel } from '../gym/lib/gymI18n';
+import { calculateSessionVolume, calculateWeeklySessionGoal, toDateKey } from '../gym/lib/gymMetrics';
 import { useGym } from '../hooks/useGym';
 
 function monthCells(date = new Date()) {
@@ -39,6 +41,7 @@ function getDayTypeDotClass(session) {
 }
 
 export default function GymHistoryPage() {
+  const { t } = useLocale();
   const { activeProgram, error, loading, retryGymSchema, schemaMissing, sessions } = useGym();
   const [filter, setFilter] = useState('all');
   const [selectedSessionId, setSelectedSessionId] = useState('');
@@ -79,17 +82,17 @@ export default function GymHistoryPage() {
       <Card className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">History</p>
-            <h1 className="mt-2 text-2xl font-semibold text-slate-50">Training Sessions</h1>
+            <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">{t('gym.historyEyebrow')}</p>
+            <h1 className="mt-2 text-2xl font-semibold text-slate-50">{t('gym.trainingSessions')}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="rounded-xl border border-slate-700 bg-slate-900/45 px-3 py-2 text-sm text-slate-300">
-              <span className="text-slate-500">Current streak</span>
-              <span className="ml-2 font-semibold text-slate-100">{weeklyStreak.currentStreak} weeks</span>
+              <span className="text-slate-500">{t('gym.currentStreak')}</span>
+              <span className="ml-2 font-semibold text-slate-100">{t('gym.currentWeekStreak', { count: weeklyStreak.currentStreak })}</span>
             </div>
             <div className="rounded-xl border border-slate-700 bg-slate-900/45 px-3 py-2 text-sm text-slate-300">
-              <span className="text-slate-500">Longest</span>
-              <span className="ml-2 font-semibold text-slate-100">{weeklyStreak.longestStreak} weeks</span>
+              <span className="text-slate-500">{t('gym.longestStreak')}</span>
+              <span className="ml-2 font-semibold text-slate-100">{t('gym.currentWeekStreak', { count: weeklyStreak.longestStreak })}</span>
             </div>
             <div className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/45 px-3 py-2 text-sm text-slate-300">
               <Filter className="h-4 w-4" aria-hidden="true" />
@@ -98,12 +101,12 @@ export default function GymHistoryPage() {
                 onChange={(event) => setFilter(event.target.value)}
                 className="bg-transparent text-slate-100 outline-none"
               >
-                <option value="all">All</option>
-                <option value="finished">Finished</option>
-                <option value="logged">Logged sets</option>
+                <option value="all">{t('gym.all')}</option>
+                <option value="finished">{t('gym.finished')}</option>
+                <option value="logged">{t('gym.loggedSets')}</option>
                 {(activeProgram.days || []).map((day) => (
                   <option key={day.id} value={`day:${day.id}`}>
-                    {day.label}
+                    {formatGymDayLabel(t, day.label)}
                   </option>
                 ))}
               </select>
@@ -114,7 +117,7 @@ export default function GymHistoryPage() {
         <div className="grid grid-cols-7 gap-2 text-center text-xs">
           {[0, 1, 2, 3, 4, 5, 6].map((weekday) => (
             <div key={weekday} className="py-1 text-slate-500">
-              {formatWeekday(weekday)}
+              {formatGymWeekdayLabel(t, weekday)}
             </div>
           ))}
           {cells.map((date, index) =>
@@ -152,7 +155,7 @@ export default function GymHistoryPage() {
         <Card className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
             <ListChecks className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-            Sessions
+            {t('gym.sessions')}
           </div>
           <div className="space-y-2">
             {filteredSessions.length ? (
@@ -167,12 +170,12 @@ export default function GymHistoryPage() {
                       : 'border-slate-700 bg-slate-900/45 text-slate-300'
                   }`}
                 >
-                  <p className="font-medium">{session.program_day?.label || 'Workout'}</p>
+                  <p className="font-medium">{formatGymDayLabel(t, session.program_day?.label) || t('gym.workoutFallback')}</p>
                   <p className="mt-1 text-xs text-slate-400">{session.performed_at}</p>
                 </button>
               ))
             ) : (
-              <p className="text-sm text-slate-400">No sessions.</p>
+              <p className="text-sm text-slate-400">{t('gym.noSessions')}</p>
             )}
           </div>
         </Card>
@@ -184,30 +187,30 @@ export default function GymHistoryPage() {
                 <div>
                   <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
                     <Dumbbell className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-                    {selectedSession.program_day?.label || 'Workout'}
+                    {formatGymDayLabel(t, selectedSession.program_day?.label) || t('gym.workoutFallback')}
                   </div>
                   <p className="mt-1 text-sm text-slate-400">{selectedSession.performed_at}</p>
                 </div>
                 <Link to={`/gym/log/${selectedSession.id}`} className="dn-button dn-button-secondary inline-flex px-3 py-2 text-sm">
-                  Open
+                  {t('gym.open')}
                 </Link>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-slate-700 bg-slate-900/45 p-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Duration</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{t('gym.duration')}</p>
                   <p className="mt-1 text-lg font-semibold text-slate-50">{selectedSession.duration_min || 0} min</p>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-900/45 p-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Sets</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{t('gym.setsLabel')}</p>
                   <p className="mt-1 text-lg font-semibold text-slate-50">{selectedSession.gym_set_logs?.length || 0}</p>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-900/45 p-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Volume</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{t('gym.volume')}</p>
                   <p className="mt-1 text-lg font-semibold text-slate-50">{Math.round(calculateSessionVolume(selectedSession.gym_set_logs || []))} kg</p>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-900/45 p-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Bodyweight</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{t('gym.bodyweight')}</p>
                   <p className="mt-1 text-lg font-semibold text-slate-50">{selectedSession.bodyweight_kg ? `${selectedSession.bodyweight_kg} kg` : '-'}</p>
                 </div>
               </div>
@@ -222,10 +225,10 @@ export default function GymHistoryPage() {
                 {(selectedSession.gym_set_logs || []).map((set) => (
                   <div key={set.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900/45 px-3 py-2 text-sm">
                     <span className="text-slate-200">
-                      {set.exercise?.name || 'Exercise'} - set {set.set_number}
+                      {t('gym.selectedSetLine', { exercise: set.exercise?.name || t('gym.exerciseFallback'), set: set.set_number })}
                     </span>
                     <span className="text-slate-400">
-                      {set.weight_kg || 0} kg x {set.reps || 0} reps
+                      {t('gym.weightRepsLine', { weight: set.weight_kg || 0, reps: set.reps || 0 })}
                     </span>
                   </div>
                 ))}
@@ -234,7 +237,7 @@ export default function GymHistoryPage() {
           ) : (
             <div className="flex min-h-48 items-center justify-center text-slate-400">
               <CalendarDays className="mr-2 h-4 w-4" aria-hidden="true" />
-              No session selected
+              {t('gym.noSessionSelected')}
             </div>
           )}
         </Card>
