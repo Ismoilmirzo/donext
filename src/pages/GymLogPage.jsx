@@ -69,6 +69,24 @@ function getPreviousMatchingSession(sessions, currentSession) {
   );
 }
 
+function isWorkSetLogged(set) {
+  return Boolean(set && !set.is_warmup && Number(set.reps || 0) > 0);
+}
+
+function getSavedSet(session, exerciseId, setNumber) {
+  return (session?.gym_set_logs || []).find(
+    (set) => set.exercise_id === exerciseId && Number(set.set_number) === Number(setNumber)
+  );
+}
+
+function getExerciseSetProgress(session, exerciseId, targetSets) {
+  const logged = (session?.gym_set_logs || []).filter((set) => set.exercise_id === exerciseId && isWorkSetLogged(set)).length;
+  return {
+    logged,
+    target: Math.max(1, Number(targetSets || 0)),
+  };
+}
+
 export default function GymLogPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -108,6 +126,11 @@ export default function GymLogPage() {
       })),
     [session?.program_day?.gym_program_exercises]
   );
+  const workoutProgress = useMemo(() => {
+    const target = slots.reduce((sum, slot) => sum + Number(slot.sets || 0) + Number(extraSets[slot.exercise_id] || 0), 0);
+    const logged = (session?.gym_set_logs || []).filter(isWorkSetLogged).length;
+    return { logged, target: Math.max(1, target) };
+  }, [extraSets, session?.gym_set_logs, slots]);
 
   useEffect(() => {
     let cancelled = false;
@@ -384,13 +407,23 @@ export default function GymLogPage() {
               />
               {unit}
             </label>
-            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/45 px-3 py-2 text-sm text-slate-300">
-              <button type="button" onClick={() => adjustRestTimer(-15)} className="rounded-md p-1 text-slate-400 hover:text-slate-100">
+            <div className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/45 px-2 py-1 text-sm text-slate-300">
+              <button
+                type="button"
+                aria-label="Reduce rest timer by 15 seconds"
+                onClick={() => adjustRestTimer(-15)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+              >
                 <Minus className="h-3 w-3" aria-hidden="true" />
               </button>
               <Timer className="h-4 w-4 text-emerald-300" aria-hidden="true" />
               {Math.floor(restSeconds / 60)}:{String(restSeconds % 60).padStart(2, '0')}
-              <button type="button" onClick={() => adjustRestTimer(15)} className="rounded-md p-1 text-slate-400 hover:text-slate-100">
+              <button
+                type="button"
+                aria-label="Add 15 seconds to rest timer"
+                onClick={() => adjustRestTimer(15)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+              >
                 <Plus className="h-3 w-3" aria-hidden="true" />
               </button>
             </div>
@@ -455,6 +488,7 @@ export default function GymLogPage() {
           const exerciseId = slot.exercise_id;
           const isOpen = openExerciseIds.has(exerciseId);
           const targetSets = Number(slot.sets || 0) + Number(extraSets[exerciseId] || 0);
+          const exerciseProgress = getExerciseSetProgress(session, exerciseId, targetSets);
           const rows = Array.from({ length: targetSets }, (_, index) => index + 1);
           return (
             <Card key={slot.id} className={slot.is_specialization ? 'border-emerald-500/30 bg-emerald-500/10' : ''}>
@@ -470,7 +504,7 @@ export default function GymLogPage() {
                 }
                 className="flex w-full items-start justify-between gap-3 text-left"
               >
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
                     <h2 className="font-semibold text-slate-50">{slot.exercise?.name || 'Exercise'}</h2>
@@ -479,15 +513,26 @@ export default function GymLogPage() {
                     {slot.target_sets} sets x {slot.target_rep_low}-{slot.target_rep_high} reps
                   </p>
                 </div>
-                {slot.is_specialization ? (
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-200">
-                    Specialization
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-300">
+                    {exerciseProgress.logged}/{exerciseProgress.target} logged
                   </span>
-                ) : null}
+                  {slot.is_specialization ? (
+                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-200">
+                      Specialization
+                    </span>
+                  ) : null}
+                </div>
               </button>
 
               {isOpen ? (
                 <div className="mt-4 space-y-3">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-800" aria-hidden="true">
+                    <div
+                      className="h-full rounded-full bg-emerald-400"
+                      style={{ width: `${Math.min(100, (exerciseProgress.logged / exerciseProgress.target) * 100)}%` }}
+                    />
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="secondary" onClick={() => prefillLast(slot)} className="inline-flex items-center gap-2">
                       <RotateCcw className="h-4 w-4" aria-hidden="true" />
@@ -510,19 +555,30 @@ export default function GymLogPage() {
                       const draft = drafts[key] || { weight: '', reps: '', rir: '', isWarmup: false };
                       const lastLog = getLastLogForSet(sessions, sessionId, exerciseId, setNumber);
                       const lastDraft = draftFromLog(lastLog, unit);
+                      const savedSet = getSavedSet(session, exerciseId, setNumber);
+                      const hasDraft = draft.weight !== '' || draft.reps !== '' || draft.rir !== '' || draft.isWarmup;
+                      const isSaved = Boolean(savedSet);
                       return (
                         <div
                           key={key}
-                          className="grid gap-2 rounded-xl border border-slate-700 bg-slate-900/45 p-3 sm:grid-cols-[3rem_1fr_1fr_1fr_5rem_auto_auto_auto]"
+                          className={`grid gap-3 rounded-xl border p-3 sm:grid-cols-[3rem_1fr_1fr_1fr_5rem_auto_auto_auto] ${
+                            isSaved ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/45'
+                          }`}
                         >
-                          <div className="flex items-center text-sm font-semibold text-slate-300">#{setNumber}</div>
+                          <div className="flex flex-col justify-center gap-1 text-sm font-semibold text-slate-300">
+                            <span>#{setNumber}</span>
+                            <span className={`text-[11px] font-medium ${isSaved ? 'text-emerald-200' : hasDraft ? 'text-amber-200' : 'text-slate-500'}`}>
+                              {isSaved ? 'Saved' : hasDraft ? 'Unsaved' : 'Empty'}
+                            </span>
+                          </div>
                           <label className="space-y-1 text-xs text-slate-400">
                             Weight ({unit})
                             <div className="flex">
                               <button
                                 type="button"
+                                aria-label={`Decrease set ${setNumber} weight`}
                                 onClick={() => adjustDraft(exerciseId, setNumber, 'weight', -getWeightStep(slot, unit))}
-                                className="rounded-l-lg border border-slate-700 px-2 text-slate-300"
+                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-l-lg border border-slate-700 text-slate-300 hover:bg-slate-800"
                               >
                                 <Minus className="h-3 w-3" aria-hidden="true" />
                               </button>
@@ -532,12 +588,13 @@ export default function GymLogPage() {
                                 onBlur={() => autosaveSet(slot, setNumber)}
                                 onChange={(event) => updateDraft(exerciseId, setNumber, { weight: event.target.value })}
                                 inputMode="decimal"
-                                className="min-w-0 flex-1 border-y border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-100"
+                                className="min-h-11 min-w-0 flex-1 border-y border-slate-700 bg-slate-950 px-2 py-2 text-base text-slate-100 sm:text-sm"
                               />
                               <button
                                 type="button"
+                                aria-label={`Increase set ${setNumber} weight`}
                                 onClick={() => adjustDraft(exerciseId, setNumber, 'weight', getWeightStep(slot, unit))}
-                                className="rounded-r-lg border border-slate-700 px-2 text-slate-300"
+                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-r-lg border border-slate-700 text-slate-300 hover:bg-slate-800"
                               >
                                 <Plus className="h-3 w-3" aria-hidden="true" />
                               </button>
@@ -551,7 +608,7 @@ export default function GymLogPage() {
                               onBlur={() => autosaveSet(slot, setNumber)}
                               onChange={(event) => updateDraft(exerciseId, setNumber, { reps: event.target.value })}
                               inputMode="numeric"
-                              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-100"
+                              className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-base text-slate-100 sm:text-sm"
                             />
                           </label>
                           <div className="space-y-1 text-xs text-slate-400">
@@ -562,7 +619,7 @@ export default function GymLogPage() {
                                   key={option}
                                   type="button"
                                   onClick={() => updateDraft(exerciseId, setNumber, { rir: String(option) })}
-                                  className={`rounded-lg border px-2 py-2 text-sm ${
+                                  className={`min-h-11 rounded-lg border px-2 py-2 text-sm ${
                                     String(draft.rir) === String(option)
                                       ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
                                       : 'border-slate-700 bg-slate-950 text-slate-300'
@@ -574,7 +631,7 @@ export default function GymLogPage() {
                             </div>
                             {lastDraft?.rir ? <p className="text-[11px] text-slate-500">Last {lastDraft.rir}</p> : null}
                           </div>
-                          <label className="flex items-end gap-2 pb-2 text-xs text-slate-400">
+                          <label className="flex min-h-11 items-center gap-2 text-xs text-slate-400">
                             <input
                               type="checkbox"
                               checked={draft.isWarmup}
@@ -613,6 +670,18 @@ export default function GymLogPage() {
           );
         })}
       </div>
+
+      <Card className="sticky bottom-3 z-20 border-emerald-500/30 bg-slate-950/95 p-3 shadow-2xl backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-50">
+              {workoutProgress.logged}/{workoutProgress.target} work sets logged
+            </p>
+            <p className="text-xs text-slate-400">{outboxCount} queued sets - finish when the real workout is done.</p>
+          </div>
+          <Button onClick={handleFinish}>Finish Workout</Button>
+        </div>
+      </Card>
     </div>
   );
 }

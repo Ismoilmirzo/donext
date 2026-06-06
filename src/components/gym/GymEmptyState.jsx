@@ -5,8 +5,10 @@ import Button from '../ui/Button';
 
 export default function GymEmptyState({ error = '', schemaMissing = false, onRetry }) {
   const Icon = schemaMissing ? Database : Dumbbell;
-  const title = schemaMissing ? 'Gym database not ready' : 'No active gym program';
-  const message = schemaMissing ? 'Gym database migration is not applied yet.' : error;
+  const title = schemaMissing ? 'Gym setup is waiting on the database' : 'No active gym program';
+  const message = schemaMissing
+    ? 'The gym app is deployed, but Supabase does not have the gym tables yet. Run the 014_gym_module_v2.sql migration, then retry.'
+    : error;
 
   return (
     <Card className="space-y-4">
@@ -21,11 +23,18 @@ export default function GymEmptyState({ error = '', schemaMissing = false, onRet
       </div>
 
       {message ? <p className="text-sm text-amber-200">{message}</p> : null}
+      {schemaMissing ? (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+          Migration file: <span className="font-medium">supabase/migrations/014_gym_module_v2.sql</span>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <Link to="/gym/onboarding" className="dn-button dn-button-primary inline-flex px-4 py-2.5 text-sm">
-          Create Program
-        </Link>
+        {!schemaMissing ? (
+          <Link to="/gym/onboarding" className="dn-button dn-button-primary inline-flex px-4 py-2.5 text-sm">
+            Create Program
+          </Link>
+        ) : null}
         {schemaMissing && onRetry ? (
           <Button type="button" variant="secondary" onClick={onRetry} className="inline-flex items-center gap-2">
             <RefreshCw className="h-4 w-4" aria-hidden="true" />

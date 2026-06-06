@@ -132,10 +132,14 @@ const weeklyReportJs = fs.readFileSync(path.join(root, 'src/lib/weeklyReport.js'
 const weeklyReportCardJsx = fs.readFileSync(path.join(root, 'src/components/stats/WeeklyReportCard.jsx'), 'utf8');
 const i18nJs = fs.readFileSync(path.join(root, 'src/lib/i18n.js'), 'utf8');
 const useGymJs = fs.readFileSync(path.join(root, 'src/hooks/useGym.js'), 'utf8');
+const buttonJsx = fs.readFileSync(path.join(root, 'src/components/ui/Button.jsx'), 'utf8');
+const gymEmptyStateJsx = fs.readFileSync(path.join(root, 'src/components/gym/GymEmptyState.jsx'), 'utf8');
+const gymNavJsx = fs.readFileSync(path.join(root, 'src/components/gym/GymNav.jsx'), 'utf8');
 const gymMetricsJs = fs.readFileSync(path.join(root, 'src/gym/lib/gymMetrics.js'), 'utf8');
 const offlineQueueJs = fs.readFileSync(path.join(root, 'src/gym/lib/offlineQueue.js'), 'utf8');
 const gymLogPageJsx = fs.readFileSync(path.join(root, 'src/pages/GymLogPage.jsx'), 'utf8');
 const gymHomePageJsx = fs.readFileSync(path.join(root, 'src/pages/GymHomePage.jsx'), 'utf8');
+const gymOnboardingPageJsx = fs.readFileSync(path.join(root, 'src/pages/GymOnboardingPage.jsx'), 'utf8');
 const gymProgramPageJsx = fs.readFileSync(path.join(root, 'src/pages/GymProgramPage.jsx'), 'utf8');
 const gymProgressPageJsx = fs.readFileSync(path.join(root, 'src/pages/GymProgressPage.jsx'), 'utf8');
 const gymHistoryPageJsx = fs.readFileSync(path.join(root, 'src/pages/GymHistoryPage.jsx'), 'utf8');
@@ -207,6 +211,13 @@ if (useGymJs.includes(".from('gym_sessions')\n          .update({ duration_min")
   'draftFromLog',
   'acceptLastSet',
   'getWeightStep',
+  'isWorkSetLogged',
+  'getExerciseSetProgress',
+  'workoutProgress',
+  'Saved',
+  'Unsaved',
+  'Finish Workout',
+  'min-h-11',
   'placeholder={lastDraft?.weight',
   'upsertOptimisticSetLog',
   'local-${sessionId}',
@@ -285,6 +296,8 @@ if (!gymExercisesPageJsx.includes('schemaMissing || (error && !catalog.length)')
   throw new Error('Gym exercise library should only block on missing gym schema or an empty error state.');
 }
 [
+  'validateExerciseForm',
+  'role="alert"',
   'getRepRangeLabel',
   'getSecondaryMusclesLabel',
   'Primary:',
@@ -293,6 +306,23 @@ if (!gymExercisesPageJsx.includes('schemaMissing || (error && !catalog.length)')
 ].forEach((needle) => {
   if (!gymExercisesPageJsx.includes(needle)) {
     throw new Error(`Gym exercise library is missing row details from the v2 spec: ${needle}`);
+  }
+});
+
+[
+  'min-h-11',
+].forEach((needle) => {
+  if (!buttonJsx.includes(needle) || !gymNavJsx.includes(needle)) {
+    throw new Error(`Gym UX touch targets must preserve mobile tap size support: ${needle}`);
+  }
+});
+
+[
+  'Gym setup is waiting on the database',
+  '014_gym_module_v2.sql',
+].forEach((needle) => {
+  if (!gymEmptyStateJsx.includes(needle) || !gymOnboardingPageJsx.includes(needle)) {
+    throw new Error(`Gym migration state must stay actionable for users/admins: ${needle}`);
   }
 });
 

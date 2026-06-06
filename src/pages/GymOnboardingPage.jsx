@@ -53,9 +53,14 @@ export default function GymOnboardingPage() {
       {schemaMissing ? (
         <Card className="space-y-3 border-amber-500/30 bg-amber-500/10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-amber-100">
-              <Database className="h-4 w-4" aria-hidden="true" />
-              Gym database migration is not applied yet.
+            <div className="flex items-start gap-2 text-sm text-amber-100">
+              <Database className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <div>
+                <p className="font-semibold">Gym setup is waiting on the database.</p>
+                <p className="mt-1 text-amber-100/85">
+                  Run supabase/migrations/014_gym_module_v2.sql in Supabase, then retry.
+                </p>
+              </div>
             </div>
             <Button type="button" size="sm" variant="secondary" onClick={retryGymSchema} className="inline-flex items-center gap-2">
               <RefreshCw className="h-4 w-4" aria-hidden="true" />

@@ -26,6 +26,19 @@ function getSecondaryMusclesLabel(exercise) {
   return secondary.map(formatGymMuscleName).join(', ');
 }
 
+function validateExerciseForm(form) {
+  const low = Number(form.default_rep_low);
+  const high = Number(form.default_rep_high);
+  const rest = Number(form.rest_seconds);
+  if (!form.name.trim()) return 'Name is required.';
+  if (!form.primary_muscle) return 'Choose a primary muscle so this exercise can appear in swaps and specializations.';
+  if (!Number.isFinite(low) || low < 1) return 'Low reps must be at least 1.';
+  if (!Number.isFinite(high) || high < 1) return 'High reps must be at least 1.';
+  if (low > high) return 'Low reps cannot be higher than high reps.';
+  if (!Number.isFinite(rest) || rest < 15) return 'Rest should be at least 15 seconds.';
+  return '';
+}
+
 const EMPTY_FORM = {
   name: '',
   primary_muscle: 'chest',
@@ -47,6 +60,7 @@ export default function GymExercisesPage() {
   const [equipment, setEquipment] = useState('');
   const [movementType, setMovementType] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const muscles = useMemo(() => uniqueValues(catalog, 'primary_muscle'), [catalog]);
   const equipmentOptions = useMemo(() => uniqueValues(catalog, 'equipment'), [catalog]);
@@ -68,10 +82,19 @@ export default function GymExercisesPage() {
 
   function updateForm(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setFormError((prev) => {
+      if (!prev) return '';
+      return validateExerciseForm({ ...form, [field]: value });
+    });
   }
 
   async function handleAddExercise(event) {
     event.preventDefault();
+    const validationError = validateExerciseForm(form);
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
     setSaving(true);
     try {
       await addCustomExercise({
@@ -82,6 +105,7 @@ export default function GymExercisesPage() {
           .filter(Boolean),
       });
       setForm(EMPTY_FORM);
+      setFormError('');
       toast.success('Exercise added');
     } catch (error) {
       toast.error('Exercise was not added', error.message || 'Try again.');
@@ -211,6 +235,11 @@ export default function GymExercisesPage() {
             <Plus className="h-4 w-4 text-emerald-300" aria-hidden="true" />
             Custom Exercise
           </div>
+          {formError ? (
+            <p role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+              {formError}
+            </p>
+          ) : null}
           <form onSubmit={handleAddExercise} className="space-y-3">
             <label className="space-y-1 text-xs text-slate-400">
               Name

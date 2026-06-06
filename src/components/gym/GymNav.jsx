@@ -20,7 +20,7 @@ export default function GymNav() {
             to={item.to}
             end={item.end}
             className={({ isActive }) =>
-              `inline-flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
+              `inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
                 isActive
                   ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
                   : 'border-slate-700 bg-slate-900/45 text-slate-300 hover:text-slate-100'
@@ -34,7 +34,7 @@ export default function GymNav() {
       })}
       <NavLink
         to="/gym/onboarding"
-        className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/45 px-3 py-2 text-sm text-slate-300 transition-colors hover:text-slate-100"
+        className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/45 px-3 py-2 text-sm text-slate-300 transition-colors hover:text-slate-100"
       >
         <Dumbbell className="h-4 w-4" aria-hidden="true" />
         Setup
